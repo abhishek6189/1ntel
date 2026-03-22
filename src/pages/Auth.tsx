@@ -1,159 +1,148 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue
+} from "@/components/ui/select";
 import { Shield } from "lucide-react";
 import { motion } from "framer-motion";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
+
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
   const isLogin = searchParams.get("mode") !== "signup";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
+  const [role, setRole] = useState("buyer");
   const [loading, setLoading] = useState(false);
+
+  // ✅ AUTO REDIRECT IF ALREADY LOGGED IN
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        navigate("/dashboard/buyer");
+      }
+    };
+    checkUser();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
 
     setLoading(true);
 
-    try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+    if (isLogin) {
 
-        if (error) {
-          alert(error.message);
-          setLoading(false);
-          return;
-        }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-        alert("Login successful!");
-        navigate("/");
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password
-        });
-
-        if (error) {
-          alert(error.message);
-          setLoading(false);
-          return;
-        }
-
-        alert("Account created successfully. Please login.");
-        navigate("/auth?mode=login");
+      if (error) {
+        alert(error.message);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      alert("Something went wrong.");
+
+      const user = data.user;
+
+      let userRole = "buyer";
+
+      const { data: profile } = await (supabase as any)
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.role) userRole = profile.role;
+
+      if (userRole === "admin") navigate("/dashboard/admin");
+      else if (userRole === "inspector") navigate("/dashboard/inspector");
+      else if (userRole === "dealer") navigate("/dashboard/seller");
+      else navigate("/dashboard/buyer");
+
+      return;
     }
 
-    setLoading(false);
+    /* SIGNUP */
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data.user) {
+      await (supabase as any).from("profiles").upsert({
+        id: data.user.id,
+        email: data.user.email,
+        role
+      });
+    }
+
+    alert("Account created!");
+    navigate("/auth?mode=login");
   };
 
   return (
     <div className="min-h-screen">
       <Navbar />
 
-      <div className="container flex items-center justify-center py-20">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md"
-        >
-          <div className="glass rounded-2xl p-8">
+      <div className="container flex justify-center py-20">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-md">
 
-            <div className="text-center mb-8">
-              <Shield className="h-10 w-10 text-primary mx-auto mb-3" />
+          <div className="glass p-8 rounded-xl">
 
-              <h1 className="font-heading text-2xl font-bold">
-                {isLogin ? "Welcome Back" : "Create Your Account"}
-              </h1>
-
-              <p className="text-sm text-muted-foreground mt-1">
-                {isLogin
-                  ? "Log in to your VerifyCar account"
-                  : "Join Canada's verified car marketplace"}
-              </p>
-            </div>
+            <h1 className="text-2xl font-bold text-center mb-6">
+              {isLogin ? "Welcome Back" : "Create Account"}
+            </h1>
 
             <form onSubmit={handleSubmit} className="space-y-4">
 
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
+              <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
+              <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" required />
 
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+              {!isLogin && (
+                <Select onValueChange={setRole} defaultValue="buyer">
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="buyer">Buyer</SelectItem>
+                    <SelectItem value="dealer">Dealer</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
 
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={loading}
-              >
-                {loading
-                  ? "Please wait..."
-                  : isLogin
-                  ? "Log In"
-                  : "Create Account"}
+              <Button className="w-full" disabled={loading}>
+                {loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
               </Button>
 
             </form>
 
-            <p className="text-sm text-center text-muted-foreground mt-6">
-              {isLogin ? (
-                <>
-                  Don't have an account?{" "}
-                  <Link
-                    to="/auth?mode=signup"
-                    className="text-primary hover:underline"
-                  >
-                    Sign up
-                  </Link>
-                </>
-              ) : (
-                <>
-                  Already have an account?{" "}
-                  <Link
-                    to="/auth?mode=login"
-                    className="text-primary hover:underline"
-                  >
-                    Log in
-                  </Link>
-                </>
-              )}
+            <p className="text-center mt-4 text-sm">
+              {isLogin
+                ? <Link to="/auth?mode=signup">Create account</Link>
+                : <Link to="/auth?mode=login">Already have account</Link>}
             </p>
 
           </div>
+
         </motion.div>
       </div>
     </div>

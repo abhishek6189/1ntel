@@ -1,370 +1,293 @@
-import BackButton from "@/components/BackButton";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import Zoom from "react-medium-image-zoom";
-import "react-medium-image-zoom/dist/styles.css";
-import FullscreenGallery from "@/components/FullscreenGallery";
-import {
-ShieldCheck,
-Lock,
-ArrowLeft,
-Phone,
-ChevronLeft,
-ChevronRight
-} from "lucide-react";
-import { motion } from "framer-motion";
-
-const statusConfig: any = {
-none: { label: "Not Inspected", color: "bg-secondary text-secondary-foreground" },
-pending: { label: "Inspection Pending", color: "bg-yellow-100 text-yellow-600" },
-passed: { label: "Verified ✓", color: "bg-green-600 text-white" },
-passed_with_issues: { label: "Verified (Minor Issues)", color: "bg-yellow-100 text-yellow-600" },
-failed: { label: "Failed Inspection", color: "bg-red-100 text-red-600" }
-};
+import { ArrowLeft, Heart, MessageCircle } from "lucide-react";
 
 const CarDetail = () => {
 
-const { id } = useParams();
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-const [car, setCar] = useState<any>(null);
-const [images, setImages] = useState<any[]>([]);
-const [activeImage, setActiveImage] = useState("");
-const [loading, setLoading] = useState(true);
+  const [car, setCar] = useState<any>(null);
+  const [images, setImages] = useState<any[]>([]);
+  const [activeImage, setActiveImage] = useState("");
 
-const [galleryOpen, setGalleryOpen] = useState(false);
-const [currentIndex, setCurrentIndex] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [alreadyRequested, setAlreadyRequested] = useState(false);
 
-useEffect(() => {
+  const [seller, setSeller] = useState<any>(null);
+  const [views, setViews] = useState(0);
 
+  const [chatLoading, setChatLoading] = useState(false);
 
-const fetchCar = async () => {
+  useEffect(() => {
 
-  const { data } = await (supabase as any)
-    .from("cars")
-    .select("*")
-    .eq("id", id)
-    .single();
+    const load = async () => {
 
-  if (data) {
-    setCar(data);
-  }
+      if (!id) return;
 
-  const { data: imgData } = await (supabase as any)
-    .from("car_images")
-    .select("*")
-    .eq("car_id", id);
+      /* CAR */
+      const { data: carData } = await supabase
+        .from("cars")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-  if (imgData && imgData.length > 0) {
-    setImages(imgData);
-    setActiveImage(imgData[0].image_url);
-  } else if (data?.image_url) {
-    setActiveImage(data.image_url);
-  }
+      if (!carData) return;
 
-  setLoading(false);
-};
+      setCar(carData);
 
-fetchCar();
+      /* IMAGES */
+      const { data: imgs } = await supabase
+        .from("car_images")
+        .select("*")
+        .eq("car_id", id);
 
+      if (imgs?.length) {
+        setImages(imgs);
+        setActiveImage(imgs[0].image_url);
+      } else {
+        setActiveImage(carData.image_url);
+      }
 
-}, [id]);
+      /* USER */
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUser = userData.user;
 
-const nextImage = () => {
+      if (currentUser) {
+        setUser(currentUser);
 
+        const { data: savedData } = await supabase
+          .from("saved_cars")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .eq("car_id", id)
+          .maybeSingle();
 
-if (images.length === 0) return;
+        setSaved(!!savedData);
 
-const index = images.findIndex(i => i.image_url === activeImage);
-const next = (index + 1) % images.length;
+        const { data: inspection } = await supabase
+          .from("inspection_requests")
+          .select("*")
+          .eq("buyer_id", currentUser.id)
+          .eq("car_id", id)
+          .maybeSingle();
 
-setActiveImage(images[next].image_url);
+        setAlreadyRequested(!!inspection);
+      }
 
+      /* SELLER */
+      if (carData?.seller_id) {
+        const { data: sellerData } = await supabase
+          .from("profiles")
+          .select("full_name, email, phone, is_verified")
+          .eq("id", carData.seller_id)
+          .single();
 
-};
+        setSeller(sellerData);
+      }
 
-const prevImage = () => {
+      /* VIEWS */
+      try {
+        await (supabase as any).from("car_views").insert({ car_id: id });
+      } catch {}
 
+      try {
+        const { count } = await (supabase as any)
+          .from("car_views")
+          .select("*", { count: "exact", head: true })
+          .eq("car_id", id);
 
-if (images.length === 0) return;
+        setViews(count || 0);
+      } catch {}
+    };
 
-const index = images.findIndex(i => i.image_url === activeImage);
-const prev = (index - 1 + images.length) % images.length;
+    load();
 
-setActiveImage(images[prev].image_url);
+  }, [id]);
 
+  /* SAVE */
+  const toggleSave = async () => {
+    if (!user) return alert("Login first");
 
-};
+    if (saved) {
+      await supabase
+        .from("saved_cars")
+        .delete()
+        .eq("car_id", id)
+        .eq("user_id", user.id);
 
-if (loading) {
+      setSaved(false);
+    } else {
+      await supabase
+        .from("saved_cars")
+        .insert({ car_id: id, user_id: user.id });
 
+      setSaved(true);
+    }
+  };
 
-return (
-  <div className="min-h-screen">
-    <Navbar />
-    <div className="container py-20 text-center">
-      Loading vehicle...
-    </div>
-    <Footer />
-  </div>
-);
+  /* INSPECTION */
+  const requestInspection = async () => {
+    if (!user) return alert("Login first");
+    if (alreadyRequested) return;
 
+    await supabase.from("inspection_requests").insert({
+      car_id: id,
+      buyer_id: user.id
+    });
 
-}
+    setAlreadyRequested(true);
+  };
 
-if (!car) {
+  /* CHAT SYSTEM (FINAL FIXED) */
+  const contactSeller = async () => {
 
+    if (!user) {
+      alert("Please login first");
+      return;
+    }
 
-return (
-  <div className="min-h-screen">
-    <Navbar />
-    <div className="container py-20 text-center">
-      Vehicle not found
-    </div>
-    <Footer />
-  </div>
-);
+    if (!car?.seller_id) {
+      alert("Seller not available");
+      return;
+    }
 
+    if (!car?.id) {
+      alert("Invalid car");
+      return;
+    }
 
-}
+    setChatLoading(true);
 
-const status = statusConfig[car.inspection_status] || statusConfig["none"];
+    try {
 
-const contactUnlocked =
-car.inspection_status === "passed" ||
-car.inspection_status === "passed_with_issues";
+      /* CHECK EXISTING */
+      const { data: existing, error } = await (supabase as any)
+        .from("chat_conversations")
+        .select("*")
+        .eq("buyer_id", user.id)
+        .eq("seller_id", car.seller_id)
+        .eq("car_id", car.id)
+        .maybeSingle();
 
-return (
+      if (error) throw error;
 
+      let convo = existing;
 
-<div className="min-h-screen">
+      /* CREATE NEW */
+      if (!convo) {
+        const { data: newConvo, error: insertError } = await (supabase as any)
+          .from("chat_conversations")
+          .insert({
+            buyer_id: user.id,
+            seller_id: car.seller_id,
+            car_id: car.id
+          })
+          .select()
+          .single();
 
-  <Navbar />
+        if (insertError) throw insertError;
 
-  <div className="container py-8 max-w-6xl">
+        convo = newConvo;
+      }
 
-    <Link
-      to="/browse"
-      className="flex items-center gap-2 text-sm text-muted-foreground mb-6"
-    >
-      <ArrowLeft size={16}/>
-      Back to Browse
-    </Link>
+      /* NAVIGATE */
+      navigate(`/chat/${convo.id}`);
 
-    <motion.div
-      initial={{opacity:0,y:20}}
-      animate={{opacity:1,y:0}}
-    >
+    } catch (err: any) {
+      console.error("CHAT ERROR:", err);
+      alert(err.message || "Failed to start chat");
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
-      {/* IMAGE GALLERY */}
+  if (!car) return <div className="p-20 text-center">Loading...</div>;
 
-      <div className="mb-8">
+  return (
+    <div className="min-h-screen">
 
-        <div className="relative rounded-xl overflow-hidden bg-gray-100">
+      <Navbar />
 
-          <Zoom>
-            <img
-              src={
-                activeImage ||
-                "https://images.unsplash.com/photo-1503376780353-7e6692767b70"
-              }
-              loading="lazy"
-              onClick={() => {
-                const index = images.findIndex(i => i.image_url === activeImage);
-                setCurrentIndex(index >= 0 ? index : 0);
-                setGalleryOpen(true);
-              }}
-              className="w-full h-[420px] object-cover cursor-zoom-in"
-            />
-          </Zoom>
+      <div className="container py-8 max-w-7xl">
 
-          {images.length > 1 && (
-            <>
-              <button
-                onClick={prevImage}
-                className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 text-white p-2 rounded-full"
-              >
-                <ChevronLeft/>
-              </button>
+        <Link to="/browse" className="flex items-center gap-2 mb-6">
+          <ArrowLeft size={16} />
+          Back
+        </Link>
 
-              <button
-                onClick={nextImage}
-                className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 text-white p-2 rounded-full"
-              >
-                <ChevronRight/>
-              </button>
-            </>
-          )}
+        <div className="grid lg:grid-cols-3 gap-10">
 
-          {/* IMAGE COUNTER */}
-          {images.length > 0 && (
-            <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-3 py-1 rounded">
-              {images.findIndex(i => i.image_url === activeImage) + 1} / {images.length}
-            </div>
-          )}
+          {/* LEFT */}
+          <div className="lg:col-span-2">
 
-        </div>
-
-        {/* THUMBNAILS */}
-
-        {images.length > 1 && (
-
-          <div className="flex gap-3 mt-3 overflow-x-auto">
-
-            {images.map((img:any)=>(
+            <div className="relative">
               <img
-                key={img.id}
-                src={img.image_url}
-                onClick={()=>setActiveImage(img.image_url)}
-                className={`h-20 w-28 object-cover rounded cursor-pointer border ${
-                  activeImage === img.image_url
-                  ? "border-blue-500"
-                  : "border-transparent"
-                }`}
+                src={activeImage}
+                className="w-full h-[420px] object-cover rounded-xl"
               />
-            ))}
 
-          </div>
-
-        )}
-
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-8">
-
-        {/* MAIN INFO */}
-
-        <div className="md:col-span-2 space-y-6">
-
-          <div>
-
-            <Badge className={status.color}>
-              {status.label}
-            </Badge>
-
-            <h1 className="text-3xl font-bold mt-2">
-              {car.title}
-            </h1>
-
-            <p className="text-3xl font-bold text-primary">
-              ${Number(car.price).toLocaleString()}
-            </p>
-
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-
-            <div className="glass p-3 rounded-lg">
-              <p className="text-xs text-muted-foreground">Year</p>
-              <p className="font-semibold">{car.year}</p>
+              <button
+                onClick={toggleSave}
+                className="absolute top-4 right-4 bg-white p-2 rounded-full shadow"
+              >
+                <Heart className={`w-5 h-5 ${saved ? "text-red-500 fill-red-500" : ""}`} />
+              </button>
             </div>
 
-            <div className="glass p-3 rounded-lg">
-              <p className="text-xs text-muted-foreground">Mileage</p>
-              <p className="font-semibold">
-                {Number(car.mileage).toLocaleString()} km
+            <div className="flex gap-3 mt-3 overflow-x-auto">
+              {images.map((img: any) => (
+                <img
+                  key={img.id}
+                  src={img.image_url}
+                  onClick={() => setActiveImage(img.image_url)}
+                  className="h-20 w-28 object-cover rounded cursor-pointer border"
+                />
+              ))}
+            </div>
+
+            <div className="mt-6">
+              <h1 className="text-3xl font-bold">{car.title}</h1>
+
+              <p className="text-3xl text-primary font-bold mt-2">
+                ${Number(car.price).toLocaleString()}
+              </p>
+
+              <p className="text-sm text-orange-500 mt-2">
+                🔥 {views} total views
               </p>
             </div>
 
-            <div className="glass p-3 rounded-lg">
-              <p className="text-xs text-muted-foreground">Location</p>
-              <p className="font-semibold">{car.location}</p>
-            </div>
-
-            <div className="glass p-3 rounded-lg">
-              <p className="text-xs text-muted-foreground">Fuel</p>
-              <p className="font-semibold">{car.fuel_type}</p>
-            </div>
-
-            <div className="glass p-3 rounded-lg">
-              <p className="text-xs text-muted-foreground">Transmission</p>
-              <p className="font-semibold">{car.transmission}</p>
-            </div>
-
           </div>
 
-          {car.description && (
+          {/* RIGHT */}
+          <div className="sticky top-24 h-fit">
 
-            <div>
+            <div className="glass p-6 rounded-xl space-y-4">
 
-              <h2 className="font-semibold text-lg mb-2">
-                Description
-              </h2>
-
-              <p className="text-muted-foreground">
-                {car.description}
-              </p>
-
-            </div>
-
-          )}
-
-        </div>
-
-        {/* SIDEBAR */}
-
-        <div>
-
-          <div className="glass rounded-xl p-6">
-
-            <h3 className="font-semibold mb-4">
-              Seller Information
-            </h3>
-
-            {contactUnlocked ? (
-
-              <Button className="w-full">
-                <Phone className="mr-2 h-4 w-4"/>
-                Contact Seller
+              <Button onClick={requestInspection} disabled={alreadyRequested}>
+                {alreadyRequested ? "Inspection Requested" : "Request Inspection ($50)"}
               </Button>
 
-            ) : (
+              <Button onClick={contactSeller} disabled={chatLoading}>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                {chatLoading ? "Opening Chat..." : "Chat with Seller"}
+              </Button>
 
-              <div className="space-y-4">
-
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Lock size={16}/>
-                  Contact locked until inspection
-                </div>
-
-                <Button
-                  className="w-full"
-                  onClick={async()=>{
-
-                    const {data:{user}} = await supabase.auth.getUser()
-
-                    if(!user){
-                      alert("Please login")
-                      return
-                    }
-
-                    const {error} = await (supabase as any)
-                      .from("inspection_requests")
-                      .insert({
-                        car_id:car.id,
-                        buyer_id:user.id
-                      })
-
-                    if(error){
-                      alert("Failed request")
-                      return
-                    }
-
-                    alert("Inspection requested!")
-
-                  }}
-                >
-                  <ShieldCheck className="mr-2 h-4 w-4"/>
-                  Request Inspection ($50)
-                </Button>
-
+              <div className="border-t pt-4 text-sm">
+                <p className="font-semibold">{seller?.full_name}</p>
+                <p>{seller?.email}</p>
+                <p>
+                  {seller?.is_verified ? "✅ Verified Dealer" : "Not Verified"}
+                </p>
               </div>
 
-            )}
+            </div>
 
           </div>
 
@@ -372,27 +295,10 @@ return (
 
       </div>
 
-    </motion.div>
+      <Footer />
 
-    {/* FULLSCREEN GALLERY */}
-
-    {galleryOpen && (
-      <FullscreenGallery
-        images={images.map(i => i.image_url)}
-        current={currentIndex}
-        setCurrent={setCurrentIndex}
-        onClose={() => setGalleryOpen(false)}
-      />
-    )}
-
-  </div>
-
-  <Footer />
-
-</div>
-
-
-);
+    </div>
+  );
 };
 
 export default CarDetail;

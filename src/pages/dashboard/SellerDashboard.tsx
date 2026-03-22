@@ -14,83 +14,70 @@ import {
   Trash,
   Eye
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client"; // ✅ FIXED
 
 const SellerDashboard = () => {
 
-  const [cars,setCars] = useState<any[]>([]);
-  const [inspections,setInspections] = useState<any[]>([]);
-  const [loading,setLoading] = useState(true);
+  const [cars, setCars] = useState<any[]>([]);
+  const [inspections, setInspections] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(()=>{
-
-    loadDashboard()
-
-  },[])
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   const loadDashboard = async () => {
 
-    const {data:{user}} = await supabase.auth.getUser()
-
-    if(!user) return
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
     /* SELLER CARS */
 
-    const {data:carData} = await supabase
+    const { data: carData } = await (supabase as any)
       .from("cars")
       .select("*")
-      .eq("seller_id",user.id)
-      .order("created_at",{ascending:false})
+      .eq("seller_id", user.id)
+      .order("created_at", { ascending: false });
 
-    if(carData){
-      setCars(carData)
-    }
+    if (carData) setCars(carData);
 
     /* INSPECTIONS */
 
-    const {data:inspectionData} = await supabase
+    const { data: inspectionData } = await (supabase as any)
       .from("inspection_requests")
       .select(`
         *,
-        cars (
-          title
-        )
+        cars ( title )
       `)
-      .eq("seller_id",user.id)
+      .eq("seller_id", user.id);
 
-    if(inspectionData){
-      setInspections(inspectionData)
-    }
+    if (inspectionData) setInspections(inspectionData);
 
-    setLoading(false)
+    setLoading(false);
+  };
 
-  }
+  const deleteListing = async (id: string) => {
 
-  const deleteListing = async (id:string) => {
+    const confirmDelete = confirm("Delete this listing?");
+    if (!confirmDelete) return;
 
-    const confirmDelete = confirm("Delete this listing?")
-
-    if(!confirmDelete) return
-
-    await supabase
+    await (supabase as any)
       .from("cars")
       .delete()
-      .eq("id",id)
+      .eq("id", id);
 
-    setCars(cars.filter(c=>c.id !== id))
+    setCars(cars.filter((c) => c.id !== id));
+  };
 
-  }
+  const markSold = async (id: string) => {
 
-  const markSold = async (id:string) => {
-
-    await supabase
+    await (supabase as any)
       .from("cars")
-      .update({status:"sold"})
-      .eq("id",id)
+      .update({ status: "sold" })
+      .eq("id", id);
 
-    loadDashboard()
-
-  }
+    loadDashboard();
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,7 +85,7 @@ const SellerDashboard = () => {
       <Navbar />
 
       <div className="container py-8 max-w-6xl">
-        {/* BREADCRUMB */}
+
         <Breadcrumbs />
 
         {/* HEADER */}
@@ -106,7 +93,6 @@ const SellerDashboard = () => {
         <div className="flex items-center justify-between mb-8">
 
           <div>
-
             <h1 className="text-3xl font-bold">
               Seller Dashboard
             </h1>
@@ -114,24 +100,22 @@ const SellerDashboard = () => {
             <p className="text-muted-foreground">
               Manage your car listings and inspection requests
             </p>
-
           </div>
 
           <Button asChild>
             <Link to="/listing/new">
-              <Plus className="h-4 w-4 mr-2"/>
+              <Plus className="h-4 w-4 mr-2" />
               New Listing
             </Link>
           </Button>
 
         </div>
 
-        {/* PLAN CARD */}
+        {/* PLAN */}
 
         <div className="bg-white border rounded-xl p-6 flex items-center justify-between mb-8">
 
           <div>
-
             <p className="text-sm text-muted-foreground">
               Current Plan
             </p>
@@ -143,12 +127,11 @@ const SellerDashboard = () => {
             <p className="text-sm text-muted-foreground">
               {cars.length} active listings
             </p>
-
           </div>
 
           <Button asChild variant="outline">
             <Link to="/pricing">
-              <CreditCard className="h-4 w-4 mr-2"/>
+              <CreditCard className="h-4 w-4 mr-2" />
               Upgrade Plan
             </Link>
           </Button>
@@ -160,25 +143,23 @@ const SellerDashboard = () => {
           <TabsList>
 
             <TabsTrigger value="listings">
-              <Car className="h-4 w-4 mr-2"/>
+              <Car className="h-4 w-4 mr-2" />
               My Listings
             </TabsTrigger>
 
             <TabsTrigger value="inspections">
-              <ClipboardCheck className="h-4 w-4 mr-2"/>
+              <ClipboardCheck className="h-4 w-4 mr-2" />
               Inspections
             </TabsTrigger>
 
           </TabsList>
 
-          {/* LISTINGS TAB */}
+          {/* LISTINGS */}
 
           <TabsContent value="listings" className="mt-6">
 
             {loading ? (
-
               <p>Loading listings...</p>
-
             ) : cars.length === 0 ? (
 
               <div className="text-center py-20 border rounded-xl">
@@ -199,8 +180,8 @@ const SellerDashboard = () => {
 
               <div className="space-y-4">
 
-                {cars.map((car)=>(
-                  
+                {cars.map((car) => (
+
                   <div
                     key={car.id}
                     className="bg-white border rounded-xl p-5 flex items-center justify-between"
@@ -228,13 +209,9 @@ const SellerDashboard = () => {
                         {car.status || "active"}
                       </Badge>
 
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                      >
+                      <Button size="sm" variant="outline" asChild>
                         <Link to={`/car/${car.id}`}>
-                          <Eye className="h-4 w-4 mr-1"/>
+                          <Eye className="h-4 w-4 mr-1" />
                           View
                         </Link>
                       </Button>
@@ -242,7 +219,7 @@ const SellerDashboard = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={()=>markSold(car.id)}
+                        onClick={() => markSold(car.id)}
                       >
                         Mark Sold
                       </Button>
@@ -250,9 +227,9 @@ const SellerDashboard = () => {
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={()=>deleteListing(car.id)}
+                        onClick={() => deleteListing(car.id)}
                       >
-                        <Trash className="h-4 w-4"/>
+                        <Trash className="h-4 w-4" />
                       </Button>
 
                     </div>
@@ -267,26 +244,24 @@ const SellerDashboard = () => {
 
           </TabsContent>
 
-          {/* INSPECTIONS TAB */}
+          {/* INSPECTIONS */}
 
           <TabsContent value="inspections" className="mt-6">
 
             {inspections.length === 0 ? (
 
               <div className="text-center py-16 border rounded-xl">
-
                 <p className="text-muted-foreground">
                   No inspection requests yet
                 </p>
-
               </div>
 
             ) : (
 
               <div className="space-y-4">
 
-                {inspections.map((inspection)=>(
-                  
+                {inspections.map((inspection) => (
+
                   <div
                     key={inspection.id}
                     className="bg-white border rounded-xl p-5 flex justify-between"
@@ -326,7 +301,6 @@ const SellerDashboard = () => {
 
     </div>
   );
-
 };
 
 export default SellerDashboard;
