@@ -14,39 +14,105 @@ const navLinks = [
 ];
 
 const Navbar = () => {
-
   const [user, setUser] = useState<any>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
+  /* ================= FETCH UNREAD CHAT COUNT ================= */
+  const fetchUnreadChats = async (currentUser: any) => {
+    if (!currentUser) return;
 
-    setUser(null);
+    const client: any = supabase;
 
-    const getSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user ?? null);
-    };
+    // 1. Get all conversations of user
+    const { data: conversations } = await client
+      .from("chat_conversations")
+      .select("id")
+      .or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`);
 
-    getSession();
+    const convoIds = conversations?.map((c: any) => c.id) || [];
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      }
+    if (convoIds.length === 0) {
+      setUnreadCount(0);
+      return;
+    }
+
+    // 2. Get unread messages
+    const { data: msgs } = await client
+      .from("chat_messages")
+      .select("conversation_id")
+      .in("conversation_id", convoIds)
+      .eq("is_read", false)
+      .neq("sender_id", currentUser.id);
+
+    // 🔥 3. COUNT UNIQUE CONVERSATIONS
+    const uniqueChats = new Set(
+      msgs?.map((m: any) => m.conversation_id)
     );
 
-    return () => {
-      listener.subscription.unsubscribe();
+    setUnreadCount(uniqueChats.size);
+  };
+
+  /* ================= LOAD USER + INITIAL COUNT ================= */
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const currentUser = data.session?.user;
+
+      setUser(currentUser);
+
+      if (currentUser) {
+        await fetchUnreadChats(currentUser);
+      }
     };
 
+    init();
+
+    /* 🔥 REALTIME UPDATES */
+    const channel = supabase
+      .channel("navbar-realtime")
+
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+        },
+        async () => {
+          const { data } = await supabase.auth.getSession();
+          const currentUser = data.session?.user;
+          if (currentUser) fetchUnreadChats(currentUser);
+        }
+      )
+
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_messages",
+        },
+        async () => {
+          const { data } = await supabase.auth.getSession();
+          const currentUser = data.session?.user;
+          if (currentUser) fetchUnreadChats(currentUser);
+        }
+      )
+
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
+  /* ================= ACTIONS ================= */
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUser(null);
     navigate("/auth?mode=login");
   };
 
@@ -55,11 +121,11 @@ const Navbar = () => {
   };
 
   const goToMessages = () => {
+    setUnreadCount(0); // instant UI reset
     navigate("/messages");
   };
 
   const handleNavigation = (href: string) => {
-
     if (href.startsWith("#")) {
       if (location.pathname !== "/") {
         navigate("/");
@@ -75,9 +141,9 @@ const Navbar = () => {
     navigate(href);
   };
 
+  /* ================= UI ================= */
   return (
     <header className="sticky top-0 z-50 glass-strong">
-
       <div className="container flex h-16 items-center justify-between">
 
         {/* LOGO */}
@@ -86,7 +152,7 @@ const Navbar = () => {
           VerifyCar
         </Link>
 
-        {/* DESKTOP NAV */}
+        {/* NAV LINKS */}
         <nav className="hidden md:flex items-center gap-6">
           {navLinks.map((link) => (
             <button
@@ -99,17 +165,27 @@ const Navbar = () => {
           ))}
         </nav>
 
-        {/* DESKTOP ACTIONS */}
-        <div className="hidden md:flex items-center gap-3">
+        {/* ACTIONS */}
+        <div className="hidden md:flex items-center gap-4">
+
+          {/* 🔥 MESSAGE ICON WITH BADGE */}
+          {user && (
+            <div
+              className="relative cursor-pointer hover:scale-110 transition"
+              onClick={goToMessages}
+            >
+              <MessageCircle className="h-5 w-5" />
+
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] px-2 py-[2px] rounded-full font-semibold shadow">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+          )}
 
           {user ? (
             <>
-              {/* 🔥 MESSAGES */}
-              <Button variant="ghost" size="sm" onClick={goToMessages}>
-                <MessageCircle className="mr-1 h-4 w-4" />
-                Messages
-              </Button>
-
               <Button variant="ghost" size="sm" onClick={goToDashboard}>
                 Dashboard
               </Button>
@@ -129,7 +205,6 @@ const Navbar = () => {
               </Button>
             </>
           )}
-
         </div>
 
         {/* MOBILE MENU */}
@@ -159,7 +234,6 @@ const Navbar = () => {
 
               {user ? (
                 <>
-                  {/* 🔥 MESSAGES MOBILE */}
                   <Button
                     variant="ghost"
                     onClick={() => {
@@ -167,8 +241,7 @@ const Navbar = () => {
                       setOpen(false);
                     }}
                   >
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    Messages
+                    Messages ({unreadCount})
                   </Button>
 
                   <Button
