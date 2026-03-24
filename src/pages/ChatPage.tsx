@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck } from "lucide-react";
 
 const ChatPage = () => {
 
@@ -12,90 +12,69 @@ const ChatPage = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  const [car, setCar] = useState<any>(null);
   const [otherUser, setOtherUser] = useState<any>(null);
 
   const [online, setOnline] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
 
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const [sending, setSending] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   /* ================= LOAD ================= */
   useEffect(() => {
 
     let msgChannel: any;
     let presenceChannel: any;
-    let currentUser: any;
-    let otherUserId: string;
 
     const load = async () => {
 
-      const client: any = supabase;
-
       const { data } = await supabase.auth.getUser();
-      currentUser = data.user;
+      const currentUser = data.user;
       setUser(currentUser);
 
-      const { data: convo } = await client
+      if (!currentUser) return;
+
+      const { data: convo } = await supabase
         .from("chat_conversations")
         .select("*")
         .eq("id", id)
         .single();
 
-      if (!convo || !currentUser) return;
+      if (!convo) return;
 
-      otherUserId =
+      const otherUserId =
         convo.buyer_id === currentUser.id
           ? convo.seller_id
           : convo.buyer_id;
 
-      /* MARK READ */
-      await client
-        .from("chat_messages")
-        .update({ is_read: true })
-        .eq("conversation_id", id)
-        .neq("sender_id", currentUser.id)
-        .eq("is_read", false);
-
-      /* ONLINE */
-      await client.from("chat_presence").upsert({
-        user_id: currentUser.id,
-        is_online: true
-      });
-
-      /* CAR */
-      const { data: carData } = await supabase
-        .from("cars")
-        .select("title, image_url")
-        .eq("id", convo.car_id)
-        .single();
-
-      setCar(carData);
-
-      /* USER */
+      /* ✅ CORRECT PROFILE FETCH (FINAL FIX) */
       const { data: profile } = await supabase
         .from("profiles")
-        .select("username")
+        .select("username, avatar_url")
         .eq("id", otherUserId)
-        .single();
+        .maybeSingle();
 
-      setOtherUser(profile);
+      setOtherUser({
+        username: profile?.username || "User",
+        avatar_url: profile?.avatar_url || null
+      });
 
       /* LOAD MESSAGES */
-      const { data: msgs } = await client
+      const { data: msgs } = await supabase
         .from("chat_messages")
         .select("*")
         .eq("conversation_id", id)
         .order("created_at", { ascending: true });
 
       setMessages(msgs || []);
-      setLoading(false);
 
-      /* REALTIME MESSAGES */
+      /* REALTIME */
       msgChannel = supabase
         .channel(`chat-${id}`)
         .on(
@@ -106,20 +85,11 @@ const ChatPage = () => {
             table: "chat_messages",
             filter: `conversation_id=eq.${id}`
           },
-          async (payload) => {
-
+          (payload) => {
             setMessages((prev) => {
-              const exists = prev.some((m) => m.id === payload.new.id);
-              if (exists) return prev;
+              if (prev.some((m) => m.id === payload.new.id)) return prev;
               return [...prev, payload.new];
             });
-
-            if (payload.new.sender_id !== currentUser.id) {
-              await client
-                .from("chat_messages")
-                .update({ is_read: true })
-                .eq("id", payload.new.id);
-            }
           }
         )
         .subscribe();
@@ -149,13 +119,6 @@ const ChatPage = () => {
     return () => {
       if (msgChannel) supabase.removeChannel(msgChannel);
       if (presenceChannel) supabase.removeChannel(presenceChannel);
-
-      if (user) {
-        (supabase as any).from("chat_presence").upsert({
-          user_id: user.id,
-          is_online: false
-        });
-      }
     };
 
   }, [id]);
@@ -165,86 +128,76 @@ const ChatPage = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /* SEND MESSAGE */
+  /* AUTO FOCUS */
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  /* SEND TEXT */
   const sendMessage = async () => {
 
     if (!input.trim() || !user) return;
 
+    setSending(true);
+
     const text = input;
     setInput("");
 
-    await (supabase as any)
-      .from("chat_messages")
-      .insert({
-        conversation_id: id,
-        sender_id: user.id,
-        message: text,
-        is_read: false
-      });
+    await supabase.from("chat_messages").insert({
+      conversation_id: id,
+      sender_id: user.id,
+      message: text,
+      is_read: false
+    });
 
-    await (supabase as any)
-      .from("chat_conversations")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", id);
+    setSending(false);
   };
 
-  /* FILE UPLOAD */
-  const handleFileUpload = async (file: File) => {
+  /* SEND FILE */
+  const sendFile = async () => {
 
-    const filePath = `${user.id}/${Date.now()}-${file.name}`;
+    if (!previewFile || !user) return;
 
-    const { error } = await supabase.storage
-      .from("chat-files")
-      .upload(filePath, file);
+    try {
+      setSending(true);
 
-    if (error) return alert(error.message);
+      const filePath = `${user.id}/${Date.now()}-${previewFile.name}`;
 
-    const { data } = supabase.storage
-      .from("chat-files")
-      .getPublicUrl(filePath);
+      const { error } = await supabase.storage
+        .from("chat-files")
+        .upload(filePath, previewFile);
 
-    await (supabase as any)
-      .from("chat_messages")
-      .insert({
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from("chat-files")
+        .getPublicUrl(filePath);
+
+      await supabase.from("chat_messages").insert({
         conversation_id: id,
         sender_id: user.id,
-        message: file.name,
+        message: previewFile.name,
         file_url: data.publicUrl,
-        file_type: file.type,
+        file_type: previewFile.type,
         is_read: false
       });
+
+      setPreviewFile(null);
+      setPreviewUrl(null);
+
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSending(false);
+    }
   };
 
-  /* DELETE */
-  const deleteMessage = async (msgId: string) => {
-    await (supabase as any)
-      .from("chat_messages")
-      .update({ is_deleted: true })
-      .eq("id", msgId);
+  /* FILE SELECT */
+  const handleFileSelect = (file: File) => {
+    setPreviewFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
-  /* TYPING */
-  const handleTyping = async (value: string) => {
-    setInput(value);
-
-    await (supabase as any)
-      .from("chat_presence")
-      .upsert({
-        user_id: user.id,
-        typing_in: id
-      });
-
-    setTimeout(async () => {
-      await (supabase as any)
-        .from("chat_presence")
-        .upsert({
-          user_id: user.id,
-          typing_in: null
-        });
-    }, 1500);
-  };
-
-  /* TIME */
   const formatTime = (date: string) =>
     new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -256,32 +209,33 @@ const ChatPage = () => {
       <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
 
         {/* HEADER */}
-        <div className="sticky top-0 bg-white border-b p-3 flex items-center gap-3">
+        <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-3 shadow-sm">
 
-          <button onClick={() => navigate(-1)}>
-            <ArrowLeft />
+          <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-gray-100">
+            <ArrowLeft className="w-5 h-5" />
           </button>
 
-          <img src={car?.image_url} className="w-10 h-10 rounded" />
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+            {otherUser?.avatar_url ? (
+              <img src={otherUser.avatar_url} className="w-full h-full object-cover" />
+            ) : (
+              <span className="font-semibold">
+                {otherUser?.username?.charAt(0)}
+              </span>
+            )}
+          </div>
 
           <div>
             <p className="font-semibold">{otherUser?.username}</p>
             <p className="text-xs text-gray-500">
-              {otherTyping ? (
-                <span className="flex gap-1">
-                  typing
-                  <span className="animate-bounce">.</span>
-                  <span className="animate-bounce delay-100">.</span>
-                  <span className="animate-bounce delay-200">.</span>
-                </span>
-              ) : online ? "Online" : "Offline"}
+              {otherTyping ? "Typing..." : online ? "Online" : "Offline"}
             </p>
           </div>
 
         </div>
 
         {/* MESSAGES */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
           {messages.map((msg) => {
 
@@ -290,43 +244,29 @@ const ChatPage = () => {
             return (
               <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
 
-                <div className={`px-4 py-2 rounded-xl max-w-[75%] hover:scale-[1.02] transition ${
+                <div className={`px-4 py-2 rounded-2xl max-w-[70%] break-words ${
                   isMe
-                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
-                    : "bg-white shadow-sm border"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white border"
                 }`}>
 
                   {msg.file_url ? (
-                    msg.file_type?.startsWith("image") ? (
-                      <img
-                        src={msg.file_url}
-                        onClick={() => setPreviewImage(msg.file_url)}
-                        className="rounded-lg max-w-[200px] cursor-pointer"
-                      />
-                    ) : (
-                      <a href={msg.file_url} target="_blank" className="underline">
-                        {msg.message}
-                      </a>
-                    )
-                  ) : msg.is_deleted ? (
-                    <p className="italic text-gray-400">Message deleted</p>
+                    <img src={msg.file_url} className="rounded-lg max-w-[220px]" />
                   ) : (
                     <p>{msg.message}</p>
                   )}
 
-                  {!msg.is_deleted && isMe && (
-                    <button
-                      onClick={() => deleteMessage(msg.id)}
-                      className="text-[10px] text-red-200 mt-1"
-                    >
-                      Delete
-                    </button>
-                  )}
+                  <div className="flex justify-end items-center gap-1 text-xs mt-1">
 
-                  <p className="text-[10px] mt-1 flex justify-end gap-1">
-                    {formatTime(msg.created_at)}
-                    {isMe && (msg.is_read ? "✓✓" : "✓")}
-                  </p>
+                    <span>{formatTime(msg.created_at)}</span>
+
+                    {isMe && (
+                      msg.is_read
+                        ? <CheckCheck className="w-4 h-4 text-blue-300" />
+                        : <Check className="w-4 h-4 text-gray-300" />
+                    )}
+
+                  </div>
 
                 </div>
 
@@ -338,27 +278,45 @@ const ChatPage = () => {
 
         </div>
 
+        {/* PREVIEW */}
+        {previewUrl && (
+          <div className="p-3 bg-white border-t flex items-center gap-3">
+            <img src={previewUrl} className="w-16 h-16 rounded object-cover" />
+            <button
+              onClick={sendFile}
+              disabled={sending}
+              className="bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              {sending ? "Sending..." : "Send"}
+            </button>
+          </div>
+        )}
+
         {/* INPUT */}
         <div className="p-3 bg-white border-t flex gap-2">
 
-          <label className="cursor-pointer">📎
+          <label className="cursor-pointer px-2 flex items-center">
+            📎
             <input
               type="file"
               hidden
-              onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+              onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
             />
           </label>
 
           <input
+            ref={inputRef}
             value={input}
-            onChange={(e) => handleTyping(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder="Type a message..."
             className="flex-1 border rounded-full px-4 py-2"
           />
 
           <button
             onClick={sendMessage}
-            className="bg-blue-600 text-white px-4 rounded-full"
+            disabled={!input.trim() || sending}
+            className="bg-blue-600 text-white px-4 rounded-full disabled:opacity-50"
           >
             Send
           </button>
@@ -366,16 +324,6 @@ const ChatPage = () => {
         </div>
 
       </div>
-
-      {/* IMAGE PREVIEW */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center"
-          onClick={() => setPreviewImage(null)}
-        >
-          <img src={previewImage} className="max-w-[90%] max-h-[90%]" />
-        </div>
-      )}
 
     </div>
   );
