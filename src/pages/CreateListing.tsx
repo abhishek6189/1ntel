@@ -1,4 +1,3 @@
-import Breadcrumbs from "@/components/Breadcrumbs";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -12,20 +11,27 @@ import {
   SelectTrigger,
   SelectContent,
   SelectItem,
-  SelectValue
+  SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, UploadCloud, X } from "lucide-react";
+import { UploadCloud, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
-const CreateListing = () => {
-
+export default function CreateListing() {
   const navigate = useNavigate();
 
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const [form, setForm] = useState({
+  const [customFields, setCustomFields] = useState<any>({
+    body_type: false,
+    transmission: false,
+    fuel_type: false,
+    drivetrain: false,
+    condition: false,
+  });
+
+  const [form, setForm] = useState<any>({
     title: "",
     make: "",
     model: "",
@@ -34,368 +40,279 @@ const CreateListing = () => {
     mileage: "",
     location: "",
     transmission: "",
-    fuel: "",
-    description: ""
+    fuel_type: "",
+    body_type: "",
+    drivetrain: "",
+    exterior_color: "",
+    interior_color: "",
+    vin: "",
+    condition: "",
+    description: "",
+    seller_phone: "",
   });
 
-  const updateField = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const update = (field: string, value: string) => {
+    setForm((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  /* IMAGE UPLOAD */
+  /* ================= PLAN LIMIT CHECK ================= */
+  const checkPlanLimit = async (userId: string) => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", userId)
+      .single();
 
-  const uploadImages = async (files: FileList) => {
+    const PLAN_LIMITS: any = {
+      free: 2,
+      garage: 10,
+      dealer: 35,
+    };
 
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
+    const plan = profile?.plan || "free";
+    const limit = PLAN_LIMITS[plan];
 
-    if (!user) {
-      toast.error("Login required");
-      return;
+    const { count } = await supabase
+      .from("cars")
+      .select("*", { count: "exact", head: true })
+      .eq("seller_id", userId);
+
+    if ((count || 0) >= limit) {
+      toast.error(`Limit reached (${limit}). Upgrade your plan 🚀`);
+      navigate("/pricing");
+      return false;
     }
+
+    return true;
+  };
+
+  /* ================= IMAGE UPLOAD ================= */
+  const uploadImages = async (files: FileList) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Login required");
 
     setUploading(true);
 
-    const uploadedUrls: string[] = [];
-
     for (const file of Array.from(files)) {
-
-      const filePath = `${user.id}/${Date.now()}-${file.name}`;
+      const path = `${user.id}/${Date.now()}-${file.name}`;
 
       const { error } = await supabase.storage
         .from("vehicles")
-        .upload(filePath, file);
+        .upload(path, file);
 
       if (error) {
         toast.error(error.message);
         continue;
       }
 
-      const { data } = supabase.storage
-        .from("vehicles")
-        .getPublicUrl(filePath);
-
-      uploadedUrls.push(data.publicUrl);
-
+      const { data } = supabase.storage.from("vehicles").getPublicUrl(path);
+      setImages((prev) => [...prev, data.publicUrl]);
     }
-
-    setImages((prev) => [...prev, ...uploadedUrls]);
 
     setUploading(false);
-
   };
 
-  const handleFileChange = (e: any) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    uploadImages(files);
-  };
-
-  const removeImage = (index: number) => {
-    setImages(images.filter((_, i) => i !== index));
-  };
-
-  /* CREATE LISTING */
-
+  /* ================= SUBMIT ================= */
   const handleSubmit = async (e: any) => {
-
     e.preventDefault();
 
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Login required");
 
-    if (!user) {
-      toast.error("Please login first");
-      return;
+    const allowed = await checkPlanLimit(user.id);
+    if (!allowed) return;
+
+    if (!form.title || !form.make || !form.model || !form.price || !form.location) {
+      return toast.error("Please fill all required fields");
     }
 
-    if (!form.title || !form.price) {
-      toast.error("Please fill required fields");
-      return;
-    }
-
-    /* CREATE CAR */
-
-    const { data: car, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("cars")
       .insert({
+        ...form,
         seller_id: user.id,
-        title: form.title,
-        make: form.make,
-        model: form.model,
-        year: form.year,
-        price: form.price,
-        mileage: form.mileage,
-        location: form.location,
-        transmission: form.transmission,
-        fuel_type: form.fuel,
-        description: form.description
+        status: "active",
       })
       .select()
       .single();
 
-    if (error) {
-      toast.error(error.message);
-      return;
+    if (error) return toast.error(error.message);
+
+    if (images.length) {
+      await supabase.from("car_images").insert(
+        images.map((img) => ({
+          car_id: data.id,
+          image_url: img,
+        }))
+      );
     }
 
-    /* SAVE IMAGES */
-
-    if (images.length > 0) {
-
-      const imageRows = images.map((url) => ({
-        car_id: car.id,
-        image_url: url
-      }));
-
-      await (supabase as any)
-        .from("car_images")
-        .insert(imageRows);
-
-    }
-
-    toast.success("Listing created successfully!");
-
+    toast.success("Car Listed Successfully 🚀");
     navigate("/dashboard");
-
   };
+
+  const dropdowns = [
+    {
+      label: "Body Type",
+      field: "body_type",
+      options: ["Sedan","SUV","Truck","Coupe","Hatchback","Van","Convertible","Wagon","Other"]
+    },
+    {
+      label: "Transmission",
+      field: "transmission",
+      options: ["Automatic","Manual","CVT","Other"]
+    },
+    {
+      label: "Fuel Type",
+      field: "fuel_type",
+      options: ["Gasoline","Diesel","Electric","Hybrid","Plug-in Hybrid","Other"]
+    },
+    {
+      label: "Drivetrain",
+      field: "drivetrain",
+      options: ["FWD","RWD","AWD","4WD","Other"]
+    }
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       <Navbar />
 
-      <div className="max-w-4xl mx-auto py-10 px-4">
+      <div className="max-w-6xl mx-auto py-10 px-4">
 
-        {/* BACK BUTTON */}
+        {/* HEADER */}
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-xl font-semibold">List a New Car</h1>
+        </div>
 
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-gray-600 mb-6 hover:text-black"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </button>
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl border space-y-6">
 
-        <h1 className="text-2xl font-bold mb-2">
-          Create New Listing
-        </h1>
-
-        <p className="text-gray-500 mb-8">
-          Add your vehicle details and photos.
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-8">
-
-          {/* PHOTO UPLOAD */}
-
-          <div className="bg-white border rounded-xl p-6">
-
-            <h2 className="font-semibold mb-4">
-              Vehicle Photos
-            </h2>
-
-            <label className="border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50">
-
-              <UploadCloud className="h-10 w-10 text-gray-400 mb-3" />
-
-              <p className="text-sm text-gray-500">
-                Click or drag photos to upload
-              </p>
-
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handleFileChange}
-              />
-
+          {/* IMAGES */}
+          <div>
+            <Label>Photos</Label>
+            <label className="border-2 border-dashed p-8 flex flex-col items-center cursor-pointer rounded-lg">
+              <UploadCloud className="h-8 w-8 text-gray-400" />
+              <span className="text-sm text-gray-500">Click to upload</span>
+              <input type="file" multiple hidden onChange={(e:any)=>uploadImages(e.target.files)} />
             </label>
 
-            {/* IMAGE GRID */}
-
-            <div className="grid grid-cols-4 gap-4 mt-5">
-
+            <div className="flex gap-3 mt-4 flex-wrap">
               {images.map((img, i) => (
-
-                <div key={i} className="relative">
-
-                  <img
-                    src={img}
-                    className="w-full h-24 object-cover rounded-lg"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1"
-                  >
-                    <X size={14} />
-                  </button>
-
-                </div>
-
+                <img key={i} src={img} className="w-24 h-24 object-cover rounded-lg border" />
               ))}
-
             </div>
-
           </div>
 
-          {/* VEHICLE DETAILS */}
+          {/* BASIC */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Title *" placeholder="2022 Honda Civic EX" onChange={(v)=>update("title",v)} />
+            <Field label="Make *" placeholder="Honda" onChange={(v)=>update("make",v)} />
+            <Field label="Model *" placeholder="Civic" onChange={(v)=>update("model",v)} />
+            <Field label="Year *" type="number" placeholder="2022" onChange={(v)=>update("year",v)} />
+            <Field label="Price ($) *" type="number" placeholder="28500" onChange={(v)=>update("price",v)} />
+            <Field label="Mileage (km)" type="number" placeholder="32000" onChange={(v)=>update("mileage",v)} />
+            <Field label="Location *" placeholder="Toronto, ON" onChange={(v)=>update("location",v)} />
+            <Field label="Phone" placeholder="(416) 555-0123" onChange={(v)=>update("seller_phone",v)} />
+          </div>
 
-          <div className="bg-white border rounded-xl p-6 space-y-4">
-
-            <h2 className="font-semibold mb-4">
-              Vehicle Details
-            </h2>
-
-            <div>
-              <Label>Listing Title</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => updateField("title", e.target.value)}
-                placeholder="2022 Honda Civic"
-              />
-            </div>
-
-            <div>
-              <Label>Make</Label>
-              <Input
-                value={form.make}
-                onChange={(e) => updateField("make", e.target.value)}
-                placeholder="Toyota / BMW / Audi"
-              />
-            </div>
-
-            <div>
-              <Label>Model</Label>
-              <Input
-                value={form.model}
-                onChange={(e) => updateField("model", e.target.value)}
-                placeholder="Civic"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-
-              <div>
-                <Label>Year</Label>
-                <Input
-                  type="number"
-                  value={form.year}
-                  onChange={(e) => updateField("year", e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label>Price ($)</Label>
-                <Input
-                  type="number"
-                  value={form.price}
-                  onChange={(e) => updateField("price", e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Label>Mileage</Label>
-                <Input
-                  type="number"
-                  value={form.mileage}
-                  onChange={(e) => updateField("mileage", e.target.value)}
-                />
-              </div>
-
-            </div>
-
-            <div>
-              <Label>Location</Label>
-              <Input
-                value={form.location}
-                onChange={(e) => updateField("location", e.target.value)}
-                placeholder="Toronto"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-
-              <div>
-                <Label>Transmission</Label>
+          {/* DROPDOWNS */}
+          <div className="grid grid-cols-2 gap-4">
+            {dropdowns.map((item) => (
+              <div key={item.field}>
+                <Label>{item.label}</Label>
 
                 <Select
-                  onValueChange={(v) => updateField("transmission", v)}
+                  onValueChange={(value) => {
+                    update(item.field, value);
+                    setCustomFields((prev:any)=>({...prev,[item.field]:value==="other"}));
+                  }}
                 >
-
                   <SelectTrigger>
-                    <SelectValue placeholder="Transmission" />
+                    <SelectValue placeholder={`Select ${item.label}`} />
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="automatic">Automatic</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
+                    {item.options.map((o) => (
+                      <SelectItem key={o} value={o.toLowerCase()}>
+                        {o}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
-
                 </Select>
 
+                {customFields[item.field] && (
+                  <Input
+                    className="mt-2"
+                    placeholder={`Enter ${item.label}`}
+                    onChange={(e)=>update(item.field,e.target.value)}
+                  />
+                )}
               </div>
-
-              <div>
-                <Label>Fuel Type</Label>
-
-                <Select
-                  onValueChange={(v) => updateField("fuel", v)}
-                >
-
-                  <SelectTrigger>
-                    <SelectValue placeholder="Fuel type" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="gasoline">Gasoline</SelectItem>
-                    <SelectItem value="diesel">Diesel</SelectItem>
-                    <SelectItem value="electric">Electric</SelectItem>
-                    <SelectItem value="hybrid">Hybrid</SelectItem>
-                  </SelectContent>
-
-                </Select>
-
-              </div>
-
-            </div>
-
-            <div>
-              <Label>Description</Label>
-
-              <Textarea
-                rows={4}
-                value={form.description}
-                onChange={(e) => updateField("description", e.target.value)}
-                placeholder="Describe vehicle condition and features..."
-              />
-            </div>
-
+            ))}
           </div>
 
-          {/* SUBMIT */}
+          {/* COLORS */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Exterior Color" placeholder="Black" onChange={(v)=>update("exterior_color",v)} />
+            <Field label="Interior Color" placeholder="Beige" onChange={(v)=>update("interior_color",v)} />
+          </div>
 
-          <Button
-            className="w-full h-12 text-lg"
-            disabled={uploading}
-          >
-            {uploading ? "Uploading..." : "Create Listing"}
-          </Button>
+          {/* CONDITION */}
+          <div>
+            <Label>Condition</Label>
+            <Select onValueChange={(value)=>{
+              update("condition",value);
+              setCustomFields((prev:any)=>({...prev,condition:value==="other"}));
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Condition" />
+              </SelectTrigger>
+              <SelectContent>
+                {["Excellent","Good","Fair","Poor","Other"].map(i=>(
+                  <SelectItem key={i} value={i.toLowerCase()}>{i}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {customFields.condition && (
+              <Input className="mt-2" placeholder="Enter Condition" onChange={(e)=>update("condition",e.target.value)} />
+            )}
+          </div>
+
+          {/* EXTRA */}
+          <Field label="VIN" placeholder="Vehicle Identification Number" onChange={(v)=>update("vin",v)} />
+
+          <div>
+            <Label>Description</Label>
+            <Textarea placeholder="Describe your vehicle..." onChange={(e)=>update("description",e.target.value)} />
+          </div>
+
+          {/* ACTIONS */}
+          <div className="flex gap-3">
+            <Button type="submit">
+              {uploading ? "Uploading..." : "Create Listing"}
+            </Button>
+
+            <Button variant="outline" onClick={() => navigate("/dashboard")}>
+              Cancel
+            </Button>
+          </div>
 
         </form>
-
       </div>
 
       <Footer />
-
     </div>
   );
-};
+}
 
-export default CreateListing;
+/* REUSABLE FIELD */
+const Field = ({ label, placeholder, type="text", onChange }: any) => (
+  <div>
+    <Label>{label}</Label>
+    <Input type={type} placeholder={placeholder} onChange={(e)=>onChange(e.target.value)} />
+  </div>
+);

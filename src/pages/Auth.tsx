@@ -3,7 +3,6 @@ import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectTrigger,
@@ -11,12 +10,10 @@ import {
   SelectItem,
   SelectValue
 } from "@/components/ui/select";
-import { Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
-
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isLogin = searchParams.get("mode") !== "signup";
@@ -26,25 +23,42 @@ const Auth = () => {
   const [role, setRole] = useState("buyer");
   const [loading, setLoading] = useState(false);
 
-  // ✅ AUTO REDIRECT IF ALREADY LOGGED IN
+  /* ================= AUTO REDIRECT ================= */
   useEffect(() => {
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.user) {
-        navigate("/dashboard/buyer");
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (!sessionData.session?.user) return;
+
+      const user = sessionData.session.user;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile) return;
+
+      if (profile.role === "dealer") {
+        navigate("/dealer-dashboard");
+      } else {
+        navigate("/dashboard");
       }
     };
-    checkUser();
-  }, []);
 
+    checkUser();
+  }, [navigate]);
+
+  /* ================= HANDLE SUBMIT ================= */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
 
     setLoading(true);
 
+    /* ================= LOGIN ================= */
     if (isLogin) {
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -58,25 +72,25 @@ const Auth = () => {
 
       const user = data.user;
 
-      let userRole = "buyer";
-
-      const { data: profile } = await (supabase as any)
+      const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
-        .maybeSingle();
+        .single();
 
-      if (profile?.role) userRole = profile.role;
+      const userRole = profile?.role || "buyer";
 
-      if (userRole === "admin") navigate("/dashboard/admin");
-      else if (userRole === "inspector") navigate("/dashboard/inspector");
-      else if (userRole === "dealer") navigate("/dashboard/seller");
-      else navigate("/dashboard/buyer");
+      if (userRole === "dealer") {
+        navigate("/dealer-dashboard");
+      } else {
+        navigate("/dashboard");
+      }
 
+      setLoading(false);
       return;
     }
 
-    /* SIGNUP */
+    /* ================= SIGNUP ================= */
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -89,16 +103,49 @@ const Auth = () => {
       return;
     }
 
-    if (data.user) {
-      await (supabase as any).from("profiles").upsert({
-        id: data.user.id,
-        email: data.user.email,
-        role
-      });
+    if (!data.user) {
+      alert("Signup failed");
+      setLoading(false);
+      return;
     }
 
-    alert("Account created!");
-    navigate("/auth?mode=login");
+    /* ✅ UPSERT PROFILE (SAFE) */
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .upsert({
+        id: data.user.id,
+        email: data.user.email,
+        role: role,
+        plan: "free"
+      });
+
+    if (profileError) {
+      console.error(profileError);
+      alert("Profile error: " + profileError.message);
+      setLoading(false);
+      return;
+    }
+
+    /* ✅ LOGIN AFTER SIGNUP */
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (loginError) {
+      alert(loginError.message);
+      setLoading(false);
+      return;
+    }
+
+    /* ✅ REDIRECT */
+    if (role === "dealer") {
+      navigate("/dealer-dashboard");
+    } else {
+      navigate("/dashboard");
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -106,9 +153,12 @@ const Auth = () => {
       <Navbar />
 
       <div className="container flex justify-center py-20">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-md">
-
-          <div className="glass p-8 rounded-xl">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full max-w-md"
+        >
+          <div className="glass p-8 rounded-xl shadow-lg">
 
             <h1 className="text-2xl font-bold text-center mb-6">
               {isLogin ? "Welcome Back" : "Create Account"}
@@ -116,15 +166,30 @@ const Auth = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
 
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
-              <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" required />
+              <Input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                required
+              />
 
+              <Input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                type="password"
+                required
+              />
+
+              {/* ROLE SELECT */}
               {!isLogin && (
                 <Select onValueChange={setRole} defaultValue="buyer">
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="buyer">Buyer</SelectItem>
-                    <SelectItem value="dealer">Dealer</SelectItem>
+                    <SelectItem value="buyer">Signup as Buyer</SelectItem>
+                    <SelectItem value="dealer">Signup as Dealer</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -136,13 +201,14 @@ const Auth = () => {
             </form>
 
             <p className="text-center mt-4 text-sm">
-              {isLogin
-                ? <Link to="/auth?mode=signup">Create account</Link>
-                : <Link to="/auth?mode=login">Already have account</Link>}
+              {isLogin ? (
+                <Link to="/auth?mode=signup">Create account</Link>
+              ) : (
+                <Link to="/auth?mode=login">Already have an account?</Link>
+              )}
             </p>
 
           </div>
-
         </motion.div>
       </div>
     </div>

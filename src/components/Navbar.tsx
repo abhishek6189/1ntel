@@ -2,33 +2,44 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Shield, MessageCircle } from "lucide-react";
+import {
+  Menu,
+  Shield,
+  MessageCircle,
+  LayoutDashboard,
+  Inbox,
+  Settings,
+  LogOut
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
+/* ✅ NEW */
+import { useProfile } from "@/context/ProfileContext";
 
 const navLinks = [
   { label: "Home", href: "/" },
   { label: "Browse Cars", href: "/browse" },
   { label: "Sell Your Car", href: "/sell" },
-  { label: "How It Works", href: "#how-it-works" },
+  { label: "How It Works", href: "/how-it-works" },
   { label: "Pricing", href: "/pricing" },
 ];
 
 const Navbar = () => {
-  const [user, setUser] = useState<any>(null);
+  /* ✅ GLOBAL USER + PROFILE */
+  const { user, profile } = useProfile();
+
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [dropdown, setDropdown] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* ================= FETCH UNREAD CHAT COUNT ================= */
+  /* ================= FETCH UNREAD ================= */
   const fetchUnreadChats = async (currentUser: any) => {
     if (!currentUser) return;
 
-    const client: any = supabase;
-
-    // 1. Get all conversations of user
-    const { data: conversations } = await client
+    const { data: conversations } = await supabase
       .from("chat_conversations")
       .select("id")
       .or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`);
@@ -40,89 +51,28 @@ const Navbar = () => {
       return;
     }
 
-    // 2. Get unread messages
-    const { data: msgs } = await client
+    const { data: msgs } = await supabase
       .from("chat_messages")
       .select("conversation_id")
       .in("conversation_id", convoIds)
       .eq("is_read", false)
       .neq("sender_id", currentUser.id);
 
-    // 🔥 3. COUNT UNIQUE CONVERSATIONS
-    const uniqueChats = new Set(
-      msgs?.map((m: any) => m.conversation_id)
-    );
-
+    const uniqueChats = new Set(msgs?.map((m: any) => m.conversation_id));
     setUnreadCount(uniqueChats.size);
   };
 
-  /* ================= LOAD USER + INITIAL COUNT ================= */
+  /* ✅ UPDATE WHEN USER CHANGES */
   useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const currentUser = data.session?.user;
-
-      setUser(currentUser);
-
-      if (currentUser) {
-        await fetchUnreadChats(currentUser);
-      }
-    };
-
-    init();
-
-    /* 🔥 REALTIME UPDATES */
-    const channel = supabase
-      .channel("navbar-realtime")
-
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-        },
-        async () => {
-          const { data } = await supabase.auth.getSession();
-          const currentUser = data.session?.user;
-          if (currentUser) fetchUnreadChats(currentUser);
-        }
-      )
-
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "chat_messages",
-        },
-        async () => {
-          const { data } = await supabase.auth.getSession();
-          const currentUser = data.session?.user;
-          if (currentUser) fetchUnreadChats(currentUser);
-        }
-      )
-
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    if (user) {
+      fetchUnreadChats(user);
+    }
+  }, [user]);
 
   /* ================= ACTIONS ================= */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth?mode=login");
-  };
-
-  const goToDashboard = () => {
-    navigate("/dashboard/buyer");
-  };
-
-  const goToMessages = () => {
-    setUnreadCount(0); // instant UI reset
-    navigate("/messages");
   };
 
   const handleNavigation = (href: string) => {
@@ -143,12 +93,12 @@ const Navbar = () => {
 
   /* ================= UI ================= */
   return (
-    <header className="sticky top-0 z-50 glass-strong">
-      <div className="container flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 bg-white border-b">
+      <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
 
         {/* LOGO */}
         <Link to="/" className="flex items-center gap-2 text-xl font-bold">
-          <Shield className="h-6 w-6 text-primary" />
+          <Shield className="h-6 w-6 text-blue-600" />
           VerifyCar
         </Link>
 
@@ -158,49 +108,122 @@ const Navbar = () => {
             <button
               key={link.label}
               onClick={() => handleNavigation(link.href)}
-              className="text-sm hover:text-primary"
+              className="text-sm hover:text-blue-600"
             >
               {link.label}
             </button>
           ))}
         </nav>
 
-        {/* ACTIONS */}
+        {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-4">
 
-          {/* 🔥 MESSAGE ICON WITH BADGE */}
+          {/* MESSAGES */}
           {user && (
             <div
-              className="relative cursor-pointer hover:scale-110 transition"
-              onClick={goToMessages}
+              className="relative cursor-pointer"
+              onClick={() => navigate("/messages")}
             >
               <MessageCircle className="h-5 w-5" />
 
               {unreadCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] px-2 py-[2px] rounded-full font-semibold shadow">
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] px-2 rounded-full">
                   {unreadCount}
                 </span>
               )}
             </div>
           )}
 
-          {user ? (
-            <>
-              <Button variant="ghost" size="sm" onClick={goToDashboard}>
-                Dashboard
-              </Button>
+          {/* PROFILE */}
+          {user && (
+            <div className="relative">
 
-              <Button size="sm" variant="outline" onClick={handleLogout}>
-                Logout
-              </Button>
-            </>
-          ) : (
+              {/* PROFILE BUTTON */}
+              <div
+                onClick={() => setDropdown(!dropdown)}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                {/* ✅ AVATAR FROM DB */}
+                <img
+                  src={profile?.avatar_url || "https://i.pravatar.cc/100"}
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+
+                {/* ✅ USERNAME FROM DB (NO @) */}
+                <span className="text-sm">
+                  {profile?.full_name || user?.email?.split("@")[0]}
+                </span>
+              </div>
+
+              {/* DROPDOWN */}
+              {dropdown && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border rounded-xl shadow-lg p-3">
+
+                  <p className="font-semibold">
+                    {profile?.full_name || "User"}
+                  </p>
+
+                  <p className="text-xs text-gray-500 mb-2">
+                    {user?.email}
+                  </p>
+
+                  <hr className="my-2" />
+
+                  <div className="space-y-1 text-sm">
+
+                    <div
+                      onClick={() => {
+                        navigate("/dashboard");
+                        setDropdown(false);
+                      }}
+                      className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                    >
+                      <LayoutDashboard size={16} />
+                      Dashboard
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        navigate("/messages");
+                        setDropdown(false);
+                      }}
+                      className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                    >
+                      <Inbox size={16} />
+                      Inbox
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        navigate("/profile-settings");
+                        setDropdown(false);
+                      }}
+                      className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                    >
+                      <Settings size={16} />
+                      Profile Settings
+                    </div>
+
+                    <div
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 p-2 hover:bg-red-50 rounded text-red-500 cursor-pointer"
+                    >
+                      <LogOut size={16} />
+                      Log out
+                    </div>
+
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!user && (
             <>
-              <Button variant="ghost" size="sm" asChild>
+              <Button asChild variant="ghost">
                 <Link to="/auth?mode=login">Log In</Link>
               </Button>
-
-              <Button size="sm" asChild>
+              <Button asChild>
                 <Link to="/auth?mode=signup">Sign Up</Link>
               </Button>
             </>
@@ -234,32 +257,15 @@ const Navbar = () => {
 
               {user ? (
                 <>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      goToMessages();
-                      setOpen(false);
-                    }}
-                  >
-                    Messages ({unreadCount})
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      goToDashboard();
-                      setOpen(false);
-                    }}
-                  >
+                  <Button onClick={() => navigate("/dashboard")}>
                     Dashboard
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      handleLogout();
-                      setOpen(false);
-                    }}
-                  >
+                  <Button onClick={() => navigate("/messages")}>
+                    Messages ({unreadCount})
+                  </Button>
+
+                  <Button variant="outline" onClick={handleLogout}>
                     Logout
                   </Button>
                 </>
@@ -274,7 +280,6 @@ const Navbar = () => {
                   </Button>
                 </>
               )}
-
             </div>
           </SheetContent>
         </Sheet>
