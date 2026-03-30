@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 /* ✅ NEW */
 import { ProfileProvider } from "@/context/ProfileContext";
+import HowItWorks from "./pages/HowItWorks";
+import SellerProfile from "./pages/SellerProfile";
 
 /* PUBLIC */
 import Index from "./pages/Index";
@@ -87,6 +89,10 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+           
+             {/* ================= SELLER PROFILE ================= */}
+             
+            <Route path="/seller/:id" element={<SellerProfile />} />
 
             {/* ================= CREATE LISTING ================= */}
             <Route
@@ -127,6 +133,9 @@ const App = () => (
                 </AdminRoute>
               }
             />
+            {/* ================= How it works ================= */}
+
+            <Route path="/how-it-works" element={<HowItWorks />} />
 
             {/* ================= INSPECTOR ================= */}
             <Route

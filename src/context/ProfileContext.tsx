@@ -8,48 +8,107 @@ export const ProfileProvider = ({ children }: any) => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  /* ================= LOAD PROFILE ================= */
   const loadProfile = async () => {
-    const { data } = await supabase.auth.getUser();
-    const currentUser = data.user;
+    try {
+      setLoading(true);
 
-    setUser(currentUser);
+      const { data, error } = await supabase.auth.getUser();
 
-    if (!currentUser) {
-      setProfile(null);
+      if (error) {
+        console.error("Auth error:", error.message);
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      const currentUser = data.user;
+      setUser(currentUser);
+
+      if (!currentUser) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .single();
+
+      if (profileError) {
+        console.error("Profile fetch error:", profileError.message);
+        setProfile(null);
+      } else {
+        setProfile(profileData);
+      }
+
       setLoading(false);
-      return;
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setLoading(false);
     }
-
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", currentUser.id)
-      .single();
-
-    setProfile(profileData);
-    setLoading(false);
   };
 
+  /* ================= INIT ================= */
   useEffect(() => {
     loadProfile();
 
-    // 🔥 auto update when auth changes
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
       loadProfile();
     });
 
     return () => {
-      listener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
+  }, []);
+
+  /* ================= ONLINE STATUS (FIXED LOCATION) ================= */
+  useEffect(() => {
+    const updatePresence = async () => {
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user;
+
+      if (!currentUser) return;
+
+      await supabase
+        .from("profiles")
+        .update({ last_seen: new Date() })
+        .eq("id", currentUser.id);
+    };
+
+    updatePresence();
+
+    const interval = setInterval(updatePresence, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <ProfileContext.Provider
-      value={{ user, profile, refreshProfile: loadProfile, loading }}
+      value={{
+        user,
+        profile,
+        loading,
+        refreshProfile: loadProfile,
+      }}
     >
       {children}
     </ProfileContext.Provider>
   );
 };
 
-export const useProfile = () => useContext(ProfileContext);
+/* ================= HOOK ================= */
+export const useProfile = () => {
+  const context = useContext(ProfileContext);
+
+  if (!context) {
+    throw new Error("useProfile must be used inside ProfileProvider");
+  }
+
+  return context;
+};

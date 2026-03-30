@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   Menu,
-  Shield,
   MessageCircle,
   LayoutDashboard,
   Inbox,
@@ -12,8 +11,6 @@ import {
   LogOut
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-
-/* ✅ NEW */
 import { useProfile } from "@/context/ProfileContext";
 
 const navLinks = [
@@ -25,12 +22,13 @@ const navLinks = [
 ];
 
 const Navbar = () => {
-  /* ✅ GLOBAL USER + PROFILE */
   const { user, profile } = useProfile();
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [dropdown, setDropdown] = useState(false);
+
+  const dropdownRef = useRef<any>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,35 +37,48 @@ const Navbar = () => {
   const fetchUnreadChats = async (currentUser: any) => {
     if (!currentUser) return;
 
-    const { data: conversations } = await supabase
-      .from("chat_conversations")
-      .select("id")
-      .or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`);
+    try {
+      const { data: conversations } = await supabase
+        .from("chat_conversations")
+        .select("id")
+        .or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`);
 
-    const convoIds = conversations?.map((c: any) => c.id) || [];
+      const convoIds = conversations?.map((c: any) => c.id) || [];
 
-    if (convoIds.length === 0) {
-      setUnreadCount(0);
-      return;
+      if (convoIds.length === 0) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const { data: msgs } = await supabase
+        .from("chat_messages")
+        .select("conversation_id")
+        .in("conversation_id", convoIds)
+        .eq("is_read", false)
+        .neq("sender_id", currentUser.id);
+
+      const uniqueChats = new Set(msgs?.map((m: any) => m.conversation_id));
+      setUnreadCount(uniqueChats.size);
+    } catch (err) {
+      console.error("Unread fetch error:", err);
     }
-
-    const { data: msgs } = await supabase
-      .from("chat_messages")
-      .select("conversation_id")
-      .in("conversation_id", convoIds)
-      .eq("is_read", false)
-      .neq("sender_id", currentUser.id);
-
-    const uniqueChats = new Set(msgs?.map((m: any) => m.conversation_id));
-    setUnreadCount(uniqueChats.size);
   };
 
-  /* ✅ UPDATE WHEN USER CHANGES */
+  /* ================= EFFECTS ================= */
   useEffect(() => {
-    if (user) {
-      fetchUnreadChats(user);
-    }
+    if (user) fetchUnreadChats(user);
   }, [user]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: any) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   /* ================= ACTIONS ================= */
   const handleLogout = async () => {
@@ -96,10 +107,21 @@ const Navbar = () => {
     <header className="sticky top-0 z-50 bg-white border-b">
       <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
 
-        {/* LOGO */}
-        <Link to="/" className="flex items-center gap-2 text-xl font-bold">
-          <Shield className="h-6 w-6 text-blue-600" />
-          VerifyCar
+        {/* ✅ UPDATED LOGO */}
+        <Link
+          to="/"
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <img
+            src="/logo.png"
+            alt="1ntel"
+            className="h-9 w-auto object-contain"
+          />
+
+          {/* Optional styled text */}
+          <span className="text-xl font-bold tracking-tight">
+            <span className="text-blue-600"></span>
+          </span>
         </Link>
 
         {/* NAV LINKS */}
@@ -108,7 +130,7 @@ const Navbar = () => {
             <button
               key={link.label}
               onClick={() => handleNavigation(link.href)}
-              className="text-sm hover:text-blue-600"
+              className="text-sm hover:text-blue-600 transition"
             >
               {link.label}
             </button>
@@ -136,20 +158,23 @@ const Navbar = () => {
 
           {/* PROFILE */}
           {user && (
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
 
-              {/* PROFILE BUTTON */}
               <div
                 onClick={() => setDropdown(!dropdown)}
                 className="flex items-center gap-2 cursor-pointer"
               >
-                {/* ✅ AVATAR FROM DB */}
-                <img
-                  src={profile?.avatar_url || "https://i.pravatar.cc/100"}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-black text-white flex items-center justify-center rounded-full text-sm">
+                    {(profile?.full_name || user?.email?.[0] || "U")[0].toUpperCase()}
+                  </div>
+                )}
 
-                {/* ✅ USERNAME FROM DB (NO @) */}
                 <span className="text-sm">
                   {profile?.full_name || user?.email?.split("@")[0]}
                 </span>
@@ -157,7 +182,7 @@ const Navbar = () => {
 
               {/* DROPDOWN */}
               {dropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border rounded-xl shadow-lg p-3">
+                <div className="absolute right-0 mt-2 w-56 bg-white border rounded-xl shadow-lg p-3 z-50">
 
                   <p className="font-semibold">
                     {profile?.full_name || "User"}

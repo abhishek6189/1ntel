@@ -6,8 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 const Messages = () => {
 
   const [conversations, setConversations] = useState<any[]>([]);
+  const [filtered, setFiltered] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   const navigate = useNavigate();
 
@@ -34,14 +36,12 @@ const Messages = () => {
       const enriched = await Promise.all(
         convos.map(async (c: any) => {
 
-          /* CAR */
           const { data: car } = await supabase
             .from("cars")
             .select("title, image_url")
             .eq("id", c.car_id)
             .single();
 
-          /* LAST MESSAGE */
           const { data: lastMsg } = await client
             .from("chat_messages")
             .select("*")
@@ -50,17 +50,15 @@ const Messages = () => {
             .limit(1)
             .maybeSingle();
 
-          /* USER NAME (OTHER PERSON) */
           const otherUserId =
             c.buyer_id === currentUser.id ? c.seller_id : c.buyer_id;
 
           const { data: profile } = await supabase
             .from("profiles")
-            .select("username")
+            .select("username, full_name, avatar_url, last_seen")
             .eq("id", otherUserId)
             .single();
 
-          /* UNREAD COUNT */
           const { count } = await client
             .from("chat_messages")
             .select("*", { count: "exact", head: true })
@@ -79,6 +77,7 @@ const Messages = () => {
       );
 
       setConversations(enriched);
+      setFiltered(enriched);
       setLoading(false);
     };
 
@@ -86,16 +85,65 @@ const Messages = () => {
 
   }, []);
 
+  /* SEARCH */
+  useEffect(() => {
+    if (!search) {
+      setFiltered(conversations);
+    } else {
+      const s = search.toLowerCase();
+
+      setFiltered(
+        conversations.filter((c) =>
+          (c.profile?.username || "")
+            .toLowerCase()
+            .includes(s) ||
+          (c.profile?.full_name || "")
+            .toLowerCase()
+            .includes(s) ||
+          (c.car?.title || "")
+            .toLowerCase()
+            .includes(s)
+        )
+      );
+    }
+  }, [search, conversations]);
+
   /* FORMAT TIME */
   const formatTime = (date: string) => {
     if (!date) return "";
-
     const d = new Date(date);
-
     return d.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit"
     });
+  };
+
+  /* ONLINE */
+  const isOnline = (lastSeen: string) => {
+    if (!lastSeen) return false;
+    return Date.now() - new Date(lastSeen).getTime() < 15000;
+  };
+
+  /* NAME FIX */
+  const getName = (profile: any) => {
+    return (
+      profile?.username ||
+      profile?.full_name ||
+      "User"
+    );
+  };
+
+  /* MESSAGE PREVIEW */
+  const getPreview = (msg: any) => {
+    if (!msg) return "Start conversation";
+
+    if (msg.file_url) {
+      if (msg.file_type?.startsWith("image")) return "📷 Photo";
+      if (msg.file_type?.startsWith("audio")) return "🎤 Voice message";
+      return "📎 File";
+    }
+
+    return msg.message;
   };
 
   return (
@@ -103,79 +151,100 @@ const Messages = () => {
 
       <Navbar />
 
-      <div className="max-w-4xl mx-auto p-3 sm:p-4">
+      <div className="max-w-4xl mx-auto px-2 sm:px-4 py-3">
 
         {/* HEADER */}
-        <h1 className="text-xl sm:text-2xl font-bold mb-4">
-          Messages
-        </h1>
+        <div className="sticky top-16 bg-gray-100 z-10 pb-3">
+          <h1 className="text-xl sm:text-2xl font-bold mb-3">
+            Messages
+          </h1>
+
+          <input
+            placeholder="Search chats..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-4 py-2 rounded-full bg-white border outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+          />
+        </div>
 
         {/* LOADING */}
         {loading ? (
-          <p className="text-center text-gray-500">Loading chats...</p>
-        ) : conversations.length === 0 ? (
-          /* EMPTY STATE */
+          <p className="text-center text-gray-500 mt-10">
+            Loading chats...
+          </p>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-gray-400 text-lg">
               No conversations yet 🚀
             </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Start chatting from any car listing
-            </p>
           </div>
         ) : (
-          <div className="space-y-2 sm:space-y-3">
+          <div className="space-y-2 mt-3">
 
-            {conversations.map((c) => {
+            {filtered.map((c) => {
 
               const isUnread = c.unread > 0;
+              const online = isOnline(c.profile?.last_seen);
 
               return (
                 <div
                   key={c.id}
                   onClick={() => navigate(`/chat/${c.id}`)}
-                  className={`bg-white p-3 sm:p-4 rounded-xl flex gap-3 items-center cursor-pointer transition hover:shadow ${
+                  className={`bg-white p-3 sm:p-4 rounded-xl flex items-center gap-3 cursor-pointer transition hover:shadow-md active:scale-[0.99] ${
                     isUnread ? "border-l-4 border-blue-500" : ""
                   }`}
                 >
 
-                  {/* IMAGE */}
-                  <img
-                    src={c.car?.image_url || "/placeholder.png"}
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover"
-                  />
+                  {/* AVATAR */}
+                  <div className="relative flex-shrink-0">
+                    {c.profile?.avatar_url ? (
+                      <img
+                        src={c.profile.avatar_url}
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white flex items-center justify-center rounded-full font-semibold">
+                        {getName(c.profile)[0].toUpperCase()}
+                      </div>
+                    )}
+
+                    {online && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                    )}
+                  </div>
 
                   {/* CONTENT */}
                   <div className="flex-1 min-w-0">
 
-                    {/* TOP ROW */}
                     <div className="flex justify-between items-center">
 
-                      <p className="font-semibold truncate text-sm sm:text-base">
-                        {c.profile?.username || "User"}
+                      <p className={`truncate text-sm sm:text-base ${
+                        isUnread ? "font-bold" : "font-semibold"
+                      }`}>
+                        {getName(c.profile)}
                       </p>
 
-                      <p className="text-xs text-gray-400">
+                      <p className="text-[10px] sm:text-xs text-gray-400 ml-2 whitespace-nowrap">
                         {formatTime(c.lastMsg?.created_at)}
                       </p>
 
                     </div>
 
-                    {/* CAR NAME */}
                     <p className="text-xs text-gray-500 truncate">
                       {c.car?.title || "Car"}
                     </p>
 
-                    {/* LAST MESSAGE */}
-                    <p className="text-sm text-gray-600 truncate mt-1">
-                      {c.lastMsg?.message || "Start conversation"}
+                    <p className={`text-xs sm:text-sm truncate mt-1 ${
+                      isUnread ? "font-semibold text-black" : "text-gray-600"
+                    }`}>
+                      {getPreview(c.lastMsg)}
                     </p>
 
                   </div>
 
-                  {/* UNREAD BADGE */}
+                  {/* UNREAD */}
                   {isUnread && (
-                    <div className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                    <div className="bg-blue-600 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full font-semibold">
                       {c.unread}
                     </div>
                   )}

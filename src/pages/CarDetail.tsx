@@ -1,13 +1,22 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Heart, MessageCircle } from "lucide-react";
+
+import {
+  ArrowLeft,
+  Heart,
+  MessageCircle,
+  Fuel,
+  Settings,
+  Gauge,
+  MapPin,
+  Car as CarIcon,
+} from "lucide-react";
 
 const CarDetail = () => {
-
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -17,20 +26,15 @@ const CarDetail = () => {
 
   const [saved, setSaved] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [alreadyRequested, setAlreadyRequested] = useState(false);
-
   const [seller, setSeller] = useState<any>(null);
   const [views, setViews] = useState(0);
 
   const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
-
     const load = async () => {
-
       if (!id) return;
 
-      /* CAR */
       const { data: carData } = await supabase
         .from("cars")
         .select("*")
@@ -38,10 +42,8 @@ const CarDetail = () => {
         .single();
 
       if (!carData) return;
-
       setCar(carData);
 
-      /* IMAGES */
       const { data: imgs } = await supabase
         .from("car_images")
         .select("*")
@@ -50,11 +52,8 @@ const CarDetail = () => {
       if (imgs?.length) {
         setImages(imgs);
         setActiveImage(imgs[0].image_url);
-      } else {
-        setActiveImage(carData.image_url);
       }
 
-      /* USER */
       const { data: userData } = await supabase.auth.getUser();
       const currentUser = userData.user;
 
@@ -69,29 +68,18 @@ const CarDetail = () => {
           .maybeSingle();
 
         setSaved(!!savedData);
-
-        const { data: inspection } = await supabase
-          .from("inspection_requests")
-          .select("*")
-          .eq("buyer_id", currentUser.id)
-          .eq("car_id", id)
-          .maybeSingle();
-
-        setAlreadyRequested(!!inspection);
       }
 
-      /* SELLER */
       if (carData?.seller_id) {
         const { data: sellerData } = await supabase
           .from("profiles")
-          .select("full_name, email, phone, is_verified")
+          .select("*")
           .eq("id", carData.seller_id)
           .single();
 
         setSeller(sellerData);
       }
 
-      /* VIEWS */
       try {
         await (supabase as any).from("car_views").insert({ car_id: id });
       } catch {}
@@ -107,10 +95,8 @@ const CarDetail = () => {
     };
 
     load();
-
   }, [id]);
 
-  /* SAVE */
   const toggleSave = async () => {
     if (!user) return alert("Login first");
 
@@ -120,116 +106,74 @@ const CarDetail = () => {
         .delete()
         .eq("car_id", id)
         .eq("user_id", user.id);
-
       setSaved(false);
     } else {
       await supabase
         .from("saved_cars")
         .insert({ car_id: id, user_id: user.id });
-
       setSaved(true);
     }
   };
 
-  /* INSPECTION */
-  const requestInspection = async () => {
-    if (!user) return alert("Login first");
-    if (alreadyRequested) return;
-
-    await supabase.from("inspection_requests").insert({
-      car_id: id,
-      buyer_id: user.id
-    });
-
-    setAlreadyRequested(true);
-  };
-
-  /* CHAT SYSTEM (FINAL FIXED) */
   const contactSeller = async () => {
-
-    if (!user) {
-      alert("Please login first");
-      return;
-    }
-
-    if (!car?.seller_id) {
-      alert("Seller not available");
-      return;
-    }
-
-    if (!car?.id) {
-      alert("Invalid car");
-      return;
-    }
+    if (!user) return alert("Login first");
 
     setChatLoading(true);
 
-    try {
+    const { data: existing } = await (supabase as any)
+      .from("chat_conversations")
+      .select("*")
+      .eq("buyer_id", user.id)
+      .eq("seller_id", car.seller_id)
+      .eq("car_id", car.id)
+      .maybeSingle();
 
-      /* CHECK EXISTING */
-      const { data: existing, error } = await (supabase as any)
+    let convo = existing;
+
+    if (!convo) {
+      const { data } = await (supabase as any)
         .from("chat_conversations")
-        .select("*")
-        .eq("buyer_id", user.id)
-        .eq("seller_id", car.seller_id)
-        .eq("car_id", car.id)
-        .maybeSingle();
+        .insert({
+          buyer_id: user.id,
+          seller_id: car.seller_id,
+          car_id: car.id,
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
-
-      let convo = existing;
-
-      /* CREATE NEW */
-      if (!convo) {
-        const { data: newConvo, error: insertError } = await (supabase as any)
-          .from("chat_conversations")
-          .insert({
-            buyer_id: user.id,
-            seller_id: car.seller_id,
-            car_id: car.id
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        convo = newConvo;
-      }
-
-      /* NAVIGATE */
-      navigate(`/chat/${convo.id}`);
-
-    } catch (err: any) {
-      console.error("CHAT ERROR:", err);
-      alert(err.message || "Failed to start chat");
-    } finally {
-      setChatLoading(false);
+      convo = data;
     }
+
+    navigate(`/chat/${convo.id}`);
+    setChatLoading(false);
   };
 
   if (!car) return <div className="p-20 text-center">Loading...</div>;
 
   return (
-    <div className="min-h-screen">
-
+    <div className="min-h-screen bg-gray-50 pb-20">
       <Navbar />
 
-      <div className="container py-8 max-w-7xl">
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
 
-        <Link to="/browse" className="flex items-center gap-2 mb-6">
-          <ArrowLeft size={16} />
-          Back
-        </Link>
+        {/* BACK */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 mb-4 text-sm text-gray-600"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
 
-        <div className="grid lg:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-10">
 
           {/* LEFT */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
 
+            {/* IMAGE */}
             <div className="relative">
               <img
                 src={activeImage}
-                className="w-full h-[420px] object-cover rounded-xl"
+                className="w-full h-[250px] sm:h-[320px] lg:h-[420px] object-cover rounded-xl"
               />
 
               <button
@@ -240,7 +184,8 @@ const CarDetail = () => {
               </button>
             </div>
 
-            <div className="flex gap-3 mt-3 overflow-x-auto">
+            {/* THUMBNAILS */}
+            <div className="flex gap-3 overflow-x-auto pb-2">
               {images.map((img: any) => (
                 <img
                   key={img.id}
@@ -251,40 +196,109 @@ const CarDetail = () => {
               ))}
             </div>
 
-            <div className="mt-6">
-              <h1 className="text-3xl font-bold">{car.title}</h1>
+            {/* TITLE + BADGES */}
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">
+                {car.title}
+              </h1>
 
-              <p className="text-3xl text-primary font-bold mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {car.is_verified && (
+                  <span className="bg-green-100 text-green-700 px-2 py-1 text-xs rounded">
+                    Verified
+                  </span>
+                )}
+
+                {car.mileage < 20000 && (
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 text-xs rounded">
+                    Low Mileage
+                  </span>
+                )}
+              </div>
+
+              <p className="text-2xl sm:text-3xl font-bold text-primary mt-2">
                 ${Number(car.price).toLocaleString()}
               </p>
 
-              <p className="text-sm text-orange-500 mt-2">
-                🔥 {views} total views
+              <p className="text-sm text-gray-500">
+                👀 {views} views
+              </p>
+            </div>
+
+            {/* QUICK SPECS */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white border rounded-xl p-4">
+              <Spec icon={<Fuel />} label="Fuel" value={car.fuel_type} />
+              <Spec icon={<Settings />} label="Gear" value={car.transmission} />
+              <Spec icon={<Gauge />} label="Mileage" value={`${car.mileage} km`} />
+              <Spec icon={<MapPin />} label="Location" value={car.location} />
+            </div>
+
+            {/* FULL DETAILS */}
+            <div className="bg-white border rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <Detail label="Make" value={car.make} />
+              <Detail label="Model" value={car.model} />
+              <Detail label="Year" value={car.year} />
+              <Detail label="Body Type" value={car.body_type} />
+              <Detail label="Drivetrain" value={car.drivetrain} />
+              <Detail label="Condition" value={car.condition} />
+              <Detail label="Exterior Color" value={car.exterior_color} />
+              <Detail label="Interior Color" value={car.interior_color} />
+              <Detail label="VIN" value={car.vin} />
+            </div>
+
+            {/* DESCRIPTION */}
+            <div className="bg-white border rounded-xl p-6">
+              <h3 className="font-semibold mb-2">Description</h3>
+              <p className="text-sm text-gray-600">
+                {car.description || "No description provided"}
               </p>
             </div>
 
           </div>
 
           {/* RIGHT */}
-          <div className="sticky top-24 h-fit">
+          <div className="space-y-4 lg:sticky lg:top-24">
 
-            <div className="glass p-6 rounded-xl space-y-4">
+            <div className="bg-white border rounded-xl p-6 space-y-4">
 
-              <Button onClick={requestInspection} disabled={alreadyRequested}>
-                {alreadyRequested ? "Inspection Requested" : "Request Inspection ($50)"}
-              </Button>
-
-              <Button onClick={contactSeller} disabled={chatLoading}>
+              <Button className="w-full" onClick={contactSeller}>
                 <MessageCircle className="mr-2 h-4 w-4" />
-                {chatLoading ? "Opening Chat..." : "Chat with Seller"}
+                Chat with Seller
               </Button>
 
-              <div className="border-t pt-4 text-sm">
-                <p className="font-semibold">{seller?.full_name}</p>
-                <p>{seller?.email}</p>
-                <p>
-                  {seller?.is_verified ? "✅ Verified Dealer" : "Not Verified"}
-                </p>
+              <div className="border-t pt-4 space-y-3">
+
+                <div className="flex items-center gap-3">
+                  <img
+                    src={seller?.avatar_url || "https://i.pravatar.cc/100"}
+                    className="w-10 h-10 rounded-full"
+                  />
+
+                  <div>
+                    <p className="font-semibold">
+                      {seller?.full_name || "User"}
+                    </p>
+
+                    <p className="text-xs text-gray-500">
+                      {seller?.is_verified ? "Verified Seller" : "Not Verified"}
+                    </p>
+                  </div>
+                </div>
+
+                {seller?.phone && (
+                  <p className="text-sm text-gray-600">
+                    📞 {seller.phone}
+                  </p>
+                )}
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate(`/seller/${car.seller_id}`)}
+                >
+                  View Seller Profile
+                </Button>
+
               </div>
 
             </div>
@@ -295,10 +309,36 @@ const CarDetail = () => {
 
       </div>
 
-      <Footer />
+      {/* MOBILE CTA */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex gap-3 lg:hidden">
+        <Button className="w-1/2" onClick={toggleSave}>
+          {saved ? "Saved ❤️" : "Save"}
+        </Button>
 
+        <Button className="w-1/2" onClick={contactSeller}>
+          Chat
+        </Button>
+      </div>
+
+      <Footer />
     </div>
   );
 };
+
+/* COMPONENTS */
+const Detail = ({ label, value }: any) => (
+  <div>
+    <p className="text-gray-500 text-xs">{label}</p>
+    <p className="font-medium">{value || "-"}</p>
+  </div>
+);
+
+const Spec = ({ icon, label, value }: any) => (
+  <div className="flex flex-col items-center text-center">
+    <div className="mb-1 text-primary">{icon}</div>
+    <p className="text-xs text-gray-500">{label}</p>
+    <p className="font-medium text-sm">{value || "-"}</p>
+  </div>
+);
 
 export default CarDetail;

@@ -19,6 +19,7 @@ import { toast } from "sonner";
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [cars, setCars] = useState<any[]>([]);
+  const [savedCars, setSavedCars] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,10 +60,19 @@ export default function Dashboard() {
       .order("created_at", { ascending: false });
 
     setCars(carsData || []);
+
+    // ✅ SAVED CARS
+    const { data: savedData } = await supabase
+      .from("saved_cars")
+      .select(`car_id, cars (*, car_images (image_url))`)
+      .eq("user_id", currentUser.id);
+
+    setSavedCars(savedData || []);
+
     setLoading(false);
   };
 
-  /* ================= DELETE ================= */
+  /* DELETE */
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this listing?")) return;
 
@@ -71,24 +81,17 @@ export default function Dashboard() {
     toast.success("Deleted");
   };
 
-  /* ================= PLAN LOGIC ================= */
-  const PLAN_LIMITS: any = {
-    free: 2,
-    garage: 10,
-    dealer: 35,
-  };
-
+  /* PLAN */
+  const PLAN_LIMITS: any = { free: 2, garage: 10, dealer: 35 };
   const plan = profile?.plan || "free";
   const LIMIT = PLAN_LIMITS[plan];
-
   const isLimitReached = cars.length >= LIMIT;
 
-  /* ================= STATS ================= */
+  /* STATS */
   const active = cars.filter((c) => c.status !== "sold").length;
   const verified = cars.filter((c) => c.is_verified).length;
   const sold = cars.filter((c) => c.status === "sold").length;
 
-  // 💰 ONLY PLATFORM SALES
   const totalValue = cars
     .filter((c) => c.status === "sold" && c.sold_source === "platform")
     .reduce((a, c) => a + (c.price || 0), 0);
@@ -102,11 +105,11 @@ export default function Dashboard() {
       <div className="max-w-6xl mx-auto px-4 py-10">
 
         {/* HEADER */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="text-gray-500">
-              Welcome back, {user?.email?.split("@")[0]}
+              Welcome back, {profile?.full_name || user?.email?.split("@")[0]}
             </p>
           </div>
 
@@ -122,7 +125,7 @@ export default function Dashboard() {
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Stat icon={<Car />} label="Active" value={active} color="bg-blue-100 text-blue-600" />
           <Stat icon={<CheckCircle />} label="Verified" value={verified} color="bg-green-100 text-green-600" />
           <Stat icon={<Eye />} label="Sold" value={sold} color="bg-purple-100 text-purple-600" />
@@ -130,18 +133,16 @@ export default function Dashboard() {
         </div>
 
         {/* TABS */}
-        <div className="flex gap-3 mb-4">
-          <Button
-            variant={activeTab === "listings" ? "secondary" : "ghost"}
-            onClick={() => setActiveTab("listings")}
-          >
+        <div className="flex gap-3 mb-4 overflow-x-auto">
+          <Button variant={activeTab === "listings" ? "secondary" : "ghost"} onClick={() => setActiveTab("listings")}>
             My Listings
           </Button>
 
-          <Button
-            variant={activeTab === "settings" ? "secondary" : "ghost"}
-            onClick={() => setActiveTab("settings")}
-          >
+          <Button variant={activeTab === "saved" ? "secondary" : "ghost"} onClick={() => setActiveTab("saved")}>
+            Saved Cars
+          </Button>
+
+          <Button variant={activeTab === "settings" ? "secondary" : "ghost"} onClick={() => setActiveTab("settings")}>
             Settings
           </Button>
         </div>
@@ -149,16 +150,12 @@ export default function Dashboard() {
         {/* ================= LISTINGS ================= */}
         {activeTab === "listings" && (
           <>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-4">
               <h3 className="font-semibold">Your Listings</h3>
 
-              {/* 🔥 MAIN FIX HERE */}
               {isLimitReached ? (
-                <Button
-                  className="bg-red-500 hover:bg-red-600"
-                  onClick={() => navigate("/pricing")}
-                >
-                  Upgrade your plan to list more cars 🚀
+                <Button className="bg-red-500" onClick={() => navigate("/pricing")}>
+                  Upgrade your plan 🚀
                 </Button>
               ) : (
                 <Button onClick={() => navigate("/dashboard/create-listing")}>
@@ -168,116 +165,102 @@ export default function Dashboard() {
               )}
             </div>
 
-            {cars.length === 0 ? (
-              <div className="border rounded-xl py-16 text-center bg-white">
-                <Car className="mx-auto text-gray-400 mb-4" />
-                <p className="font-semibold text-lg">No listings yet</p>
+            <div className="space-y-4">
+              {cars.map((car) => (
+                <div key={car.id} className="bg-white border rounded-xl p-4 flex flex-col md:flex-row gap-4">
 
-                {isLimitReached ? (
-                  <Button onClick={() => navigate("/pricing")}>
-                    Upgrade your plan 🚀
-                  </Button>
-                ) : (
-                  <Button
-                    className="mt-4"
-                    onClick={() => navigate("/dashboard/create-listing")}
-                  >
-                    + List a Car
-                  </Button>
-                )}
+                  <img
+                    src={car.car_images?.[0]?.image_url || "https://via.placeholder.com/150"}
+                    className="w-full md:w-32 h-32 object-cover rounded-lg"
+                  />
+
+                  <div className="flex-1">
+                    <h4 className="font-semibold">{car.title}</h4>
+                    <p className="text-sm text-gray-500">{car.location} • {car.year}</p>
+                    <p className="font-bold">${car.price}</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Badge>{car.status || "active"}</Badge>
+
+                    {car.status !== "sold" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const source = prompt("platform or external?");
+                          if (!source) return;
+
+                          await supabase
+                            .from("cars")
+                            .update({
+                              status: "sold",
+                              sold_source: source.toLowerCase(),
+                            })
+                            .eq("id", car.id);
+
+                          loadData();
+                        }}
+                      >
+                        Mark Sold
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button size="icon" variant="ghost" onClick={() => navigate(`/car/${car.id}`)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+
+                    <Button size="icon" variant="ghost" onClick={() => navigate(`/dashboard/create-listing?edit=${car.id}`)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+
+                    <Button size="icon" variant="ghost" onClick={() => handleDelete(car.id)}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ================= SAVED ================= */}
+        {activeTab === "saved" && (
+          <div className="space-y-4">
+            <h3 className="font-semibold">Saved Cars</h3>
+
+            {savedCars.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-xl border">
+                No saved cars
               </div>
             ) : (
-              <div className="space-y-4">
-                {cars.map((car) => (
-                  <div
-                    key={car.id}
-                    className="bg-white border rounded-xl p-4 flex gap-4 items-center"
-                  >
-                    {/* IMAGE */}
+              savedCars.map((item: any) => {
+                const car = item.cars;
+
+                return (
+                  <div key={car.id} className="bg-white border rounded-xl p-4 flex flex-col md:flex-row gap-4">
+
                     <img
-                      src={
-                        car.car_images?.[0]?.image_url ||
-                        "https://via.placeholder.com/150"
-                      }
-                      className="w-32 h-24 object-cover rounded-lg"
+                      src={car.car_images?.[0]?.image_url || "https://via.placeholder.com/150"}
+                      className="w-full md:w-32 h-32 object-cover rounded-lg"
                     />
 
-                    {/* INFO */}
                     <div className="flex-1">
                       <h4 className="font-semibold">{car.title}</h4>
-                      <p className="text-sm text-gray-500">
-                        {car.location} • {car.year}
-                      </p>
+                      <p className="text-sm text-gray-500">{car.location} • {car.year}</p>
                       <p className="font-bold">${car.price}</p>
                     </div>
 
-                    {/* STATUS */}
-                    <div className="flex flex-col items-center gap-2">
-                      <Badge className="capitalize">
-                        {car.status || "active"}
-                      </Badge>
-
-                      {/* 🔥 SOLD BUTTON */}
-                      {car.status !== "sold" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            const source = prompt(
-                              "Sold via platform or external?"
-                            );
-
-                            if (!source) return;
-
-                            await supabase
-                              .from("cars")
-                              .update({
-                                status: "sold",
-                                sold_source: source.toLowerCase(),
-                              })
-                              .eq("id", car.id);
-
-                            loadData();
-                          }}
-                        >
-                          Mark Sold
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* ACTIONS */}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate(`/car/${car.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          navigate(`/dashboard/create-listing?edit=${car.id}`)
-                        }
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(car.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
+                    <Button onClick={() => navigate(`/car/${car.id}`)}>
+                      View
+                    </Button>
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
-          </>
+          </div>
         )}
 
         {/* ================= SETTINGS ================= */}
@@ -285,9 +268,9 @@ export default function Dashboard() {
           <div className="bg-white border rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Account Settings</h2>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>Name</div>
-              <div>{user?.email?.split("@")[0]}</div>
+              <div>{profile?.full_name}</div>
 
               <div>Email</div>
               <div>{user?.email}</div>
@@ -296,19 +279,13 @@ export default function Dashboard() {
               <div>{plan}</div>
 
               <div>Listings</div>
-              <div>
-                {cars.length}/{LIMIT}
-              </div>
+              <div>{cars.length}/{LIMIT}</div>
             </div>
 
-            <Button
-              className="mt-6"
-              variant="outline"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                navigate("/auth?mode=login");
-              }}
-            >
+            <Button className="mt-6" variant="outline" onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/auth?mode=login");
+            }}>
               Log Out
             </Button>
           </div>
@@ -320,12 +297,10 @@ export default function Dashboard() {
   );
 }
 
-/* ================= STAT ================= */
+/* STAT */
 const Stat = ({ icon, label, value, color }: any) => (
   <div className="bg-white border rounded-xl p-4 flex items-center gap-3">
-    <div className={`p-2 rounded-lg ${color}`}>
-      {icon}
-    </div>
+    <div className={`p-2 rounded-lg ${color}`}>{icon}</div>
     <div>
       <p className="text-sm text-gray-500">{label}</p>
       <p className="text-xl font-bold">{value}</p>
