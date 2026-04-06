@@ -8,6 +8,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProfileProvider } from "@/context/ProfileContext";
 import HowItWorks from "./pages/HowItWorks";
 import SellerProfile from "./pages/SellerProfile";
+import ProfileSetup from "@/pages/ProfileSetup";
+import DealerPending from "@/pages/dealer/DealerPending";
+import DealerSetup from "@/pages/dealer/DealerSetup";
+import DealerRegistration from "@/pages/dealer/DealerSetup";
+import DealerAuth from "@/pages/dealer/DealerAuth";
 
 /* PUBLIC */
 import Index from "./pages/Index";
@@ -25,6 +30,14 @@ import Dashboard from "./pages/dashboard/Dashboard";
 import DealerDashboard from "./pages/dashboard/DealerDashboard";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
 import InspectorDashboard from "./pages/dashboard/InspectorDashboard";
+
+/* 🔥 NEW DEALER SYSTEM */
+import DealerLayout from "@/layouts/DealerLayout";
+import DealerListings from "@/pages/dealer/DealerListings";
+
+/* ✅ ADD THESE (IMPORTANT FIX) */
+import DealerMessages from "@/pages/dealer/DealerMessages";
+import DealerAnalytics from "@/pages/dealer/DealerAnalytics";
 
 /* 🔥 FIXED IMPORTS */
 import CreateListing from "./pages/CreateListing";
@@ -61,6 +74,10 @@ const App = () => (
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/sell" element={<Pricing />} />
 
+            {/* ================= DEALER AUTH ================= */}
+             <Route path="/dealer-auth" element={<DealerAuth />} />
+             <Route path="/dealer-registration" element={<DealerRegistration />} />
+
             {/* ================= MESSAGING ================= */}
             <Route
               path="/messages"
@@ -89,9 +106,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-           
-             {/* ================= SELLER PROFILE ================= */}
-             
+
+            {/* ================= SELLER PROFILE ================= */}
             <Route path="/seller/:id" element={<SellerProfile />} />
 
             {/* ================= CREATE LISTING ================= */}
@@ -114,15 +130,22 @@ const App = () => (
               }
             />
 
-            {/* ================= DEALER DASHBOARD ================= */}
+            {/* ================= DEALER DASHBOARD (FULL FIX) ================= */}
             <Route
               path="/dealer-dashboard"
               element={
                 <SellerRoute>
-                  <DealerDashboard />
+                  <DealerLayout />
                 </SellerRoute>
               }
-            />
+            >
+              <Route index element={<DealerDashboard />} />
+              <Route path="listings" element={<DealerListings />} />
+
+              {/* ✅ FIXED ROUTES */}
+              <Route path="messages" element={<DealerMessages />} />
+              <Route path="analytics" element={<DealerAnalytics />} />
+            </Route>
 
             {/* ================= ADMIN ================= */}
             <Route
@@ -133,8 +156,8 @@ const App = () => (
                 </AdminRoute>
               }
             />
-            {/* ================= How it works ================= */}
 
+            {/* ================= HOW IT WORKS ================= */}
             <Route path="/how-it-works" element={<HowItWorks />} />
 
             {/* ================= INSPECTOR ================= */}
@@ -149,6 +172,16 @@ const App = () => (
 
             {/* ================= 404 ================= */}
             <Route path="*" element={<NotFound />} />
+
+            <Route
+             path="/dealer-dashboard/chat/:id"
+             element={<ChatPage hideNavbar />}
+            />
+
+            <Route path="/profile-setup" element={<ProfileSetup />} />
+
+            <Route path="/dealer-profile-setup" element={<DealerSetup />} />
+            <Route path="/dealer-pending" element={<DealerPending />} />
 
           </Routes>
         </BrowserRouter>

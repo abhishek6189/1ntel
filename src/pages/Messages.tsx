@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 
-const Messages = () => {
+const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
   const [conversations, setConversations] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
@@ -118,10 +118,19 @@ const Messages = () => {
     });
   };
 
-  /* ONLINE */
+  /* 🔥 FIXED ONLINE LOGIC */
   const isOnline = (lastSeen: string) => {
     if (!lastSeen) return false;
-    return Date.now() - new Date(lastSeen).getTime() < 15000;
+    return Date.now() - new Date(lastSeen).getTime() < 60000; // 1 min window
+  };
+
+  const formatLastSeen = (lastSeen: string) => {
+    if (!lastSeen) return "";
+    const d = new Date(lastSeen);
+    return `Last seen ${d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    })}`;
   };
 
   /* NAME FIX */
@@ -147,14 +156,15 @@ const Messages = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className={`${hideNavbar ? "h-full" : "min-h-screen bg-gray-100"}`}>
 
-      <Navbar />
+      {/* ✅ CONDITIONAL NAVBAR */}
+      {!hideNavbar && <Navbar />}
 
-      <div className="max-w-4xl mx-auto px-2 sm:px-4 py-3">
+      <div className={`${hideNavbar ? "p-0" : "max-w-4xl mx-auto px-2 sm:px-4 py-3"}`}>
 
         {/* HEADER */}
-        <div className="sticky top-16 bg-gray-100 z-10 pb-3">
+        <div className={`${hideNavbar ? "" : "sticky top-16 bg-gray-100 z-10 pb-3"}`}>
           <h1 className="text-xl sm:text-2xl font-bold mb-3">
             Messages
           </h1>
@@ -229,6 +239,11 @@ const Messages = () => {
                       </p>
 
                     </div>
+
+                    {/* 🔥 LAST SEEN FIX */}
+                    <p className="text-[10px] text-gray-400">
+                      {online ? "Online" : formatLastSeen(c.profile?.last_seen)}
+                    </p>
 
                     <p className="text-xs text-gray-500 truncate">
                       {c.car?.title || "Car"}

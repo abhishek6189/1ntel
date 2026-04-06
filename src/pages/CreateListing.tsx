@@ -112,6 +112,24 @@ export default function CreateListing() {
     setUploading(false);
   };
 
+  /* ================= ROLE BASED NAV ================= */
+  const goToDashboard = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return navigate("/");
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role === "dealer") {
+      navigate("/dealer-dashboard");
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
   /* ================= SUBMIT ================= */
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -148,7 +166,9 @@ export default function CreateListing() {
     }
 
     toast.success("Car Listed Successfully 🚀");
-    navigate("/dashboard");
+
+    /* ✅ FIXED REDIRECT */
+    await goToDashboard();
   };
 
   const dropdowns = [
@@ -178,22 +198,22 @@ export default function CreateListing() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-6xl mx-auto py-10 px-4">
+      <div className="max-w-6xl mx-auto py-6 sm:py-10 px-3 sm:px-4">
 
         {/* HEADER */}
         <div className="flex items-center gap-3 mb-6">
           <Button variant="ghost" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-xl font-semibold">List a New Car</h1>
+          <h1 className="text-lg sm:text-xl font-semibold">List a New Car</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl border space-y-6">
+        <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-xl border space-y-6">
 
           {/* IMAGES */}
           <div>
             <Label>Photos</Label>
-            <label className="border-2 border-dashed p-8 flex flex-col items-center cursor-pointer rounded-lg">
+            <label className="border-2 border-dashed p-6 sm:p-8 flex flex-col items-center cursor-pointer rounded-lg">
               <UploadCloud className="h-8 w-8 text-gray-400" />
               <span className="text-sm text-gray-500">Click to upload</span>
               <input type="file" multiple hidden onChange={(e:any)=>uploadImages(e.target.files)} />
@@ -201,13 +221,13 @@ export default function CreateListing() {
 
             <div className="flex gap-3 mt-4 flex-wrap">
               {images.map((img, i) => (
-                <img key={i} src={img} className="w-24 h-24 object-cover rounded-lg border" />
+                <img key={i} src={img} className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg border" />
               ))}
             </div>
           </div>
 
           {/* BASIC */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Title *" placeholder="2022 Honda Civic EX" onChange={(v)=>update("title",v)} />
             <Field label="Make *" placeholder="Honda" onChange={(v)=>update("make",v)} />
             <Field label="Model *" placeholder="Civic" onChange={(v)=>update("model",v)} />
@@ -219,7 +239,7 @@ export default function CreateListing() {
           </div>
 
           {/* DROPDOWNS */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {dropdowns.map((item) => (
               <div key={item.field}>
                 <Label>{item.label}</Label>
@@ -255,7 +275,7 @@ export default function CreateListing() {
           </div>
 
           {/* COLORS */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Exterior Color" placeholder="Black" onChange={(v)=>update("exterior_color",v)} />
             <Field label="Interior Color" placeholder="Beige" onChange={(v)=>update("interior_color",v)} />
           </div>
@@ -291,12 +311,16 @@ export default function CreateListing() {
           </div>
 
           {/* ACTIONS */}
-          <div className="flex gap-3">
-            <Button type="submit">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button type="submit" className="w-full sm:w-auto">
               {uploading ? "Uploading..." : "Create Listing"}
             </Button>
 
-            <Button variant="outline" onClick={() => navigate("/dashboard")}>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={goToDashboard}
+            >
               Cancel
             </Button>
           </div>

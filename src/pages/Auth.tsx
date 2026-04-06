@@ -3,48 +3,105 @@ import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue
-} from "@/components/ui/select";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
   const isLogin = searchParams.get("mode") !== "signup";
+  const isDealer = searchParams.get("type") === "dealer";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("buyer");
   const [loading, setLoading] = useState(false);
+
+  /* ================= GOOGLE LOGIN ================= */
+  const handleGoogleLogin = async () => {
+    localStorage.setItem("login_role", isDealer ? "dealer" : "buyer");
+
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + "/auth",
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent"
+        }
+      }
+    });
+  };
 
   /* ================= AUTO REDIRECT ================= */
   useEffect(() => {
     const checkUser = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData.session?.user;
+      if (!user) return;
 
-      if (!sessionData.session?.user) return;
-
-      const user = sessionData.session.user;
-
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profile) return;
+      const savedRole = localStorage.getItem("login_role");
+      const role = savedRole === "dealer" ? "dealer" : "buyer";
 
-      if (profile.role === "dealer") {
-        navigate("/dealer-dashboard");
-      } else {
-        navigate("/dashboard");
+      /* ================= FIRST TIME USER ================= */
+      if (!profile) {
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            email: user.email,
+            full_name:
+              user.user_metadata?.full_name ||
+              user.user_metadata?.name ||
+              "",
+            avatar_url:
+              user.user_metadata?.avatar_url ||
+              user.user_metadata?.picture ||
+              "",
+            role,
+            plan: role === "dealer" ? "dealer" : "free",
+            dealer_status: role === "dealer" ? "none" : null
+          });
+
+        if (insertError) {
+          console.error("Profile insert error:", insertError);
+        }
+
+        localStorage.removeItem("login_role");
+
+        if (role === "dealer") {
+          navigate("/dealer-profile-setup");
+        } else {
+          navigate("/profile-setup");
+        }
+
+        return;
       }
+
+      /* ================= EXISTING USER FLOW ================= */
+      if (profile.role === "dealer") {
+
+        if (profile.dealer_status === "pending") {
+          navigate("/dealer-pending");
+          return;
+        }
+
+        if (profile.dealer_status === "approved") {
+          navigate("/dealer-dashboard");
+          return;
+        }
+
+        navigate("/dealer-profile-setup");
+        return;
+      }
+
+      navigate("/dashboard");
     };
 
     checkUser();
@@ -74,14 +131,20 @@ const Auth = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("*")
         .eq("id", user.id)
         .single();
 
-      const userRole = profile?.role || "buyer";
+      if (profile.role === "dealer") {
 
-      if (userRole === "dealer") {
-        navigate("/dealer-dashboard");
+        if (profile.dealer_status === "pending") {
+          navigate("/dealer-pending");
+        } else if (profile.dealer_status === "approved") {
+          navigate("/dealer-dashboard");
+        } else {
+          navigate("/dealer-profile-setup");
+        }
+
       } else {
         navigate("/dashboard");
       }
@@ -91,7 +154,6 @@ const Auth = () => {
     }
 
     /* ================= SIGNUP ================= */
-
     const { data, error } = await supabase.auth.signUp({
       email,
       password
@@ -109,15 +171,20 @@ const Auth = () => {
       return;
     }
 
-    /* ✅ UPSERT PROFILE (SAFE) */
+    const role = isDealer ? "dealer" : "buyer";
+
     const { error: profileError } = await supabase
       .from("profiles")
-      .upsert({
-        id: data.user.id,
-        email: data.user.email,
-        role: role,
-        plan: "free"
-      });
+      .upsert(
+        {
+          id: data.user.id,
+          email: data.user.email,
+          role: role,
+          plan: role === "dealer" ? "dealer" : "free",
+          dealer_status: role === "dealer" ? "none" : null
+        },
+        { onConflict: "id" }
+      );
 
     if (profileError) {
       console.error(profileError);
@@ -126,23 +193,15 @@ const Auth = () => {
       return;
     }
 
-    /* ✅ LOGIN AFTER SIGNUP */
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    await supabase.auth.signInWithPassword({
       email,
       password
     });
 
-    if (loginError) {
-      alert(loginError.message);
-      setLoading(false);
-      return;
-    }
-
-    /* ✅ REDIRECT */
     if (role === "dealer") {
-      navigate("/dealer-dashboard");
+      navigate("/dealer-profile-setup");
     } else {
-      navigate("/dashboard");
+      navigate("/profile-setup");
     }
 
     setLoading(false);
@@ -152,17 +211,36 @@ const Auth = () => {
     <div className="min-h-screen">
       <Navbar />
 
-      <div className="container flex justify-center py-20">
+      <div className="container flex justify-center py-20 px-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="w-full max-w-md"
         >
-          <div className="glass p-8 rounded-xl shadow-lg">
+          <div className="glass p-6 sm:p-8 rounded-xl shadow-lg">
 
-            <h1 className="text-2xl font-bold text-center mb-6">
-              {isLogin ? "Welcome Back" : "Create Account"}
+            <h1 className="text-xl sm:text-2xl font-bold text-center mb-6">
+              {isLogin
+                ? isDealer
+                  ? "Dealer Login"
+                  : "Welcome Back"
+                : isDealer
+                ? "Dealer Signup"
+                : "Create Account"}
             </h1>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2 mb-4"
+              onClick={handleGoogleLogin}
+            >
+              <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                className="w-5 h-5"
+              />
+              Continue with Google
+            </Button>
 
             <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -181,31 +259,43 @@ const Auth = () => {
                 required
               />
 
-              {/* ROLE SELECT */}
-              {!isLogin && (
-                <Select onValueChange={setRole} defaultValue="buyer">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="buyer">Signup as Buyer</SelectItem>
-                    <SelectItem value="dealer">Signup as Dealer</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-
               <Button className="w-full" disabled={loading}>
                 {loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
               </Button>
 
             </form>
 
-            <p className="text-center mt-4 text-sm">
+            {/* 🔥 UPDATED UI ONLY */}
+            <p className="text-center mt-4 text-sm space-y-2">
+
               {isLogin ? (
-                <Link to="/auth?mode=signup">Create account</Link>
+                <Link to="/dealer-auth" className="text-blue-600 font-semibold">
+                  Dealer Login →
+                </Link>
               ) : (
-                <Link to="/auth?mode=login">Already have an account?</Link>
+                <Link to="/dealer-registration" className="text-blue-600 font-semibold">
+                  Want to signup as a Dealer?
+                </Link>
               )}
+
+              <div className="mt-3">
+                {!isDealer ? (
+                  <Link
+                    to={`/auth?mode=${isLogin ? "login" : "signup"}&type=dealer`}
+                    className="text-gray-500"
+                  >
+                    {/* Agr button daalna ho toh */}
+                  </Link>
+                ) : (
+                  <Link
+                    to={`/auth?mode=${isLogin ? "login" : "signup"}`}
+                    className="text-gray-500"
+                  >
+                    ← Back to User
+                  </Link>
+                )}
+              </div>
+
             </p>
 
           </div>

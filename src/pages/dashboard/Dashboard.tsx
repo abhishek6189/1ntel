@@ -52,6 +52,12 @@ export default function Dashboard() {
 
     setProfile(profileData);
 
+    // 🔒 PROFILE SETUP PROTECTION
+    if (!profileData?.profile_completed) {
+    navigate("/profile-setup");
+    return;
+   }
+
     // CARS
     const { data: carsData } = await supabase
       .from("cars")

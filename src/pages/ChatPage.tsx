@@ -17,7 +17,7 @@ import {
   X
 } from "lucide-react";
 
-const ChatPage = () => {
+const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
   const { id } = useParams();
   const navigate = useNavigate();
@@ -80,6 +80,13 @@ const ChatPage = () => {
         .order("created_at", { ascending: true });
 
       setMessages(msgs || []);
+
+      // ✅ MARK ALL AS READ WHEN OPEN CHAT
+         await supabase
+        .from("chat_messages")
+        .update({ is_read: true })
+        .eq("conversation_id", id)
+        .neq("sender_id", currentUser.id);
 
       channel = supabase
         .channel(`chat-${id}`)
@@ -192,7 +199,7 @@ const ChatPage = () => {
 
     const interval = setInterval(() => {
       const diff = Date.now() - new Date(otherUser.last_seen).getTime();
-      setOnline(diff < 15000);
+      setOnline(diff < 60000);
     }, 2000);
 
     return () => clearInterval(interval);
@@ -349,7 +356,7 @@ const ChatPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#efeae2]">
-      <Navbar />
+      {!hideNavbar && <Navbar />}
 
       <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
 

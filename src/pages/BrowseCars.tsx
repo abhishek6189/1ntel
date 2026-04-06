@@ -58,11 +58,13 @@ setLoading(true);
 
 const { data, error } = await (supabase as any)
 .from("cars")
-.select(`       *,
-      car_images (
-        image_url
-      )
-    `)
+.select(`
+  *,
+  car_images (
+    image_url
+  )
+`)
+.neq("status", "sold") // ✅ SOLD HIDE FIX
 .order("created_at", { ascending: false });
 
 if (error) {
@@ -107,6 +109,8 @@ return true;
 
 });
 
+/* SORTING */
+
 if (sort === "price-asc") {
 filteredCars.sort((a, b) => Number(a.price) - Number(b.price));
 }
@@ -122,6 +126,13 @@ new Date(b.created_at).getTime() -
 new Date(a.created_at).getTime()
 );
 }
+
+/* ⭐ FEATURED PRIORITY FIX */
+filteredCars.sort((a, b) => {
+if (a.is_featured && !b.is_featured) return -1;
+if (!a.is_featured && b.is_featured) return 1;
+return 0;
+});
 
 return filteredCars;
 
@@ -155,7 +166,6 @@ return (
 initial={{ opacity: 0 }}
 animate={{ opacity: 1 }}
 className="mb-6"
-
 >
 
 <h1 className="font-heading text-3xl font-bold mb-1">
@@ -214,9 +224,7 @@ Price: High to Low
 <Button
 variant="outline"
 onClick={() => setShowFilters(!showFilters)}
-
 >
-
 <SlidersHorizontal className="h-4 w-4 mr-2" />
 Filters
 </Button>
@@ -272,10 +280,9 @@ No vehicles match your filters
 variant="outline"
 className="mt-4"
 onClick={clearFilters}
-
 >
-
-Clear Filters </Button>
+Clear Filters
+</Button>
 
 </div>
 
