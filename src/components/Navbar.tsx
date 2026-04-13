@@ -37,7 +37,7 @@ const Navbar = () => {
   if (profile?.role === "dealer") {
     navigate("/dealer-dashboard");
   } else if (profile?.role === "admin") {
-    navigate("/dashboard/admin");
+    navigate("/admin");
   } else {
     navigate("/dashboard");
   }
@@ -125,7 +125,7 @@ const Navbar = () => {
           <img
             src="/logo.png"
             alt="1ntel"
-            className="h-9 w-auto object-contain"
+            className="h-12 w-auto object-contain"
           />
 
           {/* Optional styled text */}

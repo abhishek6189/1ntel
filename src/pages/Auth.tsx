@@ -85,6 +85,10 @@ const Auth = () => {
       }
 
       /* ================= EXISTING USER FLOW ================= */
+      if (profile.role === "admin") {
+  navigate("/admin");
+  return;
+}
       if (profile.role === "dealer") {
 
         if (profile.dealer_status === "pending") {
@@ -136,7 +140,7 @@ const Auth = () => {
         .single();
 
       if (profile.role === "admin") {
-  navigate("/dashboard/admin");
+  navigate("/admin");
   return;
 }
         if (profile.role === "dealer") {
