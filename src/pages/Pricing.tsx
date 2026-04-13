@@ -24,7 +24,7 @@ const plans = [
   },
   {
     name: "Garage",
-    price: "$79.99",
+    price: "$79",
     period: "/month",
     desc: "For enthusiasts and small sellers who need more.",
     icon: Star,
@@ -42,7 +42,7 @@ const plans = [
   },
   {
     name: "Dealer",
-    price: "$249.99",
+    price: "$249",
     period: "/month",
     desc: "For dealerships with high-volume listings.",
     icon: Building2,
@@ -70,7 +70,7 @@ export default function Pricing() {
       <section className="py-20 bg-gradient-to-b from-primary/5 to-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h1 className="text-4xl font-bold">
-            Simple, Transparent Pricing
+            1ne+ 
           </h1>
           <p className="text-lg text-gray-500 mt-4">
             Choose the plan that's right for you. No hidden fees.

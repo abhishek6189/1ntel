@@ -18,7 +18,7 @@ const navLinks = [
   { label: "Browse Cars", href: "/browse" },
   { label: "Sell Your Car", href: "/sell" },
   { label: "How It Works", href: "/how-it-works" },
-  { label: "Pricing", href: "/pricing" },
+  { label: "1ne+", href: "/pricing" },
 ];
 
 const Navbar = () => {
@@ -32,6 +32,16 @@ const Navbar = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  const goToDashboard = () => {
+  if (profile?.role === "dealer") {
+    navigate("/dealer-dashboard");
+  } else if (profile?.role === "admin") {
+    navigate("/dashboard/admin");
+  } else {
+    navigate("/dashboard");
+  }
+};
 
   /* ================= FETCH UNREAD ================= */
   const fetchUnreadChats = async (currentUser: any) => {
@@ -198,9 +208,9 @@ const Navbar = () => {
 
                     <div
                       onClick={() => {
-                        navigate("/dashboard");
-                        setDropdown(false);
-                      }}
+                      goToDashboard();   // ✅ yaha change
+                      setDropdown(false);
+                   }}
                       className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
                     >
                       <LayoutDashboard size={16} />
@@ -282,8 +292,8 @@ const Navbar = () => {
 
               {user ? (
                 <>
-                  <Button onClick={() => navigate("/dashboard")}>
-                    Dashboard
+                  <Button onClick={goToDashboard}>
+                  Dashboard
                   </Button>
 
                   <Button onClick={() => navigate("/messages")}>

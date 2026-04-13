@@ -135,7 +135,11 @@ const Auth = () => {
         .eq("id", user.id)
         .single();
 
-      if (profile.role === "dealer") {
+      if (profile.role === "admin") {
+  navigate("/dashboard/admin");
+  return;
+}
+        if (profile.role === "dealer") {
 
         if (profile.dealer_status === "pending") {
           navigate("/dealer-pending");

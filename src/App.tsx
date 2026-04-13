@@ -13,6 +13,7 @@ import DealerPending from "@/pages/dealer/DealerPending";
 import DealerSetup from "@/pages/dealer/DealerSetup";
 import DealerRegistration from "@/pages/dealer/DealerSetup";
 import DealerAuth from "@/pages/dealer/DealerAuth";
+import Admin from "./pages/Admin";
 
 /* PUBLIC */
 import Index from "./pages/Index";
@@ -182,6 +183,8 @@ const App = () => (
 
             <Route path="/dealer-profile-setup" element={<DealerSetup />} />
             <Route path="/dealer-pending" element={<DealerPending />} />
+            <Route path="/admin" element={<Admin />} />
+          
 
           </Routes>
         </BrowserRouter>
