@@ -20,7 +20,6 @@ const DealerDashboard = () => {
   useEffect(() => {
     loadData();
 
-    // 🔥 AUTO REFRESH (Realtime feel)
     const interval = setInterval(() => {
       loadData();
     }, 5000);
@@ -32,7 +31,6 @@ const DealerDashboard = () => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
 
-    // ✅ FIXED TABLE + IMAGES JOIN
     const { data } = await supabase
       .from("cars")
       .select(`
@@ -54,86 +52,98 @@ const DealerDashboard = () => {
   const totalValue = cars.reduce((sum, c) => sum + (c.price || 0), 0);
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 space-y-6">
 
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">
             Dealer Dashboard
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-xs sm:text-sm">
             Manage your listings and track performance
           </p>
         </div>
 
-        {/* 🔥 QUICK ACTION */}
+        {/* BUTTON */}
         <button
           onClick={() => navigate("/dashboard/create-listing")}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+          className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm"
         >
           + Add Car
         </button>
       </div>
 
       {/* ================= STATS ================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
 
-        <Card icon={<Car />} label="Total Cars" value={totalCars} />
-
-        <Card icon={<CheckCircle />} label="Active" value={activeCars} color="green" />
-
-        <Card icon={<Clock />} label="Pending" value={pendingCars} color="yellow" />
+        <Card icon={<Car size={20} />} label="Total Cars" value={totalCars} />
 
         <Card
-          icon={<DollarSign />}
+          icon={<CheckCircle size={20} />}
+          label="Active"
+          value={activeCars}
+          color="green"
+        />
+
+        <Card
+          icon={<Clock size={20} />}
+          label="Pending"
+          value={pendingCars}
+          color="yellow"
+        />
+
+        <Card
+          icon={<DollarSign size={20} />}
           label="Total Value"
           value={`₹ ${totalValue.toLocaleString()}`}
           color="purple"
         />
-
       </div>
 
       {/* ================= LISTINGS ================= */}
-      <div className="bg-white rounded-xl shadow p-4">
+      <div className="bg-white rounded-2xl shadow-sm border p-3 sm:p-4">
 
-        <h2 className="text-lg font-semibold mb-4">
+        <h2 className="text-base sm:text-lg font-semibold mb-4">
           Recent Listings
         </h2>
 
         {loading ? (
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-gray-500 text-sm">Loading...</p>
         ) : cars.length === 0 ? (
-          <p className="text-gray-400">
+          <p className="text-gray-400 text-sm">
             No listings yet 🚀
           </p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
 
             {cars.slice(0, 5).map((car) => (
               <div
                 key={car.id}
-                className="flex gap-3 items-center justify-between p-3 border rounded-xl hover:shadow-sm transition cursor-pointer"
+                className="flex items-center gap-3 p-3 border rounded-xl hover:shadow-md hover:border-blue-200 transition cursor-pointer"
                 onClick={() => navigate(`/dealer-dashboard/listings`)}
               >
 
                 {/* IMAGE */}
                 <img
                   src={car.car_images?.[0]?.image_url || "/placeholder.png"}
-                  className="w-14 h-14 rounded-lg object-cover"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover flex-shrink-0"
                 />
 
                 {/* INFO */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{car.title}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-semibold text-sm sm:text-base truncate">
+                    {car.title}
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-500">
                     ₹ {car.price}
                   </p>
                 </div>
 
                 {/* STATUS */}
                 <span
-                  className={`text-xs px-3 py-1 rounded-full ${
+                  className={`text-[10px] sm:text-xs px-2 sm:px-3 py-1 rounded-full whitespace-nowrap ${
                     car.status === "active"
                       ? "bg-green-100 text-green-600"
                       : car.status === "pending"
@@ -149,7 +159,6 @@ const DealerDashboard = () => {
 
           </div>
         )}
-
       </div>
 
     </div>
@@ -168,14 +177,21 @@ const Card = ({ icon, label, value, color = "blue" }: any) => {
   };
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
-      <div className={colors[color]}>
+    <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border flex items-center gap-3 hover:shadow-md transition">
+
+      <div className={`${colors[color]} bg-gray-50 p-2 rounded-lg`}>
         {icon}
       </div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-lg md:text-xl font-bold">{value}</p>
+
+      <div className="min-w-0">
+        <p className="text-xs sm:text-sm text-gray-500 truncate">
+          {label}
+        </p>
+        <p className="text-base sm:text-lg md:text-xl font-bold truncate">
+          {value}
+        </p>
       </div>
+
     </div>
   );
 };

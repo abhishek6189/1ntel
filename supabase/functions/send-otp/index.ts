@@ -32,7 +32,7 @@ serve(async (req: Request) => {
 
     /* 🔥 SEND EMAIL */
     const { error } = await resend.emails.send({
-      from: "VerifyCar <onboarding@resend.dev>", // later domain change karenge
+      from: "1ntel <no-reply@mail.1ntel.ca>", // Current Doamin name 
       to: email,
       subject: "Dealer Verification OTP",
       html: `

@@ -76,28 +76,37 @@ export default function DealerSetup() {
   /* EMAIL OTP */
   const sendEmailOtp = async () => {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-
   setEmailCode(code);
 
-  const res = await fetch(
-    "https://ppgsdxuyjcncftyngqnr.supabase.co/functions/v1/send-otp",
-    {
-      method: "POST",
-      headers: {
-  "Content-Type": "application/json",
-  "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY
-},
-      body: JSON.stringify({
-        email: form.email,
-        code
-      })
-    }
-  );
+  try {
+    const res = await fetch(
+      "https://ppgsdxuyjcncftyngqnr.supabase.co/functions/v1/send-otp",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          email: form.email,
+          code: code
+        })
+      }
+    );
 
-  if (res.ok) {
-    toast.success("OTP sent successfully 🚀");
-  } else {
-    toast.error("Failed to send OTP");
+    const data = await res.json();
+    console.log("OTP RESPONSE:", data);
+
+    if (res.ok) {
+      toast.success("OTP sent successfully 🚀");
+    } else {
+      toast.error(data.error || "Failed to send OTP ❌");
+    }
+
+  } catch (err) {
+    console.error("OTP ERROR:", err);
+    toast.error("Something went wrong ❌");
   }
 };
 

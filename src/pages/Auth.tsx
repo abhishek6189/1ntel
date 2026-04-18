@@ -19,7 +19,14 @@ const Auth = () => {
 
   /* ================= GOOGLE LOGIN ================= */
   const handleGoogleLogin = async () => {
-    localStorage.setItem("login_role", isDealer ? "dealer" : "buyer");
+
+    // ❌ BLOCK DEALER GOOGLE LOGIN
+    if (isDealer) {
+      alert("Dealer accounts cannot sign in with Google here. Please use Dealer Login.");
+      return;
+    }
+
+    localStorage.setItem("login_role", "buyer");
 
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -85,23 +92,15 @@ const Auth = () => {
       }
 
       /* ================= EXISTING USER FLOW ================= */
+
       if (profile.role === "admin") {
-  navigate("/admin");
-  return;
-}
+        navigate("/admin");
+        return;
+      }
+
+      // ❌ BLOCK DEALER AUTO LOGIN FROM HERE
       if (profile.role === "dealer") {
-
-        if (profile.dealer_status === "pending") {
-          navigate("/dealer-pending");
-          return;
-        }
-
-        if (profile.dealer_status === "approved") {
-          navigate("/dealer-dashboard");
-          return;
-        }
-
-        navigate("/dealer-profile-setup");
+        navigate("/dealer-auth"); // force dealer login page
         return;
       }
 
@@ -139,23 +138,22 @@ const Auth = () => {
         .eq("id", user.id)
         .single();
 
+      /* ================= ADMIN ================= */
       if (profile.role === "admin") {
-  navigate("/admin");
-  return;
-}
-        if (profile.role === "dealer") {
-
-        if (profile.dealer_status === "pending") {
-          navigate("/dealer-pending");
-        } else if (profile.dealer_status === "approved") {
-          navigate("/dealer-dashboard");
-        } else {
-          navigate("/dealer-profile-setup");
-        }
-
-      } else {
-        navigate("/dashboard");
+        navigate("/admin");
+        return;
       }
+
+      /* ❌ BLOCK DEALER LOGIN HERE */
+      if (profile.role === "dealer") {
+        alert("Dealer accounts cannot log in here. Please use Dealer Login.");
+        await supabase.auth.signOut(); // logout immediately
+        setLoading(false);
+        return;
+      }
+
+      /* ================= USER ================= */
+      navigate("/dashboard");
 
       setLoading(false);
       return;
@@ -229,11 +227,7 @@ const Auth = () => {
 
             <h1 className="text-xl sm:text-2xl font-bold text-center mb-6">
               {isLogin
-                ? isDealer
-                  ? "Dealer Login"
-                  : "Welcome Back"
-                : isDealer
-                ? "Dealer Signup"
+                ? "Welcome Back"
                 : "Create Account"}
             </h1>
 
@@ -273,35 +267,20 @@ const Auth = () => {
 
             </form>
 
-            {/* 🔥 UPDATED UI ONLY */}
+            {/* 🔥 LINKS */}
             <p className="text-center mt-4 text-sm space-y-2">
 
-              {isLogin ? (
-                <Link to="/dealer-auth" className="text-blue-600 font-semibold">
-                  Dealer Login →
-                </Link>
-              ) : (
-                <Link to="/dealer-registration" className="text-blue-600 font-semibold">
-                  Want to signup as a Dealer?
-                </Link>
-              )}
+              <Link to="/dealer-auth" className="text-blue-600 font-semibold">
+                Dealer Login →
+              </Link>
 
-              <div className="mt-3">
-                {!isDealer ? (
-                  <Link
-                    to={`/auth?mode=${isLogin ? "login" : "signup"}&type=dealer`}
-                    className="text-gray-500"
-                  >
-                    {/* Agr button daalna ho toh */}
-                  </Link>
-                ) : (
-                  <Link
-                    to={`/auth?mode=${isLogin ? "login" : "signup"}`}
-                    className="text-gray-500"
-                  >
-                    ← Back to User
-                  </Link>
-                )}
+              <div className="mt-2">
+                <Link
+                  to="/dealer-registration"
+                  className="text-gray-500"
+                >
+                  Want to signup as Dealer?
+                </Link>
               </div>
 
             </p>

@@ -16,48 +16,75 @@ export default function DealerAuth() {
   const [step, setStep] = useState<"login" | "otp">("login");
   const [loading, setLoading] = useState(false);
 
+  const [userEmail, setUserEmail] = useState("");
+  const [dealerProfile, setDealerProfile] = useState<any>(null);
+
   /* ================= LOGIN ================= */
   const handleLogin = async (e: any) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const email = `${license}@dealer.local`;
+      /* 🔍 STEP 1: FIND DEALER BY LICENSE */
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("dealer_license_number", license)
+        .single();
 
+      if (profileError || !profile) {
+        toast.error("Invalid dealer license number.");
+        setLoading(false);
+        return;
+      }
+
+      /* ❌ BLOCK IF NOT DEALER */
+      if (profile.role !== "dealer") {
+        toast.error("This account is not a dealer account.");
+        setLoading(false);
+        return;
+      }
+
+      /* ❌ BLOCK IF NOT APPROVED */
+      if (profile.dealer_status !== "approved") {
+        toast.error("Your dealer account is not approved yet.");
+        setLoading(false);
+        return;
+      }
+
+      /* 🔐 STEP 2: LOGIN USING EMAIL */
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: profile.email,
         password
       });
 
-      if (error) throw error;
+      if (error) {
+        toast.error("Invalid password.");
+        setLoading(false);
+        return;
+      }
 
-      const user = data.user;
+      setUserEmail(profile.email);
+      setDealerProfile(profile);
 
-      /* 🔥 FETCH PROFILE */
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      /* 🔥 GENERATE OTP */
+      /* 🔥 STEP 3: GENERATE OTP */
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
       setGeneratedOtp(otpCode);
 
-      /* 🔥 SEND OTP (EMAIL) */
+      /* 🔥 STEP 4: SEND OTP */
       await supabase.functions.invoke("send-otp", {
         body: {
-          email: user.email,
+          email: profile.email,
           otp: otpCode
         }
       });
 
-      toast.success("OTP sent to your email 📩");
+      toast.success("OTP sent to your email.");
 
       setStep("otp");
 
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error("Something went wrong.");
     }
 
     setLoading(false);
@@ -66,36 +93,26 @@ export default function DealerAuth() {
   /* ================= VERIFY OTP ================= */
   const verifyOtp = async () => {
     if (otp !== generatedOtp) {
-      toast.error("Invalid OTP");
+      toast.error("Invalid OTP.");
       return;
     }
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const user = sessionData.session?.user;
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    /* 🔥 REDIRECT LOGIC */
-    if (profile.dealer_status === "pending") {
-      navigate("/dealer-pending");
-    } else if (profile.dealer_status === "approved") {
-      navigate("/dealer-dashboard");
-    } else {
-      navigate("/dealer-profile-setup");
+    if (!dealerProfile) {
+      toast.error("Session expired. Please login again.");
+      return;
     }
+
+    /* 🔥 FINAL REDIRECT */
+    navigate("/dealer-dashboard");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl"
+        className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border"
       >
 
         <h2 className="text-2xl font-bold text-center mb-6">
@@ -124,6 +141,10 @@ export default function DealerAuth() {
             <Button className="w-full" disabled={loading}>
               {loading ? "Checking..." : "Continue"}
             </Button>
+
+            <p className="text-xs text-center text-gray-500">
+              Only approved dealers can log in
+            </p>
 
           </form>
         )}
