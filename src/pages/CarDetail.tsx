@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import FullscreenGallery from "@/components/FullscreenGallery";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,7 +14,7 @@ import {
   Settings,
   Gauge,
   MapPin,
-  Car as CarIcon,
+  Images,
 } from "lucide-react";
 
 const CarDetail = () => {
@@ -23,6 +24,8 @@ const CarDetail = () => {
   const [car, setCar] = useState<any>(null);
   const [images, setImages] = useState<any[]>([]);
   const [activeImage, setActiveImage] = useState("");
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   const [saved, setSaved] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -42,6 +45,7 @@ const CarDetail = () => {
 
       if (!carData) return;
       setCar(carData);
+      setActiveImage(carData.image_url || "");
 
       const { data: imgs } = await supabase
         .from("car_images")
@@ -51,6 +55,7 @@ const CarDetail = () => {
       if (imgs?.length) {
         setImages(imgs);
         setActiveImage(imgs[0].image_url);
+        setActiveImageIndex(0);
       }
 
       const { data: userData } = await supabase.auth.getUser();
@@ -141,6 +146,24 @@ const CarDetail = () => {
 
   if (!car) return <div className="p-20 text-center">Loading...</div>;
 
+  const galleryImages = images.map((img: any) => img.image_url).filter(Boolean);
+  const displayImages = galleryImages.length ? galleryImages : activeImage ? [activeImage] : [];
+
+  const selectImage = (index: number) => {
+    const nextImage = displayImages[index];
+    if (!nextImage) return;
+
+    setActiveImage(nextImage);
+    setActiveImageIndex(index);
+  };
+
+  const openGallery = (index = activeImageIndex) => {
+    if (!displayImages.length) return;
+
+    selectImage(index);
+    setGalleryOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
       <Navbar />
@@ -161,31 +184,67 @@ const CarDetail = () => {
           <div className="lg:col-span-2 space-y-6">
 
             {/* IMAGE */}
-            <div className="relative">
-              <img
-                src={activeImage}
-                className="w-full h-[250px] sm:h-[320px] lg:h-[420px] object-cover rounded-xl"
-              />
+            <div className="relative overflow-hidden rounded-2xl bg-white shadow-sm">
+              <button
+                type="button"
+                onClick={() => openGallery()}
+                className="group block w-full"
+                aria-label="Open vehicle photo gallery"
+              >
+                <img
+                  src={activeImage}
+                  alt={car.title}
+                  className="h-[280px] w-full object-cover transition duration-500 group-hover:scale-[1.02] sm:h-[360px] lg:h-[460px]"
+                />
+              </button>
 
               <button
                 onClick={toggleSave}
-                className="absolute top-4 right-4 bg-white p-2 rounded-full shadow"
+                className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 shadow-lg backdrop-blur"
+                aria-label={saved ? "Remove from saved cars" : "Save car"}
               >
                 <Heart className={`w-5 h-5 ${saved ? "text-red-500 fill-red-500" : ""}`} />
               </button>
+
+              {displayImages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => openGallery()}
+                  className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-2 text-sm font-medium text-white shadow-lg backdrop-blur"
+                >
+                  <Images className="h-4 w-4" />
+                  {activeImageIndex + 1} / {displayImages.length}
+                </button>
+              )}
             </div>
 
             {/* THUMBNAILS */}
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {images.map((img: any) => (
-                <img
-                  key={img.id}
-                  src={img.image_url}
-                  onClick={() => setActiveImage(img.image_url)}
-                  className="h-20 w-28 object-cover rounded cursor-pointer border"
-                />
-              ))}
-            </div>
+            {displayImages.length > 1 && (
+              <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+                <div className="flex gap-2.5 sm:gap-3">
+                  {displayImages.map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      onClick={() => selectImage(index)}
+                      onDoubleClick={() => openGallery(index)}
+                      className={`relative h-16 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-white shadow-sm transition sm:h-20 sm:w-28 ${
+                        index === activeImageIndex
+                          ? "border-primary ring-2 ring-primary/20"
+                          : "border-transparent opacity-80 hover:opacity-100"
+                      }`}
+                      aria-label={`Show vehicle photo ${index + 1}`}
+                    >
+                      <img
+                        src={image}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* TITLE + BADGES */}
             <div>
@@ -309,6 +368,15 @@ const CarDetail = () => {
       </div>
 
       <Footer />
+
+      {galleryOpen && (
+        <FullscreenGallery
+          images={displayImages}
+          current={activeImageIndex}
+          setCurrent={selectImage}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </div>
   );
 };

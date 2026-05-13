@@ -313,15 +313,69 @@ const Navbar = () => {
 
               {user ? (
                 <>
-                  <Button onClick={goToDashboard}>
-                  Dashboard
+                  <div className="rounded-xl border bg-gray-50 p-3">
+                    <div className="flex items-center gap-3">
+                      {profile?.avatar_url ? (
+                        <img
+                          src={profile.avatar_url}
+                          className="h-11 w-11 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-base font-semibold text-white">
+                          {(profile?.full_name || user?.email?.[0] || "U")[0].toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">
+                          {profile?.full_name || "User"}
+                        </p>
+                        <p className="truncate text-xs text-gray-500">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                      goToDashboard();
+                      setOpen(false);
+                    }}
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
                   </Button>
 
-                  <Button onClick={() => navigate("/messages")}>
+                  <Button
+                    onClick={() => {
+                      navigate("/messages");
+                      setOpen(false);
+                    }}
+                  >
+                    <Inbox className="h-4 w-4" />
                     Messages ({unreadCount})
                   </Button>
 
-                  <Button variant="outline" onClick={handleLogout}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigate("/profile-settings");
+                      setOpen(false);
+                    }}
+                  >
+                    <Settings className="h-4 w-4" />
+                    Profile Settings
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      handleLogout();
+                      setOpen(false);
+                    }}
+                  >
+                    <LogOut className="h-4 w-4" />
                     Logout
                   </Button>
                 </>

@@ -355,10 +355,10 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
   }, [messages]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#efeae2]">
+    <div className="min-h-screen overflow-x-hidden flex flex-col bg-[#efeae2]">
       {!hideNavbar && <Navbar />}
 
-      <div className="flex-1 flex min-h-0 flex-col max-w-4xl mx-auto w-full">
+      <div className="flex-1 flex min-h-0 flex-col max-w-4xl mx-auto w-full overflow-x-hidden">
 
         {/* HEADER */}
         <div
@@ -387,13 +387,13 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
         </div>
 
         {/* MESSAGES */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3">
           {messages.map((msg) => {
             const isMe = msg.sender_id === user?.id;
 
             return (
-              <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                <div className={`relative max-w-[86%] sm:max-w-[75%] px-3 sm:px-4 py-2 rounded-2xl shadow ${
+              <div key={msg.id} className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}>
+                <div className={`relative max-w-[min(86vw,36rem)] sm:max-w-[75%] px-3 sm:px-4 py-2 rounded-2xl shadow ${
                   isMe ? "bg-blue-600 text-white" : "bg-white"
                 }`}>
 
@@ -408,7 +408,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
                       <audio controls src={msg.file_url} />
                     ) : null
                   ) : (
-                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.message}</p>
                   )}
 
                   {isMe && (
@@ -499,7 +499,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
           <input
             value={input || ""}
             onChange={(e)=>setInput(e.target.value)}
-            className="min-w-0 flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm sm:text-base"
+            className="min-w-0 flex-1 bg-gray-100 rounded-full px-4 py-2 text-base"
           />
 
           <button
