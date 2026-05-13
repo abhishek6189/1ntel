@@ -63,7 +63,7 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative overflow-hidden py-20 lg:py-28">
+    <section className="relative overflow-hidden py-10 sm:py-16 lg:py-24">
 
       {/* BG */}
       <div className="absolute inset-0 -z-10">
@@ -71,29 +71,30 @@ const HeroSection = () => {
         <div className="absolute bottom-1/3 right-1/4 w-[500px] h-[500px] bg-accent/5 blur-3xl rounded-full" />
       </div>
 
-      <div className="container grid lg:grid-cols-2 gap-12 items-center">
+      <div className="container grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center px-4 sm:px-8 lg:px-8">
 
         {/* ================= LEFT ================= */}
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm mb-6">
+          <div className="inline-flex max-w-full items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm mb-5 sm:mb-6">
             <ShieldCheck className="h-4 w-4" />
-            Trusted Car Marketplace          </div>
+            <span className="truncate">Trusted Car Marketplace</span>
+          </div>
 
-          <h1 className="text-4xl md:text-6xl font-extrabold mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-5 sm:mb-6 leading-tight">
             Find Inspected Cars <br />
             <span className="text-blue-600">Avoid Scams</span>
           </h1>
 
-          <p className="text-muted-foreground mb-8">
+          <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 max-w-xl">
             Find the car you want to buy, use inspection report from 1ntel to understand the car before you buy and avoid expensive surprises  
           </p>
 
           {/* SEARCH */}
           <form onSubmit={handleSearch} className="mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 p-2 bg-white rounded-xl shadow">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_0.8fr_0.6fr_auto] gap-2 p-2 bg-white rounded-xl shadow">
 
               <div className="relative">
                 <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" />
@@ -108,19 +109,19 @@ const HeroSection = () => {
               <Input placeholder="Max Price" className="border-0" />
               <Input placeholder="Year" className="border-0" />
 
-              <Button type="submit">
+              <Button type="submit" className="w-full lg:w-auto">
                 <Search className="h-4 w-4 mr-1" /> Search
               </Button>
 
             </div>
           </form>
 
-          <div className="flex gap-3">
-            <Button asChild>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button className="w-full sm:w-auto" asChild>
               <Link to="/browse">Browse Cars</Link>
             </Button>
 
-            <Button variant="outline" asChild>
+            <Button variant="outline" className="w-full sm:w-auto" asChild>
               <Link to="/sell">Sell Car</Link>
             </Button>
           </div>
@@ -130,7 +131,7 @@ const HeroSection = () => {
         <motion.div className="relative w-full">
 
           <div
-            className="relative overflow-hidden rounded-2xl shadow-xl h-[250px] sm:h-[300px] md:h-[380px]"
+            className="relative overflow-hidden rounded-xl sm:rounded-2xl shadow-xl h-[220px] sm:h-[300px] md:h-[380px]"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -151,7 +152,7 @@ const HeroSection = () => {
               onClick={() =>
                 setIndex((prev) => (prev - 1 + images.length) % images.length)
               }
-              className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full"
+              className="hidden"
             >
               ←
             </button>
@@ -161,20 +162,11 @@ const HeroSection = () => {
               onClick={() =>
                 setIndex((prev) => (prev + 1) % images.length)
               }
-              className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full"
+              className="hidden"
             >
               →
             </button>
 
-          </div>
-
-          {/* VERIFIED CARD */}
-          <div className="absolute bottom-4 left-4 bg-white shadow rounded-xl p-3 flex gap-2">
-            <ShieldCheck className="text-blue-600" />
-            <div>
-              <p className="text-sm font-semibold">Verified</p>
-              <p className="text-xs text-muted-foreground">100% Checked</p>
-            </div>
           </div>
 
           {/* DOTS */}
@@ -193,7 +185,7 @@ const HeroSection = () => {
       </div>
 
       {/* FEATURES */}
-      <div className="grid md:grid-cols-3 gap-6 mt-20 max-w-5xl mx-auto px-6">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-12 sm:mt-16 lg:mt-20 max-w-5xl mx-auto px-4 sm:px-6">
 
         {[
           { icon: ShieldCheck, label: "Live chats with sellers" },
@@ -202,11 +194,11 @@ const HeroSection = () => {
         ].map((item) => (
           <div
             key={item.label}
-            className="flex gap-3 p-4 bg-white rounded-xl shadow"
+            className="flex gap-3 p-4 bg-white rounded-xl shadow min-w-0"
           >
-            <item.icon className="text-blue-600" />
-            <div>
-              <h3 className="font-semibold">{item.label}</h3>
+            <item.icon className="text-blue-600 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm sm:text-base">{item.label}</h3>
               <p className="text-sm text-muted-foreground">{item.desc}</p>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,7 +8,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProfileProvider } from "@/context/ProfileContext";
 import HowItWorks from "./pages/HowItWorks";
 import SellerProfile from "./pages/SellerProfile";
-import ProfileSetup from "@/pages/ProfileSetup";
 import DealerPending from "@/pages/dealer/DealerPending";
 import DealerSetup from "@/pages/dealer/DealerSetup";
 import DealerRegistration from "@/pages/dealer/DealerSetup";
@@ -61,12 +60,9 @@ const App = () => (
       <Toaster />
       <Sonner />
 
-      {/* ✅ GLOBAL PROFILE CONTEXT */}
       <ProfileProvider>
-
         <BrowserRouter>
           <Routes>
-
             {/* ================= PUBLIC ================= */}
             <Route path="/" element={<Index />} />
             <Route path="/browse" element={<BrowseCars />} />
@@ -76,8 +72,8 @@ const App = () => (
             <Route path="/sell" element={<Pricing />} />
 
             {/* ================= DEALER AUTH ================= */}
-             <Route path="/dealer-auth" element={<DealerAuth />} />
-             <Route path="/dealer-registration" element={<DealerRegistration />} />
+            <Route path="/dealer-auth" element={<DealerAuth />} />
+            <Route path="/dealer-registration" element={<DealerRegistration />} />
 
             {/* ================= MESSAGING ================= */}
             <Route
@@ -131,7 +127,7 @@ const App = () => (
               }
             />
 
-            {/* ================= DEALER DASHBOARD (FULL FIX) ================= */}
+            {/* ================= DEALER DASHBOARD ================= */}
             <Route
               path="/dealer-dashboard"
               element={
@@ -142,8 +138,6 @@ const App = () => (
             >
               <Route index element={<DealerDashboard />} />
               <Route path="listings" element={<DealerListings />} />
-
-              {/* ✅ FIXED ROUTES */}
               <Route path="messages" element={<DealerMessages />} />
               <Route path="analytics" element={<DealerAnalytics />} />
             </Route>
@@ -171,26 +165,20 @@ const App = () => (
               }
             />
 
-            {/* ================= 404 ================= */}
-            <Route path="*" element={<NotFound />} />
+            <Route path="/dealer-dashboard/chat/:id" element={<ChatPage hideNavbar />} />
 
-            <Route
-             path="/dealer-dashboard/chat/:id"
-             element={<ChatPage hideNavbar />}
-            />
-
-            <Route path="/profile-setup" element={<ProfileSetup />} />
+            {/* TEMP: Profile setup disabled to prevent dealer accounts becoming buyers */}
+            <Route path="/profile-setup" element={<Navigate to="/dashboard" replace />} />
 
             <Route path="/dealer-profile-setup" element={<DealerSetup />} />
             <Route path="/dealer-pending" element={<DealerPending />} />
             <Route path="/admin" element={<Admin />} />
-          
 
+            {/* ================= 404 ================= */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-
       </ProfileProvider>
-
     </TooltipProvider>
   </QueryClientProvider>
 );

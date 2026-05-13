@@ -72,15 +72,15 @@ export default function AdminOverview({ stats }) {
     <div className="space-y-8">
 
       {/* 🔥 TOP STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         {overviewStats.map((s, i) => (
-          <div key={i} className="bg-card rounded-xl border p-4">
+          <div key={i} className="bg-card rounded-xl border p-4 min-w-0">
 
             <div className={`h-9 w-9 rounded-lg ${s.color} flex items-center justify-center mb-3`}>
               <s.icon className="h-4 w-4" />
             </div>
 
-            <p className="text-2xl font-bold">{s.value}</p>
+            <p className="break-words text-xl font-bold sm:text-2xl">{s.value}</p>
             <p className="text-xs text-muted-foreground">{s.label}</p>
 
           </div>
@@ -88,14 +88,14 @@ export default function AdminOverview({ stats }) {
       </div>
 
       {/* 💰 REVENUE CARD */}
-      <div className="bg-card rounded-xl border p-6">
-        <div className="flex items-center gap-3">
+      <div className="bg-card rounded-xl border p-4 sm:p-6">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="bg-green-100 text-green-600 p-2 rounded-lg">
             <DollarSign />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Total Active Value</p>
-            <h2 className="text-2xl font-bold">
+            <h2 className="break-words text-xl font-bold sm:text-2xl">
               ${totalRevenue.toLocaleString()}
             </h2>
           </div>
@@ -106,7 +106,7 @@ export default function AdminOverview({ stats }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* PIE */}
-        <div className="bg-card rounded-xl border p-6">
+        <div className="bg-card rounded-xl border p-4 sm:p-6">
           <h3 className="font-semibold mb-4">Listing Status</h3>
 
           {statusData.length > 0 ? (
@@ -134,7 +134,7 @@ export default function AdminOverview({ stats }) {
         </div>
 
         {/* BAR */}
-        <div className="bg-card rounded-xl border p-6">
+        <div className="bg-card rounded-xl border p-4 sm:p-6">
           <h3 className="font-semibold mb-4">User Roles</h3>
 
           {roleData.length > 0 ? (

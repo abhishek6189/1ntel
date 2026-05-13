@@ -86,26 +86,26 @@ const CarCard = ({ car, index = 0 }: any) => {
 
             {/* SPECS */}
 
-            <div className="grid grid-cols-2 gap-y-2 text-xs text-muted-foreground">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs text-muted-foreground">
 
-              <span className="flex items-center gap-1.5">
-                <Gauge className="h-3.5 w-3.5" />
-                {Number(car?.mileage || 0).toLocaleString()} km
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Gauge className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{Number(car?.mileage || 0).toLocaleString()} km</span>
               </span>
 
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                {car?.year || "-"}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{car?.year || "-"}</span>
               </span>
 
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" />
-                {car?.location || "-"}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{car?.location || "-"}</span>
               </span>
 
-              <span className="flex items-center gap-1.5">
-                <Fuel className="h-3.5 w-3.5" />
-                {car?.fuel_type || "-"}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Fuel className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{car?.fuel_type || "-"}</span>
               </span>
 
             </div>

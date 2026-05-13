@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Car, Users, Star, Shield, BarChart3, Building2 } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
+import BrandLogo from "@/components/BrandLogo";
 
 import AdminOverview from "../components/admin/AdminOverview";
 import AdminListings from "../components/admin/AdminListings";
@@ -54,20 +55,16 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
 
       {/* 🔥 HEADER */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
 
         {/* CENTER LOGO */}
         <div className="flex justify-center mb-4">
-          <img
-            src="/logo.png"
-            alt="1ntel"
-            className="h-12 object-contain drop-shadow-md"
-          />
+          <BrandLogo className="text-5xl drop-shadow-sm" />
         </div>
 
         {/* TITLE */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             Admin Dashboard
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -81,7 +78,7 @@ export default function AdminDashboard() {
             await supabase.auth.signOut();
             window.location.href = "/auth";
           }}
-          className="absolute top-6 right-6 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm shadow"
+          className="static mx-auto mt-4 block rounded-lg bg-red-500 px-4 py-2 text-sm text-white shadow hover:bg-red-600 sm:absolute sm:right-6 sm:top-6 sm:mt-0"
         >
           Logout
         </button>
@@ -91,12 +88,12 @@ export default function AdminDashboard() {
       {/* 🔥 MAIN CONTENT */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
 
-        <div className="bg-white rounded-2xl shadow-sm border p-4">
+        <div className="bg-white rounded-2xl shadow-sm border p-3 sm:p-4">
 
           <Tabs defaultValue="overview">
 
             {/* TABS */}
-            <TabsList className="flex flex-wrap gap-2 bg-gray-100 p-2 rounded-xl">
+            <TabsList className="flex h-auto w-full justify-start gap-2 overflow-x-auto rounded-xl bg-gray-100 p-2">
 
               <TabsTrigger value="overview" className="gap-2">
                 <BarChart3 className="h-4 w-4" /> Overview

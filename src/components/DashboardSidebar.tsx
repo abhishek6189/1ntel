@@ -91,26 +91,26 @@ const DashboardSidebar = () => {
 
   if (loading) {
     return (
-      <div className="w-64 bg-white border rounded-xl p-5 shadow-sm">
+      <div className="w-full bg-white border rounded-xl p-5 shadow-sm lg:w-64 lg:shrink-0">
         <p className="text-sm text-gray-500">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-64 bg-white border rounded-xl p-5 shadow-sm">
+    <div className="w-full bg-white border rounded-xl p-4 shadow-sm lg:w-64 lg:shrink-0 lg:p-5">
 
       <h2 className="font-semibold text-lg mb-4 capitalize">
         {role} Dashboard
       </h2>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
 
         {links.map((link) => (
           <Link
             key={link.path}
             to={link.path}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+            className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition ${
               location.pathname === link.path
                 ? "bg-blue-600 text-white"
                 : "hover:bg-gray-100 text-gray-700"

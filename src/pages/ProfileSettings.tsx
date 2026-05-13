@@ -165,16 +165,16 @@ export default function ProfileSettings() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-5xl mx-auto px-4 py-10">
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10">
 
         {/* HEADER */}
-        <h1 className="text-3xl font-bold mb-2">Profile Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Profile Settings</h1>
         <p className="text-gray-500 mb-6">
           Manage your identity
         </p>
 
         {/* PROFILE CARD */}
-        <div className="bg-white border rounded-xl p-6 flex items-center gap-4 mb-6">
+        <div className="bg-white border rounded-xl p-4 sm:p-6 flex flex-col gap-4 mb-6 sm:flex-row sm:items-center">
           <img
             src={
               avatar ||
@@ -185,12 +185,12 @@ export default function ProfileSettings() {
             className="w-16 h-16 rounded-full object-cover"
           />
 
-          <div>
+          <div className="min-w-0 text-center sm:text-left">
             <h3 className="font-semibold text-lg">
               {username || "User"}
             </h3>
 
-            <p className="text-gray-500 text-sm">{user?.email}</p>
+            <p className="break-words text-gray-500 text-sm">{user?.email}</p>
 
             <p className="text-green-600 text-xs mt-1">
               ✓ Profile Active
@@ -210,7 +210,7 @@ export default function ProfileSettings() {
           <Card>
             <h3 className="font-semibold mb-2">Username</h3>
             <Input value={username} onChange={(e) => setUsername(e.target.value)} />
-            <Button className="mt-4" onClick={updateProfile} disabled={loading}>
+            <Button className="mt-4 w-full sm:w-auto" onClick={updateProfile} disabled={loading}>
               Save Changes
             </Button>
           </Card>
@@ -220,7 +220,7 @@ export default function ProfileSettings() {
           <Card>
             <h3 className="font-semibold mb-2">Phone</h3>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <Button className="mt-4" onClick={updateProfile} disabled={loading}>
+            <Button className="mt-4 w-full sm:w-auto" onClick={updateProfile} disabled={loading}>
               Save Phone
             </Button>
           </Card>
@@ -230,7 +230,7 @@ export default function ProfileSettings() {
           <Card>
             <h3 className="font-semibold mb-4">Profile Photo</h3>
 
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <img
                 src={
                   avatar ||
@@ -244,11 +244,12 @@ export default function ProfileSettings() {
               <input
                 type="file"
                 accept="image/*"
+                className="w-full text-sm"
                 onChange={(e: any) => uploadAvatar(e.target.files[0])}
               />
             </div>
 
-            <Button className="mt-4" onClick={updateProfile} disabled={loading}>
+            <Button className="mt-4 w-full sm:w-auto" onClick={updateProfile} disabled={loading}>
               Save Photo
             </Button>
           </Card>
@@ -262,7 +263,7 @@ export default function ProfileSettings() {
 }
 
 const Card = ({ children }: any) => (
-  <div className="bg-white border rounded-xl p-6">{children}</div>
+  <div className="bg-white border rounded-xl p-4 sm:p-6">{children}</div>
 );
 
 const Tab = ({ icon, label, active, onClick }: any) => (

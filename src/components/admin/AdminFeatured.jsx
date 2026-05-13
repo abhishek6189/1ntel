@@ -86,17 +86,17 @@ export default function AdminFeatured({ cars, onRefresh }) {
             {pendingRequests.map((car) => (
               <div
                 key={car.id}
-                className="bg-card rounded-xl border border-yellow-200 p-4 flex flex-col sm:flex-row items-start gap-4"
+                className="bg-card rounded-xl border border-yellow-200 p-4 flex flex-col lg:flex-row items-start gap-4"
               >
                 <img
                   src={
                     car.images?.[0] ||
                     "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=200"
                   }
-                  className="w-full sm:w-28 h-20 rounded-lg object-cover"
+                  className="w-full h-40 rounded-lg object-cover sm:h-48 lg:h-20 lg:w-28"
                 />
 
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h4 className="font-semibold">{car.title}</h4>
                   <p className="text-primary font-bold">
                     ${car.price?.toLocaleString()}
@@ -106,7 +106,7 @@ export default function AdminFeatured({ cars, onRefresh }) {
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                   <Button
                     size="sm"
                     className="bg-green-600"
@@ -144,17 +144,17 @@ export default function AdminFeatured({ cars, onRefresh }) {
             {featuredCars.map((car) => (
               <div
                 key={car.id}
-                className="bg-card rounded-xl border p-4 flex flex-col sm:flex-row items-center gap-4"
+                className="bg-card rounded-xl border p-4 flex flex-col lg:flex-row lg:items-center gap-4"
               >
                 <img
                   src={
                     car.images?.[0] ||
                     "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=200"
                   }
-                  className="w-full sm:w-28 h-20 rounded-lg object-cover"
+                  className="w-full h-40 rounded-lg object-cover sm:h-48 lg:h-20 lg:w-28"
                 />
 
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h4 className="font-semibold">{car.title}</h4>
                   <p className="text-sm text-muted-foreground">
                     ${car.price?.toLocaleString()}
@@ -168,6 +168,7 @@ export default function AdminFeatured({ cars, onRefresh }) {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => handleRemoveFeatured(car.id)}
                 >
                   Remove

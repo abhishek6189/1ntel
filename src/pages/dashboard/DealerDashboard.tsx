@@ -50,6 +50,7 @@ const DealerDashboard = () => {
   const activeCars = cars.filter((c) => c.status === "active").length;
   const pendingCars = cars.filter((c) => c.status === "pending").length;
   const totalValue = cars.reduce((sum, c) => sum + (c.price || 0), 0);
+  const formatPrice = (value: any) => `₹ ${Number(value || 0).toLocaleString()}`;
 
   return (
     <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 space-y-6">
@@ -97,7 +98,7 @@ const DealerDashboard = () => {
         <Card
           icon={<DollarSign size={20} />}
           label="Total Value"
-          value={`₹ ${totalValue.toLocaleString()}`}
+          value={formatPrice(totalValue)}
           color="purple"
         />
       </div>
@@ -137,7 +138,7 @@ const DealerDashboard = () => {
                     {car.title}
                   </p>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    ₹ {car.price}
+                    {formatPrice(car.price)}
                   </p>
                 </div>
 

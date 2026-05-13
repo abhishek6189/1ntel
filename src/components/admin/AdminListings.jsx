@@ -125,7 +125,7 @@ export default function AdminListings({ cars = [] }) {
         </div>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue />
           </SelectTrigger>
 
@@ -151,11 +151,11 @@ export default function AdminListings({ cars = [] }) {
 
           <div
             key={car.id}
-            className="bg-card rounded-xl border p-4 flex gap-4 items-center hover:shadow-md transition-all"
+            className="bg-card rounded-xl border p-4 flex flex-col gap-4 hover:shadow-md transition-all lg:flex-row lg:items-center"
           >
 
             {/* 🖼 IMAGE */}
-            <div className="w-40 h-24 min-w-[160px] rounded-lg overflow-hidden bg-gray-100">
+            <div className="w-full h-44 rounded-lg overflow-hidden bg-gray-100 sm:h-52 lg:h-24 lg:w-40 lg:min-w-[160px]">
               <img
                 src={getImage(car)}
                 className="w-full h-full object-cover"
@@ -163,7 +163,7 @@ export default function AdminListings({ cars = [] }) {
             </div>
 
             {/* 📄 INFO */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
 
               <h4 className="font-semibold text-foreground">
                 {car.title}
@@ -195,7 +195,7 @@ export default function AdminListings({ cars = [] }) {
             </div>
 
             {/* 🏷 STATUS */}
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-row flex-wrap items-center gap-2 lg:flex-col lg:items-end">
 
               {/* ✅ STATUS FIX */}
               <Badge className="capitalize">
@@ -218,7 +218,7 @@ export default function AdminListings({ cars = [] }) {
             </div>
 
             {/* ⚙️ ACTIONS */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 self-stretch lg:self-auto">
 
               <Button
                 variant="ghost"

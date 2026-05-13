@@ -27,7 +27,6 @@ const CarDetail = () => {
   const [saved, setSaved] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [seller, setSeller] = useState<any>(null);
-  const [views, setViews] = useState(0);
 
   const [chatLoading, setChatLoading] = useState(false);
 
@@ -84,14 +83,6 @@ const CarDetail = () => {
         await (supabase as any).from("car_views").insert({ car_id: id });
       } catch {}
 
-      try {
-        const { count } = await (supabase as any)
-          .from("car_views")
-          .select("*", { count: "exact", head: true })
-          .eq("car_id", id);
-
-        setViews(count || 0);
-      } catch {}
     };
 
     load();
@@ -151,7 +142,7 @@ const CarDetail = () => {
   if (!car) return <div className="p-20 text-center">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
@@ -220,21 +211,18 @@ const CarDetail = () => {
                 ${Number(car.price).toLocaleString()}
               </p>
 
-              <p className="text-sm text-gray-500">
-                👀 {views} views
-              </p>
             </div>
 
             {/* QUICK SPECS */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white border rounded-xl p-4">
               <Spec icon={<Fuel />} label="Fuel" value={car.fuel_type} />
               <Spec icon={<Settings />} label="Gear" value={car.transmission} />
-              <Spec icon={<Gauge />} label="Mileage" value={`${car.mileage} km`} />
+              <Spec icon={<Gauge />} label="Mileage" value={`${Number(car.mileage || 0).toLocaleString()} km`} />
               <Spec icon={<MapPin />} label="Location" value={car.location} />
             </div>
 
             {/* FULL DETAILS */}
-            <div className="bg-white border rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div className="bg-white border rounded-xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <Detail label="Make" value={car.make} />
               <Detail label="Model" value={car.model} />
               <Detail label="Year" value={car.year} />
@@ -247,7 +235,7 @@ const CarDetail = () => {
             </div>
 
             {/* DESCRIPTION */}
-            <div className="bg-white border rounded-xl p-6">
+            <div className="bg-white border rounded-xl p-4 sm:p-6">
               <h3 className="font-semibold mb-2">Description</h3>
               <p className="text-sm text-gray-600">
                 {car.description || "No description provided"}
@@ -259,7 +247,7 @@ const CarDetail = () => {
           {/* RIGHT */}
           <div className="space-y-4 lg:sticky lg:top-24">
 
-            <div className="bg-white border rounded-xl p-6 space-y-4">
+            <div className="bg-white border rounded-xl p-4 sm:p-6 space-y-4">
 
               <Button className="w-full" onClick={contactSeller}>
                 <MessageCircle className="mr-2 h-4 w-4" />
@@ -310,12 +298,12 @@ const CarDetail = () => {
       </div>
 
       {/* MOBILE CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex gap-3 lg:hidden">
-        <Button className="w-1/2" onClick={toggleSave}>
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t p-3 flex gap-3 lg:hidden">
+        <Button className="w-1/2 min-w-0" onClick={toggleSave}>
           {saved ? "Saved ❤️" : "Save"}
         </Button>
 
-        <Button className="w-1/2" onClick={contactSeller}>
+        <Button className="w-1/2 min-w-0" onClick={contactSeller}>
           Chat
         </Button>
       </div>
@@ -334,10 +322,10 @@ const Detail = ({ label, value }: any) => (
 );
 
 const Spec = ({ icon, label, value }: any) => (
-  <div className="flex flex-col items-center text-center">
+  <div className="flex min-w-0 flex-col items-center text-center">
     <div className="mb-1 text-primary">{icon}</div>
     <p className="text-xs text-gray-500">{label}</p>
-    <p className="font-medium text-sm">{value || "-"}</p>
+    <p className="break-words text-sm font-medium">{value || "-"}</p>
   </div>
 );
 

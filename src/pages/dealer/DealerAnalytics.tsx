@@ -41,6 +41,7 @@ const DealerAnalytics = () => {
 
   const avgPrice =
     totalCars > 0 ? Math.round(totalValue / totalCars) : 0;
+  const formatPrice = (value: any) => `₹ ${Number(value || 0).toLocaleString()}`;
 
   const activePercent =
     totalCars > 0 ? Math.round((activeCars / totalCars) * 100) : 0;
@@ -81,7 +82,7 @@ const DealerAnalytics = () => {
   const monthly = Object.entries(monthlyMap);
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="space-y-6">
 
       {/* HEADER */}
       <div>
@@ -94,19 +95,19 @@ const DealerAnalytics = () => {
       </div>
 
       {/* ================= STATS ================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
         <Card icon={<Car />} label="Total Cars" value={totalCars} />
         <Card icon={<CheckCircle />} label="Active" value={activeCars} />
         <Card icon={<Clock />} label="Pending" value={pendingCars} />
-        <Card icon={<DollarSign />} label="Value" value={`₹ ${totalValue}`} />
+        <Card icon={<DollarSign />} label="Value" value={formatPrice(totalValue)} />
 
       </div>
 
       {/* ================= EXTRA INSIGHTS ================= */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
 
-        <Card icon={<TrendingUp />} label="Avg Price" value={`₹ ${avgPrice}`} />
+        <Card icon={<TrendingUp />} label="Avg Price" value={formatPrice(avgPrice)} />
 
         <Card
           icon={<CheckCircle />}
@@ -132,7 +133,7 @@ const DealerAnalytics = () => {
               <div key={month} className="border rounded-lg p-3 space-y-2">
 
                 {/* HEADER */}
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
                   <p className="font-semibold">{month}</p>
                   <p className="text-sm text-gray-500">
                     Listings: {data.count}
@@ -143,11 +144,11 @@ const DealerAnalytics = () => {
                 <div className="flex flex-col sm:flex-row sm:justify-between text-sm gap-2">
 
                   <span className="text-blue-600">
-                    Total Value: ₹ {data.totalValue}
+                    Total Value: {formatPrice(data.totalValue)}
                   </span>
 
                   <span className="text-green-600">
-                    Sold Value: ₹ {data.soldValue}
+                    Sold Value: {formatPrice(data.soldValue)}
                   </span>
 
                 </div>
@@ -156,7 +157,7 @@ const DealerAnalytics = () => {
                 <div className="w-full bg-gray-200 h-2 rounded">
                   <div
                     className="bg-blue-600 h-2 rounded transition-all"
-                    style={{ width: `${data.count * 10}%` }}
+                    style={{ width: `${Math.min(data.count * 10, 100)}%` }}
                   />
                 </div>
 
@@ -164,7 +165,7 @@ const DealerAnalytics = () => {
                 <div className="text-xs text-gray-500 space-y-1 max-h-20 overflow-auto">
                   {data.entries.map((e: any, i: number) => (
                     <p key={i}>
-                      {e.time} → ₹ {e.price}
+                      {e.time} → {formatPrice(e.price)}
                     </p>
                   ))}
                 </div>
@@ -193,10 +194,10 @@ const DealerAnalytics = () => {
             .map(car => (
               <div
                 key={car.id}
-                className="flex justify-between py-2 border-b text-sm"
+                className="flex justify-between gap-3 py-2 border-b text-sm"
               >
                 <span className="truncate">{car.title}</span>
-                <span className="font-semibold">₹ {car.price}</span>
+                <span className="shrink-0 font-semibold">{formatPrice(car.price)}</span>
               </div>
             ))
         )}
@@ -211,11 +212,11 @@ export default DealerAnalytics;
 
 /* ================= CARD ================= */
 const Card = ({ icon, label, value }: any) => (
-  <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
+  <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3 min-w-0">
     <div className="text-blue-600">{icon}</div>
-    <div>
+    <div className="min-w-0">
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-xl font-bold">{value}</p>
+      <p className="break-words text-lg font-bold sm:text-xl">{value}</p>
     </div>
   </div>
 );

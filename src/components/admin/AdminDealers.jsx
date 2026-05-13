@@ -135,19 +135,19 @@ export default function AdminDealers() {
               className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition"
             >
 
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row">
 
                 {/* ICON */}
-                <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                <div className="h-12 w-12 shrink-0 bg-primary/10 rounded-xl flex items-center justify-center">
                   <Building2 className="h-6 w-6 text-primary" />
                 </div>
 
                 {/* INFO */}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
 
-                  <div className="flex justify-between">
+                  <div className="flex flex-col gap-3 md:flex-row md:justify-between">
 
-                    <div>
+                    <div className="min-w-0">
                       <h4 className="font-semibold text-lg">
                         {app.full_name}
                       </h4>
@@ -165,7 +165,7 @@ export default function AdminDealers() {
                       </p>
                     </div>
 
-                    <Badge className={statusColors[app.status]}>
+                    <Badge className={`${statusColors[app.status]} self-start md:self-center`}>
                       {app.status}
                     </Badge>
 
@@ -174,7 +174,7 @@ export default function AdminDealers() {
                 </div>
 
                 {/* ACTIONS */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 sm:self-start">
 
                   <Button size="sm" variant="ghost" onClick={() => setSelected(app)}>
                     <Eye />
@@ -213,7 +213,7 @@ export default function AdminDealers() {
 
       {/* VIEW MODAL */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-[92vw] sm:max-w-lg">
 
           <DialogHeader>
             <DialogTitle>{selected?.full_name}</DialogTitle>
@@ -234,7 +234,7 @@ export default function AdminDealers() {
                   {selected.documents.match(/\.(jpg|jpeg|png|webp)$/i) ? (
                     <img
                       src={selected.documents}
-                      className="max-h-60 rounded-lg border"
+                      className="max-h-60 w-full rounded-lg border object-contain"
                     />
                   ) : (
                     <a
@@ -269,7 +269,7 @@ export default function AdminDealers() {
             onChange={(e) => setRejectionReason(e.target.value)}
           />
 
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-col gap-2 mt-4 sm:flex-row">
             <Button onClick={() => handleReject(showReject)}>
               Reject
             </Button>

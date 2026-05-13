@@ -116,9 +116,10 @@ const DealerListings = () => {
   /* ================= 🔥 NEW: FILTER ================= */
   const activeCars = cars.filter(c => c.status !== "sold");
   const soldCars = cars.filter(c => c.status === "sold");
+  const formatPrice = (value: any) => `₹ ${Number(value || 0).toLocaleString()}`;
 
   return (
-    <div className="p-4 md:p-6 space-y-6 relative">
+    <div className="space-y-6 relative">
 
       {/* 🎉 CELEBRATION */}
       {celebrate && (
@@ -141,7 +142,7 @@ const DealerListings = () => {
 
         <button
           onClick={() => navigate("/dashboard/create-listing")}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 md:w-auto"
         >
           <Plus size={16} />
           Add Car
@@ -168,7 +169,7 @@ const DealerListings = () => {
 
       ) : (
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
 
           {activeCars.map((car) => (
             <div
@@ -198,7 +199,7 @@ const DealerListings = () => {
                 </p>
 
                 <p className="text-sm text-gray-500">
-                  ₹ {car.price}
+                  {formatPrice(car.price)}
                 </p>
 
                 {/* STATUS */}
@@ -207,7 +208,7 @@ const DealerListings = () => {
                 </span>
 
                 {/* ACTIONS */}
-                <div className="flex justify-between items-center pt-3">
+                <div className="flex flex-col gap-3 pt-3 sm:flex-row sm:items-center sm:justify-between">
 
                   <button
                     onClick={() => navigate(`/car/${car.id}`)}
@@ -216,7 +217,7 @@ const DealerListings = () => {
                     View
                   </button>
 
-                  <div className="flex gap-3 items-center">
+                  <div className="flex flex-wrap gap-3 items-center">
 
                     <button
                       onClick={() => setShowSoldPopup(car)}
@@ -265,7 +266,7 @@ const DealerListings = () => {
             Sold Cars
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
 
             {soldCars.map((car) => (
               <div
@@ -283,7 +284,7 @@ const DealerListings = () => {
                   <p className="font-semibold">{car.title}</p>
 
                   <p className="text-sm text-gray-500">
-                    ₹ {car.price}
+                    {formatPrice(car.price)}
                   </p>
 
                   <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">
@@ -315,7 +316,7 @@ const DealerListings = () => {
               Sold from platform?
             </h2>
 
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <button
                 onClick={() => markAsSold(showSoldPopup, true)}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg"

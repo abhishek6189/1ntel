@@ -132,16 +132,16 @@ const BuyerSettings = () => {
 
         <DashboardSidebar />
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
 
           <h1 className="text-2xl md:text-3xl font-bold mb-6">
             Account Settings
           </h1>
 
-          <div className="bg-white border rounded-xl p-6 max-w-lg space-y-5 shadow-sm">
+          <div className="bg-white border rounded-xl p-4 sm:p-6 max-w-lg space-y-5 shadow-sm">
 
             {/* AVATAR */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
 
               <img
                 src={
@@ -151,11 +151,11 @@ const BuyerSettings = () => {
                 className="w-16 h-16 rounded-full object-cover"
               />
 
-              <div>
+              <div className="min-w-0">
                 <input
                   type="file"
                   onChange={uploadAvatar}
-                  className="text-sm"
+                  className="w-full text-sm"
                 />
                 {uploading && <p className="text-xs">Uploading...</p>}
               </div>

@@ -55,6 +55,10 @@ export default function CreateListing() {
     setForm((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const updateNumber = (field: string, value: string) => {
+    update(field, value.replace(/[^\d]/g, ""));
+  };
+
   /* ================= PLAN LIMIT CHECK ================= */
   const checkPlanLimit = async (userId: string) => {
     const { data: profile } = await supabase
@@ -232,8 +236,8 @@ export default function CreateListing() {
             <Field label="Make *" placeholder="Honda" onChange={(v)=>update("make",v)} />
             <Field label="Model *" placeholder="Civic" onChange={(v)=>update("model",v)} />
             <Field label="Year *" type="number" placeholder="2022" onChange={(v)=>update("year",v)} />
-            <Field label="Price ($) *" type="number" placeholder="28500" onChange={(v)=>update("price",v)} />
-            <Field label="Mileage (km)" type="number" placeholder="32000" onChange={(v)=>update("mileage",v)} />
+            <NumberField label="Price ($) *" placeholder="28,500" value={form.price} onChange={(v)=>updateNumber("price",v)} />
+            <NumberField label="Mileage (km)" placeholder="32,000" value={form.mileage} onChange={(v)=>updateNumber("mileage",v)} />
             <Field label="Location *" placeholder="Toronto, ON" onChange={(v)=>update("location",v)} />
             <Field label="Phone" placeholder="(416) 555-0123" onChange={(v)=>update("seller_phone",v)} />
           </div>
@@ -338,5 +342,22 @@ const Field = ({ label, placeholder, type="text", onChange }: any) => (
   <div>
     <Label>{label}</Label>
     <Input type={type} placeholder={placeholder} onChange={(e)=>onChange(e.target.value)} />
+  </div>
+);
+
+const formatNumber = (value: string) => {
+  const digits = String(value || "").replace(/[^\d]/g, "");
+  return digits ? Number(digits).toLocaleString("en-US") : "";
+};
+
+const NumberField = ({ label, placeholder, value, onChange }: any) => (
+  <div>
+    <Label>{label}</Label>
+    <Input
+      inputMode="numeric"
+      placeholder={placeholder}
+      value={formatNumber(value)}
+      onChange={(e) => onChange(e.target.value)}
+    />
   </div>
 );

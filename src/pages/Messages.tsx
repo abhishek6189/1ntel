@@ -161,7 +161,7 @@ const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
       {/* ✅ CONDITIONAL NAVBAR */}
       {!hideNavbar && <Navbar />}
 
-      <div className={`${hideNavbar ? "p-0" : "max-w-4xl mx-auto px-2 sm:px-4 py-3"}`}>
+      <div className={`${hideNavbar ? "p-0" : "max-w-4xl mx-auto px-3 sm:px-4 py-3"}`}>
 
         {/* HEADER */}
         <div className={`${hideNavbar ? "" : "sticky top-16 bg-gray-100 z-10 pb-3"}`}>
@@ -226,7 +226,7 @@ const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
                   {/* CONTENT */}
                   <div className="flex-1 min-w-0">
 
-                    <div className="flex justify-between items-center">
+                    <div className="flex min-w-0 justify-between items-center">
 
                       <p className={`truncate text-sm sm:text-base ${
                         isUnread ? "font-bold" : "font-semibold"
@@ -259,7 +259,7 @@ const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
                   {/* UNREAD */}
                   {isUnread && (
-                    <div className="bg-blue-600 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full font-semibold">
+                    <div className="shrink-0 bg-blue-600 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full font-semibold">
                       {c.unread}
                     </div>
                   )}

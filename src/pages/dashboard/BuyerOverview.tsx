@@ -40,13 +40,13 @@ const BuyerOverview = () => {
 
       <Navbar />
 
-      <div className="max-w-7xl mx-auto py-10 px-4 flex gap-8">
+      <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 flex flex-col lg:flex-row gap-6 lg:gap-8">
 
         <DashboardSidebar />
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
 
-          <h1 className="text-3xl font-bold mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-6">
             Dashboard Overview
           </h1>
 

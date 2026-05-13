@@ -116,7 +116,7 @@ export default function AdminUsers({ users, onRefresh }) {
         </div>
 
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-40 h-10 rounded-xl">
+          <SelectTrigger className="w-full sm:w-40 h-10 rounded-xl">
             <SelectValue />
           </SelectTrigger>
 
@@ -135,9 +135,9 @@ export default function AdminUsers({ users, onRefresh }) {
       </p>
 
       {/* 🔥 TABLE */}
-      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border shadow-sm overflow-x-auto">
 
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[760px] text-sm">
 
           <thead className="bg-gray-50">
             <tr>
@@ -159,11 +159,11 @@ export default function AdminUsers({ users, onRefresh }) {
               >
 
                 {/* USER */}
-                <td className="p-4">
-                  <p className="font-medium text-foreground">
+                <td className="p-4 max-w-[240px]">
+                  <p className="font-medium text-foreground truncate">
                     {user.full_name || "—"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground truncate">
                     {user.email}
                   </p>
                 </td>

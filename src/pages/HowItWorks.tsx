@@ -62,10 +62,12 @@ export default function HowItWorks() {
       <Navbar />
 
       {/* HERO */}
-      <section className="py-20 bg-gradient-to-b from-primary/5 to-background">
+      <section className="py-12 sm:py-16 lg:py-20 bg-gradient-to-b from-primary/5 to-background">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-4xl font-bold">How VerifyCar Works</h1>
-          <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold">
+            How 1ntel Works
+          </h1>
+          <p className="text-base sm:text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
             Our verification process protects both buyers and sellers from fraud.
             Every step is designed to give you peace of mind.
           </p>
@@ -73,41 +75,41 @@ export default function HowItWorks() {
       </section>
 
       {/* STEPS */}
-      <section className="py-16 max-w-5xl mx-auto px-4">
-        <div className="space-y-16">
+      <section className="py-12 sm:py-16 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="space-y-10 sm:space-y-14 lg:space-y-16">
           {steps.map((step, i) => (
             <div
               key={i}
-              className={`flex flex-col md:flex-row items-start gap-8 ${
+              className={`flex flex-col md:flex-row items-start gap-5 sm:gap-8 ${
                 i % 2 === 1 ? "md:flex-row-reverse" : ""
               }`}
             >
               {/* ICON */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 mx-auto md:mx-0">
                 <div className="relative">
-                  <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-                    <step.icon className="h-9 w-9 text-primary" />
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <step.icon className="h-7 w-7 sm:h-9 sm:w-9 text-primary" />
                   </div>
 
-                  <span className="absolute -top-3 -right-3 h-8 w-8 bg-primary text-white text-sm font-bold rounded-full flex items-center justify-center shadow-lg">
+                  <span className="absolute -top-3 -right-3 h-7 w-7 sm:h-8 sm:w-8 bg-primary text-white text-xs sm:text-sm font-bold rounded-full flex items-center justify-center shadow-lg">
                     {i + 1}
                   </span>
                 </div>
               </div>
 
               {/* TEXT */}
-              <div className="flex-1">
-                <h3 className="text-xl font-bold mb-2">{step.title}</h3>
-                <p className="text-muted-foreground mb-4">{step.desc}</p>
+              <div className="flex-1 text-center md:text-left min-w-0">
+                <h3 className="text-lg sm:text-xl font-bold mb-2">{step.title}</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4">{step.desc}</p>
 
                 <ul className="space-y-2">
                   {step.details.map((d, j) => (
                     <li
                       key={j}
-                      className="flex items-center gap-2 text-sm text-muted-foreground"
+                      className="flex items-start md:items-center gap-2 text-left text-sm text-muted-foreground"
                     >
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      {d}
+                      <CheckCircle className="h-4 w-4 text-green-500 shrink-0 mt-0.5 md:mt-0" />
+                      <span>{d}</span>
                     </li>
                   ))}
                 </ul>
@@ -118,13 +120,13 @@ export default function HowItWorks() {
       </section>
 
       {/* FEATURES */}
-      <section className="py-16 bg-card">
-        <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-center mb-10">
-            Why Choose VerifyCar?
+      <section className="py-12 sm:py-16 bg-card">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-10">
+            Why Choose 1ntel?
           </h2>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {[
               {
                 icon: ShieldCheck,
@@ -144,7 +146,7 @@ export default function HowItWorks() {
             ].map((f, i) => (
               <div
                 key={i}
-                className="bg-background rounded-2xl p-8 border text-center"
+                className="bg-background rounded-xl sm:rounded-2xl p-5 sm:p-8 border text-center"
               >
                 <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <f.icon className="h-7 w-7 text-primary" />
@@ -159,28 +161,27 @@ export default function HowItWorks() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 bg-primary text-center">
+      <section className="py-12 sm:py-16 bg-primary text-center">
         <div className="max-w-3xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-white">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">
             Ready to Start?
           </h2>
 
-          <p className="text-white/80 mt-3">
+          <p className="text-sm sm:text-base text-white/85 mt-3">
             Browse verified cars or list your own today.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
-            <Link to="/browse">
-              <Button size="lg" variant="secondary">
+            <Link to="/browse" className="w-full sm:w-auto">
+              <Button size="lg" variant="secondary" className="w-full sm:min-w-40">
                 Browse Cars
               </Button>
             </Link>
 
-            <Link to="/dashboard">
+            <Link to="/dashboard" className="w-full sm:w-auto">
               <Button
                 size="lg"
-                variant="outline"
-                className="border-white/30 text-white hover:bg-white/10"
+                className="w-full sm:min-w-40 bg-white text-primary hover:bg-white/90"
               >
                 Sell Your Car
               </Button>

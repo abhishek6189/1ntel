@@ -60,10 +60,10 @@ export default function AdminInspections({ inspections, onRefresh }) {
               key={insp.id}
               className="bg-card rounded-xl border p-4"
             >
-              <div className="flex flex-col sm:flex-row justify-between gap-4">
+              <div className="flex flex-col lg:flex-row lg:justify-between gap-4">
 
                 {/* LEFT INFO */}
-                <div>
+                <div className="min-w-0">
                   <h4 className="font-semibold">
                     {insp.car_title || "Unknown Car"}
                   </h4>
@@ -84,7 +84,7 @@ export default function AdminInspections({ inspections, onRefresh }) {
                 </div>
 
                 {/* RIGHT ACTIONS */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
 
                   <Badge
                     className={`capitalize text-xs ${
@@ -94,7 +94,7 @@ export default function AdminInspections({ inspections, onRefresh }) {
                     {insp.status?.replace("_", " ")}
                   </Badge>
 
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
 
                     {insp.status === "pending" && (
                       <Button

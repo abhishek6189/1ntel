@@ -51,11 +51,11 @@ const BuyerInspections = () => {
 
       <Navbar />
 
-      <div className="max-w-7xl mx-auto py-10 px-4 flex gap-8">
+      <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 flex flex-col lg:flex-row gap-6 lg:gap-8">
 
         <DashboardSidebar />
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
 
           <h1 className="text-2xl font-bold mb-6">
             Inspection Requests
@@ -73,7 +73,7 @@ const BuyerInspections = () => {
 
                 <div
                   key={item.id}
-                  className="bg-white border rounded-xl p-5 flex justify-between items-center"
+                  className="bg-white border rounded-xl p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center"
                 >
 
                   <div>
@@ -86,7 +86,7 @@ const BuyerInspections = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:justify-end">
 
                     <span className="px-3 py-1 bg-yellow-100 text-yellow-600 rounded text-sm">
                       {item.status}

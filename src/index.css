@@ -6,6 +6,7 @@
 
 @layer base {
   :root {
+    color-scheme: only light;
     --background: 220 20% 97%;
     --foreground: 220 25% 10%;
 
@@ -55,46 +56,66 @@
   }
 
   .dark {
-    --background: 220 25% 6%;
-    --foreground: 220 15% 95%;
-    --card: 220 25% 9%;
-    --card-foreground: 220 15% 95%;
-    --popover: 220 25% 9%;
-    --popover-foreground: 220 15% 95%;
-    --primary: 220 90% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 15%;
-    --secondary-foreground: 220 15% 95%;
-    --muted: 220 20% 15%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 160 70% 42%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 20% 15%;
-    --input: 220 20% 15%;
-    --ring: 220 90% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    color-scheme: only light;
   }
 }
 
 @layer base {
+  html {
+    color-scheme: only light;
+    background: hsl(var(--background));
+    overflow-x: hidden;
+  }
+
   * {
     @apply border-border;
+    min-width: 0;
   }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    overflow-x: hidden;
+  }
+  #root {
+    min-height: 100vh;
+    background: hsl(var(--background));
+    overflow-x: hidden;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+    overflow-wrap: anywhere;
+  }
+  p, a, button, input, textarea, select, span {
+    overflow-wrap: anywhere;
+  }
+  img, video, canvas, svg {
+    max-width: 100%;
+  }
+  button, input, textarea, select {
+    font: inherit;
+  }
+  button {
+    white-space: normal;
+  }
+  .container {
+    width: 100%;
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
   }
 }
 

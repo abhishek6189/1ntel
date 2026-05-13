@@ -8,10 +8,30 @@ import { supabase } from "@/integrations/supabase/client";
 const navLinks = [
   { label: "Home", href: "/" },
   { label: "Browse Cars", href: "/browse" },
-  { label: "Sell Your Car", href: "/sell" },
+  // { label: "Sell Your Car", href: "/sell" },
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Pricing", href: "/pricing" },
+  { label: "1ne+", href: "/pricing" },
 ];
+
+const OnePlusLabel = () => (
+  <span className="inline-flex items-center gap-1.5 font-bold text-black">
+    <span>1ne</span>
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 drop-shadow-[0_0_4px_rgba(37,99,235,0.45)]"
+      aria-hidden="true"
+    >
+      <path
+        d="M12 2.8C13.5 7.6 16.4 10.5 21.2 12C16.4 13.5 13.5 16.4 12 21.2C10.5 16.4 7.6 13.5 2.8 12C7.6 10.5 10.5 7.6 12 2.8Z"
+        fill="none"
+        stroke="#2563eb"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.4"
+      />
+    </svg>
+  </span>
+);
 
 const Navbar = () => {
 
@@ -162,9 +182,13 @@ const Navbar = () => {
             <button
               key={link.label}
               onClick={() => handleNavigation(link.href)}
-              className="text-sm hover:text-primary"
+              className={
+                link.label === "1ne+"
+                  ? "text-sm transition hover:scale-105"
+                  : "text-sm hover:text-primary"
+              }
             >
-              {link.label}
+              {link.label === "1ne+" ? <OnePlusLabel /> : link.label}
             </button>
           ))}
         </nav>
@@ -228,8 +252,13 @@ const Navbar = () => {
                     handleNavigation(link.href);
                     setOpen(false);
                   }}
+                  className={
+                    link.label === "1ne+"
+                      ? "flex justify-center py-1"
+                      : ""
+                  }
                 >
-                  {link.label}
+                  {link.label === "1ne+" ? <OnePlusLabel /> : link.label}
                 </button>
               ))}
 

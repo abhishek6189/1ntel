@@ -53,11 +53,6 @@ export default function Dashboard() {
     setProfile(profileData);
 
     // 🔒 PROFILE SETUP PROTECTION
-    if (!profileData?.profile_completed) {
-    navigate("/profile-setup");
-    return;
-   }
-
     // CARS
     const { data: carsData } = await supabase
       .from("cars")
@@ -98,6 +93,8 @@ export default function Dashboard() {
   const verified = cars.filter((c) => c.is_verified).length;
   const sold = cars.filter((c) => c.status === "sold").length;
 
+  const formatMoney = (value: any) => `$${Number(value || 0).toLocaleString()}`;
+
   const totalValue = cars
     .filter((c) => c.status === "sold" && c.sold_source === "platform")
     .reduce((a, c) => a + (c.price || 0), 0);
@@ -108,38 +105,38 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="max-w-6xl mx-auto px-4 py-10">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
 
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">Dashboard</h1>
-            <p className="text-gray-500">
+            <p className="text-sm text-gray-500 sm:text-base">
               Welcome back, {profile?.full_name || user?.email?.split("@")[0]}
             </p>
           </div>
 
-          <div className="flex gap-3 items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Badge className="bg-blue-100 text-blue-700">
               {plan.toUpperCase()} — {cars.length}/{LIMIT}
             </Badge>
 
-            <Button variant="outline" onClick={() => navigate("/pricing")}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate("/pricing")}>
               Upgrade
             </Button>
           </div>
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <Stat icon={<Car />} label="Active" value={active} color="bg-blue-100 text-blue-600" />
           <Stat icon={<CheckCircle />} label="Verified" value={verified} color="bg-green-100 text-green-600" />
           <Stat icon={<Eye />} label="Sold" value={sold} color="bg-purple-100 text-purple-600" />
-          <Stat icon={<DollarSign />} label="Revenue" value={`$${totalValue}`} color="bg-yellow-100 text-yellow-600" />
+          <Stat icon={<DollarSign />} label="Revenue" value={formatMoney(totalValue)} color="bg-yellow-100 text-yellow-600" />
         </div>
 
         {/* TABS */}
-        <div className="flex gap-3 mb-4 overflow-x-auto">
+        <div className="flex gap-3 mb-4 overflow-x-auto pb-1">
           <Button variant={activeTab === "listings" ? "secondary" : "ghost"} onClick={() => setActiveTab("listings")}>
             My Listings
           </Button>
@@ -160,11 +157,11 @@ export default function Dashboard() {
               <h3 className="font-semibold">Your Listings</h3>
 
               {isLimitReached ? (
-                <Button className="bg-red-500" onClick={() => navigate("/pricing")}>
+                <Button className="w-full bg-red-500 md:w-auto" onClick={() => navigate("/pricing")}>
                   Upgrade your plan 🚀
                 </Button>
               ) : (
-                <Button onClick={() => navigate("/dashboard/create-listing")}>
+                <Button className="w-full md:w-auto" onClick={() => navigate("/dashboard/create-listing")}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Car
                 </Button>
@@ -180,13 +177,13 @@ export default function Dashboard() {
                     className="w-full md:w-32 h-32 object-cover rounded-lg"
                   />
 
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <h4 className="font-semibold">{car.title}</h4>
                     <p className="text-sm text-gray-500">{car.location} • {car.year}</p>
-                    <p className="font-bold">${car.price}</p>
+                    <p className="font-bold">{formatMoney(car.price)}</p>
                   </div>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-row items-center gap-2 md:flex-col md:items-stretch">
                     <Badge>{car.status || "active"}</Badge>
 
                     {car.status !== "sold" && (
@@ -213,7 +210,7 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 md:self-start">
                     <Button size="icon" variant="ghost" onClick={() => navigate(`/car/${car.id}`)}>
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -246,20 +243,20 @@ export default function Dashboard() {
                 const car = item.cars;
 
                 return (
-                  <div key={car.id} className="bg-white border rounded-xl p-4 flex flex-col md:flex-row gap-4">
+                  <div key={car.id} className="bg-white border rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-4">
 
                     <img
                       src={car.car_images?.[0]?.image_url || "https://via.placeholder.com/150"}
                       className="w-full md:w-32 h-32 object-cover rounded-lg"
                     />
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <h4 className="font-semibold">{car.title}</h4>
                       <p className="text-sm text-gray-500">{car.location} • {car.year}</p>
-                      <p className="font-bold">${car.price}</p>
+                      <p className="font-bold">{formatMoney(car.price)}</p>
                     </div>
 
-                    <Button onClick={() => navigate(`/car/${car.id}`)}>
+                    <Button className="w-full md:w-auto" onClick={() => navigate(`/car/${car.id}`)}>
                       View
                     </Button>
                   </div>
@@ -271,7 +268,7 @@ export default function Dashboard() {
 
         {/* ================= SETTINGS ================= */}
         {activeTab === "settings" && (
-          <div className="bg-white border rounded-xl p-6">
+          <div className="bg-white border rounded-xl p-4 sm:p-6">
             <h2 className="text-lg font-semibold mb-4">Account Settings</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -288,7 +285,7 @@ export default function Dashboard() {
               <div>{cars.length}/{LIMIT}</div>
             </div>
 
-            <Button className="mt-6" variant="outline" onClick={async () => {
+            <Button className="mt-6 w-full sm:w-auto" variant="outline" onClick={async () => {
               await supabase.auth.signOut();
               navigate("/auth?mode=login");
             }}>
@@ -305,11 +302,11 @@ export default function Dashboard() {
 
 /* STAT */
 const Stat = ({ icon, label, value, color }: any) => (
-  <div className="bg-white border rounded-xl p-4 flex items-center gap-3">
+  <div className="bg-white border rounded-xl p-4 flex items-center gap-3 min-w-0">
     <div className={`p-2 rounded-lg ${color}`}>{icon}</div>
-    <div>
+    <div className="min-w-0">
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-xl font-bold">{value}</p>
+      <p className="break-words text-lg font-bold sm:text-xl">{value}</p>
     </div>
   </div>
 );
