@@ -4,6 +4,9 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Car,
   Plus,
@@ -12,9 +15,11 @@ import {
   CheckCircle,
   Pencil,
   Trash2,
+  User,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { FALLBACK_AVATAR_URL, getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -22,6 +27,14 @@ export default function Dashboard() {
   const [savedCars, setSavedCars] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [profilePromptOpen, setProfilePromptOpen] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    avatar_url: "",
+  });
 
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -51,6 +64,17 @@ export default function Dashboard() {
       .single();
 
     setProfile(profileData);
+    setProfileDraft({
+      full_name: profileData?.full_name || "",
+      email: profileData?.email?.includes("@phone.1ntel.local") ? "" : profileData?.email || "",
+      phone: profileData?.phone || currentUser.user_metadata?.phone || "",
+      avatar_url: profileData?.avatar_url || "",
+    });
+
+    const promptDismissed = localStorage.getItem(`profile_prompt_dismissed_${currentUser.id}`);
+    if (!profileData?.profile_completed && !promptDismissed) {
+      setProfilePromptOpen(true);
+    }
 
     // 🔒 PROFILE SETUP PROTECTION
     // CARS
@@ -99,11 +123,168 @@ export default function Dashboard() {
     .filter((c) => c.status === "sold" && c.sold_source === "platform")
     .reduce((a, c) => a + (c.price || 0), 0);
 
+  const dismissProfilePrompt = () => {
+    if (user?.id) {
+      localStorage.setItem(`profile_prompt_dismissed_${user.id}`, "true");
+    }
+    setProfilePromptOpen(false);
+  };
+
+  const saveProfilePrompt = async () => {
+    if (!user) return;
+
+    if (!profileDraft.full_name.trim()) {
+      return toast.error("Please enter your name");
+    }
+
+    if (!profileDraft.email.trim()) {
+      return toast.error("Please enter your email");
+    }
+
+    setSavingProfile(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: profileDraft.full_name.trim(),
+        email: profileDraft.email.trim(),
+        phone: profileDraft.phone.trim(),
+        avatar_url: profileDraft.avatar_url,
+        profile_completed: true,
+      })
+      .eq("id", user.id);
+
+    setSavingProfile(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    localStorage.removeItem(`profile_prompt_dismissed_${user.id}`);
+    toast.success("Profile saved");
+    setProfilePromptOpen(false);
+    loadData();
+  };
+
+  const uploadProfilePhoto = async (file?: File) => {
+    if (!file || !user) return;
+
+    setSavingProfile(true);
+
+    try {
+      const uploadFile = await prepareImageForUpload(file);
+      const filePath = getImageUploadPath(user.id, uploadFile);
+      const { error } = await supabase.storage
+        .from("avtars")
+        .upload(filePath, uploadFile, {
+          contentType: uploadFile.type,
+        });
+
+      if (error) throw error;
+
+      const { data } = supabase.storage.from("avtars").getPublicUrl(filePath);
+      await supabase
+        .from("profiles")
+        .update({ avatar_url: data.publicUrl })
+        .eq("id", user.id);
+
+      setProfileDraft((prev) => ({ ...prev, avatar_url: data.publicUrl }));
+      toast.success("Photo uploaded");
+    } catch (err: any) {
+      console.error("Profile photo upload error:", err);
+      toast.error(err?.message || "Could not upload this photo");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   if (loading) return <div className="text-center py-20">Loading...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
+
+      <Dialog open={profilePromptOpen} onOpenChange={(open) => {
+        if (!open) dismissProfilePrompt();
+      }}>
+        <DialogContent className="max-w-[92vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-blue-600" />
+              Complete your profile
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Add your basic details now, or close this and finish it later from Settings.
+            </p>
+
+            <div>
+              <Label>Full name</Label>
+              <Input
+                value={profileDraft.full_name}
+                onChange={(e) =>
+                  setProfileDraft((prev) => ({ ...prev, full_name: e.target.value }))
+                }
+                placeholder="Your name"
+              />
+            </div>
+
+            <div>
+              <Label>Email</Label>
+              <Input
+                value={profileDraft.email}
+                onChange={(e) =>
+                  setProfileDraft((prev) => ({ ...prev, email: e.target.value }))
+                }
+                placeholder="you@example.com"
+                inputMode="email"
+              />
+            </div>
+
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={profileDraft.phone}
+                onChange={(e) =>
+                  setProfileDraft((prev) => ({ ...prev, phone: e.target.value }))
+                }
+                placeholder="+1 555 123 4567"
+                inputMode="tel"
+              />
+            </div>
+
+            <div>
+              <Label>Profile photo</Label>
+              <div className="mt-2 flex items-center gap-3">
+                <img
+                  src={profileDraft.avatar_url || FALLBACK_AVATAR_URL}
+                  onError={(e) => {
+                    e.currentTarget.src = FALLBACK_AVATAR_URL;
+                  }}
+                  className="h-14 w-14 rounded-full object-cover"
+                />
+                <Input
+                  type="file"
+                  accept="image/*,.heic,.heif"
+                  onChange={(e) => uploadProfilePhoto(e.target.files?.[0])}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button onClick={saveProfilePrompt} disabled={savingProfile}>
+                {savingProfile ? "Saving..." : "Save Profile"}
+              </Button>
+              <Button variant="outline" onClick={dismissProfilePrompt}>
+                Later
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
 
@@ -276,7 +457,7 @@ export default function Dashboard() {
               <div>{profile?.full_name}</div>
 
               <div>Email</div>
-              <div>{user?.email}</div>
+              <div>{profile?.email || user?.email}</div>
 
               <div>Plan</div>
               <div>{plan}</div>

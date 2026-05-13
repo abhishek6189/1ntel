@@ -203,6 +203,12 @@ export default function DealerSetup() {
     try {
       const email = phoneToInternalEmail(form.phone);
       const finalPhone = getFirebasePhone(form.phone);
+      const normalizedLicense = form.dealer_license_number.replace(/\D/g, "");
+      const normalizedPhone = finalPhone.replace(/\D/g, "");
+
+      if (normalizedLicense && normalizedLicense === normalizedPhone) {
+        throw new Error("Dealer license number and phone number cannot be the same.");
+      }
 
       await checkPhoneExists(finalPhone, email);
 

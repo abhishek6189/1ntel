@@ -3,25 +3,33 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export default function AdminInspections({ inspections, onRefresh }) {
-
-  /* 🔥 STATUS UPDATE */
-  const handleStatusChange = async (id, newStatus) => {
-
-    // 1️⃣ Update inspection status
+export default function AdminInspections({ inspections = [], onRefresh }) {
+  const updateInspectionStatus = async (id, newStatus) => {
     const { error } = await supabase
+      .from("inspection_requests")
+      .update({ status: newStatus })
+      .eq("id", id);
+
+    if (!error) return null;
+
+    const { error: legacyError } = await supabase
       .from("inspections")
       .update({ status: newStatus })
       .eq("id", id);
+
+    return legacyError || error;
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    const error = await updateInspectionStatus(id, newStatus);
 
     if (error) {
       toast.error(error.message);
       return;
     }
 
-    // 2️⃣ If completed → update car inspection status
     if (newStatus === "completed") {
-      const insp = inspections.find((i) => i.id === id);
+      const insp = inspections.find((item) => item.id === id);
 
       if (insp?.car_id) {
         await supabase
@@ -35,7 +43,6 @@ export default function AdminInspections({ inspections, onRefresh }) {
     onRefresh();
   };
 
-  /* 🎨 STATUS COLORS */
   const statusColors = {
     pending: "bg-yellow-100 text-yellow-800",
     in_progress: "bg-blue-100 text-blue-800",
@@ -56,24 +63,21 @@ export default function AdminInspections({ inspections, onRefresh }) {
       ) : (
         <div className="space-y-3">
           {inspections.map((insp) => (
-            <div
-              key={insp.id}
-              className="bg-card rounded-xl border p-4"
-            >
-              <div className="flex flex-col lg:flex-row lg:justify-between gap-4">
-
-                {/* LEFT INFO */}
+            <div key={insp.id} className="bg-card rounded-xl border p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:justify-between">
                 <div className="min-w-0">
                   <h4 className="font-semibold">
                     {insp.car_title || "Unknown Car"}
                   </h4>
 
                   <p className="text-sm text-muted-foreground mt-1">
-                    Requested by: {insp.requester_email}
+                    Buyer: {insp.requester_email || "No email"}
+                    {insp.requester_phone ? ` | ${insp.requester_phone}` : ""}
                   </p>
 
                   <p className="text-sm text-muted-foreground">
-                    Seller: {insp.seller_email}
+                    Seller: {insp.seller_email || "No email"}
+                    {insp.seller_phone ? ` | ${insp.seller_phone}` : ""}
                   </p>
 
                   <p className="text-xs text-muted-foreground mt-1">
@@ -83,26 +87,21 @@ export default function AdminInspections({ inspections, onRefresh }) {
                   </p>
                 </div>
 
-                {/* RIGHT ACTIONS */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
-
                   <Badge
                     className={`capitalize text-xs ${
                       statusColors[insp.status] || statusColors.pending
                     }`}
                   >
-                    {insp.status?.replace("_", " ")}
+                    {(insp.status || "pending").replace("_", " ")}
                   </Badge>
 
                   <div className="flex flex-wrap gap-1">
-
-                    {insp.status === "pending" && (
+                    {(insp.status || "pending") === "pending" && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() =>
-                          handleStatusChange(insp.id, "in_progress")
-                        }
+                        onClick={() => handleStatusChange(insp.id, "in_progress")}
                       >
                         Start
                       </Button>
@@ -112,28 +111,22 @@ export default function AdminInspections({ inspections, onRefresh }) {
                       <Button
                         size="sm"
                         className="bg-green-600 hover:bg-green-700"
-                        onClick={() =>
-                          handleStatusChange(insp.id, "completed")
-                        }
+                        onClick={() => handleStatusChange(insp.id, "completed")}
                       >
                         Complete
                       </Button>
                     )}
 
-                    {(insp.status === "pending" ||
-                      insp.status === "in_progress") && (
+                    {["pending", "in_progress", undefined, null].includes(insp.status) && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-destructive"
-                        onClick={() =>
-                          handleStatusChange(insp.id, "cancelled")
-                        }
+                        onClick={() => handleStatusChange(insp.id, "cancelled")}
                       >
                         Cancel
                       </Button>
                     )}
-
                   </div>
                 </div>
               </div>

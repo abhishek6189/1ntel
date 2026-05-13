@@ -4,14 +4,21 @@ import { Star, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export default function AdminFeatured({ cars, onRefresh }) {
+export default function AdminFeatured({ cars = [], onRefresh }) {
   const pendingRequests = cars.filter(
-    (c) => c.feature_request_status === "pending"
+    (car) => car.feature_request_status === "pending"
   );
 
-  const featuredCars = cars.filter((c) => c.is_featured === true);
+  const featuredCars = cars.filter((car) => car.is_featured === true);
 
-  /* ✅ APPROVE FEATURE */
+  const getImage = (car) =>
+    car.car_images?.[0]?.image_url ||
+    car.image_url ||
+    "/placeholder.svg";
+
+  const getSellerLabel = (car) =>
+    car.seller?.full_name || car.seller?.email || car.seller?.phone || "Unknown seller";
+
   const handleApprove = async (carId) => {
     const { error } = await supabase
       .from("cars")
@@ -30,7 +37,6 @@ export default function AdminFeatured({ cars, onRefresh }) {
     onRefresh();
   };
 
-  /* ❌ REJECT FEATURE */
   const handleReject = async (carId) => {
     const { error } = await supabase
       .from("cars")
@@ -48,7 +54,6 @@ export default function AdminFeatured({ cars, onRefresh }) {
     onRefresh();
   };
 
-  /* ❌ REMOVE FEATURE */
   const handleRemoveFeatured = async (carId) => {
     const { error } = await supabase
       .from("cars")
@@ -69,8 +74,6 @@ export default function AdminFeatured({ cars, onRefresh }) {
 
   return (
     <div className="space-y-8">
-
-      {/* 🔥 PENDING REQUESTS */}
       <div>
         <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
           <Star className="h-5 w-5 text-yellow-500" />
@@ -86,23 +89,21 @@ export default function AdminFeatured({ cars, onRefresh }) {
             {pendingRequests.map((car) => (
               <div
                 key={car.id}
-                className="bg-card rounded-xl border border-yellow-200 p-4 flex flex-col lg:flex-row items-start gap-4"
+                className="bg-card rounded-xl border border-yellow-200 p-4 flex flex-col gap-4 lg:flex-row lg:items-center"
               >
                 <img
-                  src={
-                    car.images?.[0] ||
-                    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=200"
-                  }
+                  src={getImage(car)}
                   className="w-full h-40 rounded-lg object-cover sm:h-48 lg:h-20 lg:w-28"
+                  alt={car.title || "Car"}
                 />
 
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold">{car.title}</h4>
+                  <h4 className="font-semibold">{car.title || "Untitled listing"}</h4>
                   <p className="text-primary font-bold">
-                    ${car.price?.toLocaleString()}
+                    ${Number(car.price || 0).toLocaleString()}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    By: {car.user_email || "Unknown"}
+                    By: {getSellerLabel(car)}
                   </p>
                 </div>
 
@@ -129,7 +130,6 @@ export default function AdminFeatured({ cars, onRefresh }) {
         )}
       </div>
 
-      {/* ⭐ FEATURED CARS */}
       <div>
         <h3 className="font-semibold text-foreground mb-4">
           Currently Featured ({featuredCars.length})
@@ -144,20 +144,21 @@ export default function AdminFeatured({ cars, onRefresh }) {
             {featuredCars.map((car) => (
               <div
                 key={car.id}
-                className="bg-card rounded-xl border p-4 flex flex-col lg:flex-row lg:items-center gap-4"
+                className="bg-card rounded-xl border p-4 flex flex-col gap-4 lg:flex-row lg:items-center"
               >
                 <img
-                  src={
-                    car.images?.[0] ||
-                    "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=200"
-                  }
+                  src={getImage(car)}
                   className="w-full h-40 rounded-lg object-cover sm:h-48 lg:h-20 lg:w-28"
+                  alt={car.title || "Car"}
                 />
 
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold">{car.title}</h4>
+                  <h4 className="font-semibold">{car.title || "Untitled listing"}</h4>
                   <p className="text-sm text-muted-foreground">
-                    ${car.price?.toLocaleString()}
+                    ${Number(car.price || 0).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    By: {getSellerLabel(car)}
                   </p>
                 </div>
 

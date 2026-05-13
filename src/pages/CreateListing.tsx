@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { UploadCloud, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 
 export default function CreateListing() {
   const navigate = useNavigate();
@@ -98,11 +99,14 @@ export default function CreateListing() {
     setUploading(true);
 
     for (const file of Array.from(files)) {
-      const path = `${user.id}/${Date.now()}-${file.name}`;
+      const uploadFile = await prepareImageForUpload(file);
+      const path = getImageUploadPath(user.id, uploadFile);
 
       const { error } = await supabase.storage
         .from("vehicles")
-        .upload(path, file);
+        .upload(path, uploadFile, {
+          contentType: uploadFile.type,
+        });
 
       if (error) {
         toast.error(error.message);
@@ -220,7 +224,7 @@ export default function CreateListing() {
             <label className="border-2 border-dashed p-6 sm:p-8 flex flex-col items-center cursor-pointer rounded-lg">
               <UploadCloud className="h-8 w-8 text-gray-400" />
               <span className="text-sm text-gray-500">Click to upload</span>
-              <input type="file" multiple hidden onChange={(e:any)=>uploadImages(e.target.files)} />
+              <input type="file" accept="image/*,.heic,.heif" multiple hidden onChange={(e:any)=>uploadImages(e.target.files)} />
             </label>
 
             <div className="flex gap-3 mt-4 flex-wrap">

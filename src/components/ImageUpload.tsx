@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ImagePlus, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getImageUploadPath, prepareImageForUpload } from '@/utils/imageFiles';
 
 interface ImageUploadProps {
   images: string[];
@@ -15,12 +16,15 @@ const ImageUpload = ({ images, onImagesChange, maxImages = 10, userId }: ImageUp
   const [uploading, setUploading] = useState(false);
 
   const uploadImage = useCallback(async (file: File) => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}/${crypto.randomUUID()}.${fileExt}`;
+    const uploadFile = await prepareImageForUpload(file);
+    const fileName = getImageUploadPath(userId, uploadFile);
 
     const { error } = await supabase.storage
       .from('car-images')
-      .upload(fileName, file, { upsert: false });
+      .upload(fileName, uploadFile, {
+        contentType: uploadFile.type,
+        upsert: false,
+      });
 
     if (error) throw error;
 
@@ -89,7 +93,7 @@ const ImageUpload = ({ images, onImagesChange, maxImages = 10, userId }: ImageUp
             )}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               multiple
               onChange={handleFileSelect}
               disabled={uploading}

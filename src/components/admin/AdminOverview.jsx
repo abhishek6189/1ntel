@@ -31,11 +31,12 @@ const COLORS = [
 export default function AdminOverview({ stats }) {
 
   const { cars = [], users = [], inspections = [] } = stats;
+  const getRole = (user) => user.role === 'user' ? 'buyer' : (user.role || 'buyer');
 
   /* 📊 CALCULATIONS */
   const activeCars = cars.filter(c => c.status === 'active').length;
   const totalUsers = users.length;
-  const dealers = users.filter(u => u.role === 'dealer').length;
+  const dealers = users.filter(u => getRole(u) === 'dealer').length;
   const featuredCars = cars.filter(c => c.is_featured).length;
   const pendingInspections = inspections.filter(i => i.status === 'pending').length;
 
@@ -63,9 +64,9 @@ export default function AdminOverview({ stats }) {
 
   /* 📊 BAR DATA */
   const roleData = [
-    { name: 'Users', value: users.filter(u => u.role === 'buyer' || !u.role).length },
+    { name: 'Users', value: users.filter(u => getRole(u) === 'buyer').length },
     { name: 'Dealers', value: dealers },
-    { name: 'Admins', value: users.filter(u => u.role === 'admin').length },
+    { name: 'Admins', value: users.filter(u => getRole(u) === 'admin').length },
   ].filter(d => d.value > 0);
 
   return (

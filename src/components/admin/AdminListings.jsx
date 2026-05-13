@@ -1,63 +1,59 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-
+import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-
-import {
-  Eye, Trash2, Search, ShieldCheck, ShieldX, User
-} from 'lucide-react';
-
+import { Eye, Trash2, Search, ShieldCheck, ShieldX, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function AdminListings({ cars = [] }) {
-
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [localCars, setLocalCars] = useState([]);
 
-  /* ✅ FIX: useEffect instead of useMemo (IMPORTANT) */
   useEffect(() => {
     setLocalCars(cars);
   }, [cars]);
 
-  /* ✅ IMAGE FIX (car_images table) */
-  const getImage = (car) => {
-    return car.car_images?.[0]?.image_url || "/placeholder.png";
-  };
+  const getImage = (car) =>
+    car.car_images?.[0]?.image_url || car.image_url || "/placeholder.svg";
 
-  /* 🔍 FILTER */
+  const getSellerName = (car) =>
+    car.seller?.full_name || car.seller?.email || car.seller?.phone || "Unknown seller";
+
+  const getSellerContact = (car) =>
+    car.seller?.email || car.seller?.phone || "No contact added";
+
   const filtered = useMemo(() => {
-    return localCars.filter(c => {
-
-      if (statusFilter !== 'all' && c.status !== statusFilter) return false;
-
-      if (search) {
-        const s = search.toLowerCase();
-        return (
-          c.title?.toLowerCase().includes(s) ||
-          c.profiles?.email?.toLowerCase().includes(s) ||
-          c.profiles?.full_name?.toLowerCase().includes(s)
-        );
+    return localCars.filter((car) => {
+      if (statusFilter !== "all" && (car.status || "unknown") !== statusFilter) {
+        return false;
       }
 
-      return true;
+      if (!search) return true;
+
+      const term = search.toLowerCase();
+      return (
+        car.title?.toLowerCase().includes(term) ||
+        car.seller?.email?.toLowerCase().includes(term) ||
+        car.seller?.phone?.toLowerCase().includes(term) ||
+        car.seller?.full_name?.toLowerCase().includes(term)
+      );
     });
   }, [localCars, search, statusFilter]);
 
-  /* 🗑 DELETE */
   const handleDelete = async (id) => {
-    if (!confirm('Delete this listing?')) return;
+    if (!confirm("Delete this listing?")) return;
 
-    const { error } = await supabase
-      .from("cars")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("cars").delete().eq("id", id);
 
     if (error) {
       toast.error(error.message);
@@ -65,17 +61,12 @@ export default function AdminListings({ cars = [] }) {
     }
 
     toast.success("Deleted");
-
-    setLocalCars(prev => prev.filter(c => c.id !== id));
+    setLocalCars((prev) => prev.filter((car) => car.id !== id));
   };
 
-  /* 🔥 VERIFY TOGGLE */
   const toggleInspection = async (car) => {
-
     const newStatus =
-      car.inspection_status === "passed"
-        ? "not_inspected"
-        : "passed";
+      car.inspection_status === "passed" ? "not_inspected" : "passed";
 
     const { error } = await supabase
       .from("cars")
@@ -88,170 +79,149 @@ export default function AdminListings({ cars = [] }) {
     }
 
     toast.success(
-      newStatus === "passed"
-        ? "Marked as Verified"
-        : "Marked as Unverified"
+      newStatus === "passed" ? "Marked as Verified" : "Marked as Unverified"
     );
 
-    setLocalCars(prev =>
-      prev.map(c =>
-        c.id === car.id
-          ? { ...c, inspection_status: newStatus }
-          : c
+    setLocalCars((prev) =>
+      prev.map((item) =>
+        item.id === car.id ? { ...item, inspection_status: newStatus } : item
       )
     );
   };
 
-  /* ✅ VERIFIED CHECK FIX */
   const isVerified = (car) =>
-    car.inspection_status === "passed" ||
-    car.inspection_status === "verified";
+    car.inspection_status === "passed" || car.inspection_status === "verified";
 
   return (
-    <div>
-
-      {/* 🔍 SEARCH */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-
+    <div className="min-w-0">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search listings..."
-            className="pl-10"
+            placeholder="Search by title, seller, email, or phone..."
+            className="h-10 rounded-xl pl-10"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
           />
         </div>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-40">
+          <SelectTrigger className="h-10 w-full rounded-xl md:w-44">
             <SelectValue />
           </SelectTrigger>
-
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="sold">Sold</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
           </SelectContent>
         </Select>
-
       </div>
 
-      {/* COUNT */}
-      <p className="text-sm text-muted-foreground mb-4">
-        {filtered.length} listings
-      </p>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filtered.length} listings
+        </p>
+      </div>
 
-      {/* 🚗 LIST */}
-      <div className="space-y-4">
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
+          No listings found
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((car) => (
+            <div
+              key={car.id}
+              className="grid min-w-0 gap-4 rounded-xl border bg-card p-4 transition-all hover:shadow-sm sm:grid-cols-[160px_minmax(0,1fr)] sm:items-center md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[180px_minmax(0,1fr)_150px_132px]"
+            >
+              <div className="h-36 w-full overflow-hidden rounded-lg bg-gray-100 sm:h-[90px] sm:w-[160px] md:h-[102px] md:w-[180px]">
+                <img
+                  src={getImage(car)}
+                  alt={car.title || "Car listing"}
+                  className="h-full w-full object-cover"
+                />
+              </div>
 
-        {filtered.map(car => (
+              <div className="min-w-0 space-y-2">
+                <div className="min-w-0">
+                  <h4 className="truncate text-base font-semibold text-foreground">
+                    {car.title || "Untitled listing"}
+                  </h4>
+                  <p className="text-lg font-bold text-primary">
+                    ${Number(car.price || 0).toLocaleString()}
+                  </p>
+                </div>
 
-          <div
-            key={car.id}
-            className="bg-card rounded-xl border p-4 flex flex-col gap-4 hover:shadow-md transition-all lg:flex-row lg:items-center"
-          >
+                <div className="min-w-0 text-xs text-muted-foreground">
+                  <p className="truncate font-medium text-foreground/80">
+                    {getSellerName(car)}
+                  </p>
+                  <p className="truncate">{getSellerContact(car)}</p>
+                </div>
 
-            {/* 🖼 IMAGE */}
-            <div className="w-full h-44 rounded-lg overflow-hidden bg-gray-100 sm:h-52 lg:h-24 lg:w-40 lg:min-w-[160px]">
-              <img
-                src={getImage(car)}
-                className="w-full h-full object-cover"
-              />
-            </div>
+                {car.seller_id && (
+                  <Link
+                    to={`/seller/${car.seller_id}`}
+                    className="inline-flex max-w-full items-center gap-1 text-xs text-blue-600 hover:underline"
+                  >
+                    <User className="h-3 w-3 shrink-0" />
+                    <span className="truncate">View Seller Profile</span>
+                  </Link>
+                )}
+              </div>
 
-            {/* 📄 INFO */}
-            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:col-start-2 lg:col-start-auto lg:flex-col lg:items-start">
+                <Badge className="max-w-full capitalize">
+                  <span className="truncate">{car.status || "unknown"}</span>
+                </Badge>
 
-              <h4 className="font-semibold text-foreground">
-                {car.title}
-              </h4>
-
-              <p className="text-primary font-bold">
-                ₹{car.price?.toLocaleString()}
-              </p>
-
-              {/* ✅ SELLER FIX */}
-              <p className="text-xs text-muted-foreground">
-                {car.profiles?.full_name || "Unknown"} 
-                {" ("}
-                {car.profiles?.email || "No Email"}
-                {")"}
-              </p>
-
-              {/* 👤 PROFILE LINK */}
-              {car.seller_id && (
-                <Link
-                  to={`/seller/${car.seller_id}`}
-                  className="text-xs text-blue-500 flex items-center gap-1 mt-1 hover:underline"
+                <Badge
+                  className={`max-w-full text-xs ${
+                    isVerified(car)
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-100 text-gray-600"
+                  }`}
                 >
-                  <User className="h-3 w-3" />
-                  View Seller Profile
-                </Link>
-              )}
+                  {isVerified(car) ? "Verified" : "Unverified"}
+                </Badge>
+              </div>
 
-            </div>
-
-            {/* 🏷 STATUS */}
-            <div className="flex flex-row flex-wrap items-center gap-2 lg:flex-col lg:items-end">
-
-              {/* ✅ STATUS FIX */}
-              <Badge className="capitalize">
-                {car.status || "unknown"}
-              </Badge>
-
-              {/* ✅ VERIFIED FIX */}
-              <Badge
-                className={`text-xs ${
-                  isVerified(car)
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {isVerified(car)
-                  ? "Verified"
-                  : "Unverified"}
-              </Badge>
-
-            </div>
-
-            {/* ⚙️ ACTIONS */}
-            <div className="flex gap-2 self-stretch lg:self-auto">
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => toggleInspection(car)}
-              >
-                {isVerified(car)
-                  ? <ShieldX className="h-4 w-4" />
-                  : <ShieldCheck className="h-4 w-4" />}
-              </Button>
-
-              <Link to={`/car/${car.id}`}>
-                <Button variant="ghost" size="icon">
-                  <Eye className="h-4 w-4" />
+              <div className="flex items-center gap-2 sm:col-start-2 lg:col-start-auto lg:justify-end">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  title={isVerified(car) ? "Mark unverified" : "Mark verified"}
+                  onClick={() => toggleInspection(car)}
+                >
+                  {isVerified(car) ? (
+                    <ShieldX className="h-4 w-4" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
                 </Button>
-              </Link>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-red-500"
-                onClick={() => handleDelete(car.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+                <Button asChild variant="outline" size="icon" title="View listing">
+                  <Link to={`/car/${car.id}`}>
+                    <Eye className="h-4 w-4" />
+                  </Link>
+                </Button>
 
+                <Button
+                  variant="outline"
+                  size="icon"
+                  title="Delete listing"
+                  className="border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
+                  onClick={() => handleDelete(car.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-
-          </div>
-
-        ))}
-
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

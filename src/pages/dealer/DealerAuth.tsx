@@ -75,7 +75,7 @@ export default function DealerAuth() {
       await supabase.functions.invoke("send-otp", {
         body: {
           email: profile.email,
-          otp: otpCode
+          code: otpCode
         }
       });
 

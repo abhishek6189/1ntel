@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Car, Users, Star, Shield, BarChart3, Building2 } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
+import { toast } from "sonner";
 
 import AdminOverview from "../components/admin/AdminOverview";
 import AdminListings from "../components/admin/AdminListings";
@@ -28,14 +29,64 @@ export default function AdminDashboard() {
   const fetchAll = async () => {
     setLoading(true);
 
-    const { data: cars } = await supabase.from("cars").select("*");
-    const { data: users } = await supabase.from("profiles").select("*");
-    const { data: inspections } = await supabase.from("inspections").select("*");
+    const { data: cars, error: carsError } = await supabase
+      .from("cars")
+      .select("*, car_images(image_url)")
+      .order("created_at", { ascending: false });
+
+    const { data: users, error: usersError } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    let inspections: any[] = [];
+    const { data: inspectionRows, error: inspectionsError } = await (supabase as any)
+      .from("inspection_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!inspectionsError) {
+      inspections = inspectionRows || [];
+    } else {
+      const { data: legacyInspections } = await (supabase as any)
+        .from("inspections")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      inspections = legacyInspections || [];
+    }
+
+    if (carsError) toast.error("Could not load listings");
+    if (usersError) toast.error("Could not load users");
+
+    const userMap = new Map((users || []).map((user: any) => [user.id, user]));
+    const enrichedCars = (cars || []).map((car: any) => ({
+      ...car,
+      seller: userMap.get(car.seller_id),
+    }));
+
+    const carMap = new Map(enrichedCars.map((car: any) => [car.id, car]));
+    const enrichedInspections = (inspections || []).map((inspection: any) => {
+      const carId = inspection.car_id || inspection.listing_id;
+      const car = carMap.get(carId);
+      const buyer = userMap.get(inspection.buyer_id || inspection.user_id);
+      const seller = car?.seller;
+
+      return {
+        ...inspection,
+        car_id: carId,
+        car_title: inspection.car_title || car?.title || "Unknown Car",
+        requester_email: inspection.requester_email || buyer?.email || "No email",
+        requester_phone: inspection.requester_phone || buyer?.phone || "",
+        seller_email: inspection.seller_email || seller?.email || "No email",
+        seller_phone: inspection.seller_phone || seller?.phone || "",
+      };
+    });
 
     setStats({
-      cars: cars || [],
+      cars: enrichedCars,
       users: users || [],
-      inspections: inspections || []
+      inspections: enrichedInspections
     });
 
     setLoading(false);
@@ -52,7 +103,7 @@ export default function AdminDashboard() {
 
   return (
 
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50">
 
       {/* 🔥 HEADER */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
@@ -88,7 +139,7 @@ export default function AdminDashboard() {
       {/* 🔥 MAIN CONTENT */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
 
-        <div className="bg-white rounded-2xl shadow-sm border p-3 sm:p-4">
+        <div className="bg-white rounded-xl shadow-sm border p-3 sm:p-4">
 
           <Tabs defaultValue="overview">
 

@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 
 const BuyerSettings = () => {
 
@@ -55,11 +56,14 @@ const BuyerSettings = () => {
     setUploading(true);
 
     try {
-      const filePath = `avatars/${user.id}-${Date.now()}`;
+      const uploadFile = await prepareImageForUpload(file);
+      const filePath = getImageUploadPath(user.id, uploadFile);
 
       const { error: uploadError } = await supabase.storage
         .from("avtars") // ✅ your bucket
-        .upload(filePath, file);
+        .upload(filePath, uploadFile, {
+          contentType: uploadFile.type,
+        });
 
       if (uploadError) throw uploadError;
 
@@ -154,6 +158,7 @@ const BuyerSettings = () => {
               <div className="min-w-0">
                 <input
                   type="file"
+                  accept="image/*,.heic,.heif"
                   onChange={uploadAvatar}
                   className="w-full text-sm"
                 />

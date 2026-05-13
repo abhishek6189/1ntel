@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { User, Mail, Phone, Camera } from "lucide-react";
+import { FALLBACK_AVATAR_URL, getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 
 export default function ProfileSettings() {
   const [user, setUser] = useState<any>(null);
@@ -16,6 +17,7 @@ export default function ProfileSettings() {
   const [activeTab, setActiveTab] = useState("username");
 
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [avatar, setAvatar] = useState("");
 
@@ -56,7 +58,7 @@ export default function ProfileSettings() {
         .from("profiles")
         .insert({
           id: currentUser.id,
-          email: currentUser.email,
+          email: currentUser.email?.includes("@phone.1ntel.local") ? "" : currentUser.email,
           full_name:
             currentUser.user_metadata?.full_name ||
             currentUser.user_metadata?.name ||
@@ -68,6 +70,7 @@ export default function ProfileSettings() {
 
       setProfile(newProfile);
       setUsername(newProfile.full_name || "");
+      setEmail(newProfile.email || "");
       setAvatar(newProfile.avatar_url || "");
       return;
     }
@@ -82,6 +85,7 @@ export default function ProfileSettings() {
     );
 
     setPhone(profileData.phone || "");
+    setEmail(profileData.email?.includes("@phone.1ntel.local") ? "" : profileData.email || "");
 
     setAvatar(
       profileData.avatar_url ||
@@ -115,8 +119,10 @@ export default function ProfileSettings() {
       .from("profiles")
       .update({
         full_name: username,
+        email: email.trim(),
         phone: phone,
         avatar_url: avatar,
+        profile_completed: Boolean(username.trim() && email.trim()),
       })
       .eq("id", user.id);
 
@@ -138,25 +144,35 @@ export default function ProfileSettings() {
 
     setLoading(true);
 
-    const filePath = `${user.id}/${Date.now()}-${file.name}`;
+    try {
+      const uploadFile = await prepareImageForUpload(file);
+      const filePath = getImageUploadPath(user.id, uploadFile);
 
-    const { error } = await supabase.storage
-      .from("avtars")
-      .upload(filePath, file);
+      const { error } = await supabase.storage
+        .from("avtars")
+        .upload(filePath, uploadFile, {
+          contentType: uploadFile.type,
+        });
 
-    if (error) {
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from("avtars")
+        .getPublicUrl(filePath);
+
+      await supabase
+        .from("profiles")
+        .update({ avatar_url: data.publicUrl })
+        .eq("id", user.id);
+
+      setAvatar(data.publicUrl);
+      toast.success("Photo uploaded");
+    } catch (err: any) {
+      console.error("Photo upload error:", err);
+      toast.error(err?.message || "Could not upload this photo");
+    } finally {
       setLoading(false);
-      return toast.error(error.message);
     }
-
-    const { data } = supabase.storage
-      .from("avtars")
-      .getPublicUrl(filePath);
-
-    setAvatar(data.publicUrl);
-    setLoading(false);
-
-    toast.success("Photo uploaded ✅");
   };
 
   if (!user) return <div className="text-center py-20">Loading...</div>;
@@ -180,8 +196,11 @@ export default function ProfileSettings() {
               avatar ||
               user?.user_metadata?.avatar_url ||
               user?.user_metadata?.picture ||
-              "https://i.pravatar.cc/100"
+              FALLBACK_AVATAR_URL
             }
+            onError={(e) => {
+              e.currentTarget.src = FALLBACK_AVATAR_URL;
+            }}
             className="w-16 h-16 rounded-full object-cover"
           />
 
@@ -190,7 +209,9 @@ export default function ProfileSettings() {
               {username || "User"}
             </h3>
 
-            <p className="break-words text-gray-500 text-sm">{user?.email}</p>
+            <p className="break-words text-gray-500 text-sm">
+              {email || "Email not added"}
+            </p>
 
             <p className="text-green-600 text-xs mt-1">
               ✓ Profile Active
@@ -226,6 +247,24 @@ export default function ProfileSettings() {
           </Card>
         )}
 
+        {activeTab === "email" && (
+          <Card>
+            <h3 className="font-semibold mb-2">Email</h3>
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              inputMode="email"
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              This is your contact email on 1ntel. Your login still uses your phone number.
+            </p>
+            <Button className="mt-4 w-full sm:w-auto" onClick={updateProfile} disabled={loading}>
+              Save Email
+            </Button>
+          </Card>
+        )}
+
         {activeTab === "photo" && (
           <Card>
             <h3 className="font-semibold mb-4">Profile Photo</h3>
@@ -236,14 +275,17 @@ export default function ProfileSettings() {
                   avatar ||
                   user?.user_metadata?.avatar_url ||
                   user?.user_metadata?.picture ||
-                  "https://i.pravatar.cc/100"
+                  FALLBACK_AVATAR_URL
                 }
+                onError={(e) => {
+                  e.currentTarget.src = FALLBACK_AVATAR_URL;
+                }}
                 className="w-20 h-20 rounded-full"
               />
 
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 className="w-full text-sm"
                 onChange={(e: any) => uploadAvatar(e.target.files[0])}
               />
