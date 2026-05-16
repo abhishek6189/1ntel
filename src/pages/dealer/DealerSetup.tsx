@@ -217,6 +217,53 @@ export default function DealerSetup() {
     }
   };
 
+  const getMissingSchemaColumn = (error: any) => {
+    const message = String(error?.message || error?.details || "");
+    const match = message.match(/Could not find the '([^']+)' column/i);
+    return match?.[1] || null;
+  };
+
+  const insertWithSchemaFallback = async (tableName: string, payload: Record<string, any>) => {
+    const currentPayload = { ...payload };
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const { error } = await (supabase as any).from(tableName).insert(currentPayload);
+      if (!error) return;
+
+      const missingColumn = getMissingSchemaColumn(error);
+      if (missingColumn && missingColumn in currentPayload) {
+        delete currentPayload[missingColumn];
+        continue;
+      }
+
+      throw error;
+    }
+
+    throw new Error(`Could not save ${tableName}. Please check the database columns.`);
+  };
+
+  const upsertProfileWithSchemaFallback = async (payload: Record<string, any>) => {
+    const currentPayload = { ...payload };
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const { error } = await (supabase as any)
+        .from("profiles")
+        .upsert(currentPayload, { onConflict: "id" });
+
+      if (!error) return;
+
+      const missingColumn = getMissingSchemaColumn(error);
+      if (missingColumn && missingColumn in currentPayload) {
+        delete currentPayload[missingColumn];
+        continue;
+      }
+
+      throw error;
+    }
+
+    throw new Error("Could not save dealer profile. Please check the database columns.");
+  };
+
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
@@ -276,7 +323,7 @@ export default function DealerSetup() {
 
       const { data: url } = supabase.storage.from("documents").getPublicUrl(path);
 
-      const { error: requestError } = await supabase.from("dealer_requests").insert({
+      await insertWithSchemaFallback("dealer_requests", {
         user_id: user.id,
         email,
         full_name: form.full_name,
@@ -291,26 +338,19 @@ export default function DealerSetup() {
         status: "pending",
       });
 
-      if (requestError) throw requestError;
-
-      const { error: profileError } = await supabase.from("profiles").upsert(
-        {
-          id: user.id,
-          email,
-          full_name: form.full_name,
-          phone: finalPhone,
-          role: "dealer",
-          dealer_status: "pending",
-          dealer_license_number: form.dealer_license_number,
-          business_name: form.business_name,
-          city: form.city,
-          province: form.province,
-          profile_completed: true,
-        },
-        { onConflict: "id" }
-      );
-
-      if (profileError) throw profileError;
+      await upsertProfileWithSchemaFallback({
+        id: user.id,
+        email,
+        full_name: form.full_name,
+        phone: finalPhone,
+        role: "dealer",
+        dealer_status: "pending",
+        dealer_license_number: form.dealer_license_number,
+        business_name: form.business_name,
+        city: form.city,
+        province: form.province,
+        profile_completed: true,
+      });
 
       await supabase.auth.signOut();
 
@@ -318,6 +358,7 @@ export default function DealerSetup() {
       navigate("/dealer-pending");
     } catch (err: any) {
       console.error("SUBMIT ERROR:", err);
+      await supabase.auth.signOut();
       toast.error(err.message || "Could not submit application");
     } finally {
       setLoading(false);

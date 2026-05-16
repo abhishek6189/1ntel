@@ -164,11 +164,37 @@ const Auth = () => {
   const ensureBuyerProfile = async (userId: string, email: string, finalPhone: string) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, role")
+      .select("id, role, dealer_status")
       .eq("id", userId)
       .maybeSingle();
 
     if (profile) return profile;
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (
+      userData.user?.id === userId &&
+      String(userData.user.user_metadata?.role || "").toLowerCase() === "dealer"
+    ) {
+      return {
+        id: userId,
+        role: "dealer",
+        dealer_status: userData.user.user_metadata?.dealer_status || "pending",
+      };
+    }
+
+    const { data: dealerRequest } = await (supabase as any)
+      .from("dealer_requests")
+      .select("id, status")
+      .or(`user_id.eq.${userId},email.eq.${email},phone.eq.${finalPhone}`)
+      .maybeSingle();
+
+    if (dealerRequest) {
+      return {
+        id: userId,
+        role: "dealer",
+        dealer_status: dealerRequest.status || "pending",
+      };
+    }
 
     const { data, error } = await supabase
       .from("profiles")
