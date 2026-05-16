@@ -10,7 +10,7 @@ import { Check, X, Eye, Building2, FileText } from 'lucide-react';
 import { toast } from "sonner";
 import moment from 'moment';
 
-export default function AdminDealers() {
+export default function AdminDealers({ users = [], onRefresh }) {
 
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,7 @@ export default function AdminDealers() {
   /* ================= LOAD ================= */
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [users]);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -32,11 +32,48 @@ export default function AdminDealers() {
       .select("*")
       .order("created_at", { ascending: false });
 
+    const requests = error ? [] : data || [];
+
     if (error) {
-      toast.error("Failed to load requests");
-    } else {
-      setApplications(data || []);
+      toast.error("Failed to load dealer request rows. Showing dealer profiles instead.");
     }
+
+    const requestKeys = new Set(
+      requests.flatMap((request) =>
+        [request.user_id, request.email, request.phone].filter(Boolean)
+      )
+    );
+
+    const fallbackProfiles = users
+      .filter((user) => {
+        const role = String(user.role || "").toLowerCase();
+        const dealerStatus = String(user.dealer_status || "").toLowerCase();
+        return role === "dealer" || ["pending", "approved", "rejected"].includes(dealerStatus);
+      })
+      .filter(
+        (user) =>
+          !requestKeys.has(user.id) &&
+          !requestKeys.has(user.email) &&
+          !requestKeys.has(user.phone)
+      )
+      .map((user) => ({
+        id: `profile-${user.id}`,
+        user_id: user.id,
+        email: user.email,
+        full_name: user.full_name || user.business_name || "Dealer applicant",
+        business_name: user.business_name,
+        phone: user.phone,
+        license_number: user.license_number || user.dealer_license_number || "Not submitted",
+        dealer_license_number: user.dealer_license_number || user.license_number,
+        city: user.city,
+        province: user.province,
+        documents: user.documents || user.license_document_url,
+        status: user.dealer_status || "pending",
+        created_at: user.created_at,
+        _source: "profile",
+      }));
+
+    setApplications([...requests, ...fallbackProfiles]);
 
     setLoading(false);
   };
@@ -44,13 +81,13 @@ export default function AdminDealers() {
   /* ================= APPROVE ================= */
   const handleApprove = async (app) => {
 
-    // 1. update request table
-    await supabase
-      .from("dealer_requests")
-      .update({ status: "approved" })
-      .eq("id", app.id);
+    if (app._source !== "profile") {
+      await supabase
+        .from("dealer_requests")
+        .update({ status: "approved" })
+        .eq("id", app.id);
+    }
 
-    // 2. update profile (VERY IMPORTANT)
     await supabase
       .from("profiles")
       .update({
@@ -61,6 +98,7 @@ export default function AdminDealers() {
 
     toast.success("Dealer Approved ✅");
     fetchRequests();
+    onRefresh?.();
   };
 
   /* ================= REJECT ================= */
@@ -70,13 +108,15 @@ export default function AdminDealers() {
       return toast.error("Enter rejection reason");
     }
 
-    await supabase
-      .from("dealer_requests")
-      .update({
-        status: "rejected",
-        rejection_reason: rejectionReason
-      })
-      .eq("id", app.id);
+    if (app._source !== "profile") {
+      await supabase
+        .from("dealer_requests")
+        .update({
+          status: "rejected",
+          rejection_reason: rejectionReason
+        })
+        .eq("id", app.id);
+    }
 
     await supabase
       .from("profiles")
@@ -91,6 +131,7 @@ export default function AdminDealers() {
     setRejectionReason("");
 
     fetchRequests();
+    onRefresh?.();
   };
 
   /* ================= COLORS ================= */
@@ -157,8 +198,14 @@ export default function AdminDealers() {
                       </p>
 
                       <p className="text-xs mt-1">
-                        License: {app.license_number}
+                        License: {app.license_number || app.dealer_license_number || "Not submitted"}
                       </p>
+
+                      {app._source === "profile" && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          Profile-only application
+                        </p>
+                      )}
 
                       <p className="text-xs text-muted-foreground">
                         {moment(app.created_at).format("MMM D, YYYY")}
@@ -223,7 +270,10 @@ export default function AdminDealers() {
             <div className="space-y-3 text-sm">
 
               <p><b>Phone:</b> {selected.phone}</p>
-              <p><b>License:</b> {selected.license_number}</p>
+              <p><b>Email:</b> {selected.email || "Not added"}</p>
+              <p><b>Business:</b> {selected.business_name || "Not added"}</p>
+              <p><b>License:</b> {selected.license_number || selected.dealer_license_number || "Not submitted"}</p>
+              <p><b>Location:</b> {[selected.city, selected.province].filter(Boolean).join(", ") || "Not added"}</p>
 
               {/* DOCUMENT */}
               {selected.documents && (
