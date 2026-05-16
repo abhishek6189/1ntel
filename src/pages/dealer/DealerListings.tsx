@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Pencil, Trash2, Plus, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
 
 const DealerListings = () => {
 
@@ -10,6 +11,7 @@ const DealerListings = () => {
   const [loading, setLoading] = useState(true);
   const [showSoldPopup, setShowSoldPopup] = useState<any>(null);
   const [celebrate, setCelebrate] = useState(false);
+  const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,6 +23,21 @@ const DealerListings = () => {
     const user = data.user;
 
     if (!user) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", user.id)
+      .single();
+
+    const access = await getSubscriptionAccess(user.id, profile?.plan || "dealer");
+    setSubscriptionAccess(access);
+
+    if (!access.allowed) {
+      setCars([]);
+      setLoading(false);
+      return;
+    }
 
     const { data: carsData } = await supabase
       .from("cars")
@@ -141,7 +158,13 @@ const DealerListings = () => {
         </div>
 
         <button
-          onClick={() => navigate("/dashboard/create-listing")}
+          onClick={() => {
+            if (subscriptionAccess?.allowed === false) {
+              navigate("/pricing");
+              return;
+            }
+            navigate("/dashboard/create-listing");
+          }}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 md:w-auto"
         >
           <Plus size={16} />
@@ -151,6 +174,21 @@ const DealerListings = () => {
       </div>
 
       {/* ================= LOADING ================= */}
+      {subscriptionAccess?.allowed === false && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <p className="font-semibold">Dealer listing access is temporarily blocked.</p>
+          <p className="mt-1">
+            {subscriptionAccess.reason || "Please renew your dealer subscription to restore listings."}
+          </p>
+          <button
+            onClick={() => navigate("/pricing")}
+            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-white"
+          >
+            Renew Plan
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-gray-500">Loading...</p>
       ) : cars.length === 0 ? (

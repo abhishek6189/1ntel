@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UploadCloud, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
+import { getSubscriptionAccess } from "@/utils/subscriptionAccess";
 
 export default function CreateListing() {
   const navigate = useNavigate();
@@ -68,22 +69,21 @@ export default function CreateListing() {
       .eq("id", userId)
       .single();
 
-    const PLAN_LIMITS: any = {
-      free: 2,
-      garage: 10,
-      dealer: 35,
-    };
+    const access = await getSubscriptionAccess(userId, profile?.plan || "free");
 
-    const plan = profile?.plan || "free";
-    const limit = PLAN_LIMITS[plan];
+    if (!access.allowed) {
+      toast.error(access.reason || "Please renew your subscription to list cars.");
+      navigate("/pricing");
+      return false;
+    }
 
     const { count } = await supabase
       .from("cars")
       .select("*", { count: "exact", head: true })
       .eq("seller_id", userId);
 
-    if ((count || 0) >= limit) {
-      toast.error(`Limit reached (${limit}). Upgrade your plan 🚀`);
+    if ((count || 0) >= access.limit) {
+      toast.error(`Limit reached (${access.limit}). Upgrade your plan.`);
       navigate("/pricing");
       return false;
     }

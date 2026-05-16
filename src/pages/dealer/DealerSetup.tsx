@@ -38,6 +38,7 @@ export default function DealerSetup() {
   const [loading, setLoading] = useState(false);
   const [sendingPhoneOtp, setSendingPhoneOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
   const passwordsMatch =
     form.password.length >= 6 &&
@@ -64,6 +65,16 @@ export default function DealerSetup() {
       recaptchaRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setOtpCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [otpCooldown]);
 
   const handleFile = (e: any) => {
     const file = e.target.files?.[0];
@@ -106,6 +117,10 @@ export default function DealerSetup() {
   const sendPhoneOtp = async () => {
     if (!form.phone) return toast.error("Enter phone");
 
+    if (otpCooldown > 0) {
+      return toast.info(`Please wait ${otpCooldown}s before requesting another OTP.`);
+    }
+
     try {
       setSendingPhoneOtp(true);
 
@@ -127,10 +142,21 @@ export default function DealerSetup() {
       );
 
       toast.success("OTP sent");
+      setOtpCooldown(60);
     } catch (err: any) {
       console.error("PHONE OTP ERROR:", err);
       resetRecaptcha();
-      toast.error(`${err?.code || "Firebase error"}: ${err?.message || "Could not send OTP"}`);
+
+      if (err?.code === "auth/too-many-requests") {
+        setOtpCooldown(120);
+        toast.error("OTP is temporarily blocked for this number or device. Please wait a few minutes, then try again.");
+      } else if (err?.code === "auth/invalid-phone-number") {
+        toast.error("Please enter a valid phone number with country code.");
+      } else if (err?.code === "auth/network-request-failed") {
+        toast.error("Network issue while sending OTP. Please check your connection and try again.");
+      } else {
+        toast.error("Could not send OTP. Please try again in a moment.");
+      }
     } finally {
       setSendingPhoneOtp(false);
     }
@@ -318,11 +344,23 @@ export default function DealerSetup() {
                 <Button
                   type="button"
                   onClick={sendPhoneOtp}
-                  disabled={sendingPhoneOtp || phoneVerified}
+                  disabled={sendingPhoneOtp || phoneVerified || otpCooldown > 0}
                 >
-                  {sendingPhoneOtp ? "Sending..." : "OTP"}
+                  {sendingPhoneOtp
+                    ? "Sending..."
+                    : otpCooldown > 0
+                      ? `${otpCooldown}s`
+                      : phoneVerified
+                        ? "Sent"
+                        : "OTP"}
                 </Button>
               </div>
+
+              {otpCooldown > 0 && !phoneVerified && (
+                <p className="mt-1 text-xs text-gray-500">
+                  To protect your account, please wait before requesting another OTP.
+                </p>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
                 <Input

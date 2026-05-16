@@ -28,7 +28,6 @@ import Messages from "./pages/Messages";
 /* DASHBOARDS */
 import Dashboard from "./pages/dashboard/Dashboard";
 import DealerDashboard from "./pages/dashboard/DealerDashboard";
-import AdminDashboard from "./pages/dashboard/AdminDashboard";
 import InspectorDashboard from "./pages/dashboard/InspectorDashboard";
 
 /* 🔥 NEW DEALER SYSTEM */
@@ -147,7 +146,7 @@ const App = () => (
               path="/dashboard/admin"
               element={
                 <AdminRoute>
-                  <AdminDashboard />
+                  <Admin />
                 </AdminRoute>
               }
             />
@@ -172,7 +171,14 @@ const App = () => (
 
             <Route path="/dealer-profile-setup" element={<DealerSetup />} />
             <Route path="/dealer-pending" element={<DealerPending />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <Admin />
+                </AdminRoute>
+              }
+            />
 
             {/* ================= 404 ================= */}
             <Route path="*" element={<NotFound />} />

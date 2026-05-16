@@ -44,6 +44,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -82,6 +83,16 @@ const Auth = () => {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setOtpCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [otpCooldown]);
+
   const resetVerification = () => {
     setPhoneVerified(false);
     setOtpSent(false);
@@ -91,6 +102,10 @@ const Auth = () => {
 
   const sendOtp = async () => {
     if (!phone.trim()) return toast.error("Enter your phone number");
+
+    if (otpCooldown > 0) {
+      return toast.info(`Please wait ${otpCooldown}s before requesting another OTP.`);
+    }
 
     try {
       setSendingOtp(true);
@@ -112,10 +127,21 @@ const Auth = () => {
 
       setOtpSent(true);
       toast.success("OTP sent to your phone");
+      setOtpCooldown(60);
     } catch (err: any) {
       console.error("OTP error:", err);
       confirmationResultRef.current = null;
-      toast.error(err?.message || "Could not send OTP");
+
+      if (err?.code === "auth/too-many-requests") {
+        setOtpCooldown(120);
+        toast.error("OTP is temporarily blocked for this number or device. Please wait a few minutes, then try again.");
+      } else if (err?.code === "auth/invalid-phone-number") {
+        toast.error("Please enter a valid Canadian phone number.");
+      } else if (err?.code === "auth/network-request-failed") {
+        toast.error("Network issue while sending OTP. Please check your connection and try again.");
+      } else {
+        toast.error("Could not send OTP. Please try again in a moment.");
+      }
     } finally {
       setSendingOtp(false);
     }
@@ -190,6 +216,11 @@ const Auth = () => {
         if (!data.user) throw new Error("Login failed");
 
         const profile = await ensureBuyerProfile(data.user.id, authEmail, finalPhone);
+
+        if (String((profile as any)?.role || "").trim().toLowerCase() === "admin") {
+          navigate("/admin", { replace: true });
+          return;
+        }
 
         if ((profile as any)?.role === "dealer") {
           await supabase.auth.signOut();
@@ -276,16 +307,24 @@ const Auth = () => {
                     variant="outline"
                     className="w-full"
                     onClick={sendOtp}
-                    disabled={sendingOtp || phoneVerified}
+                    disabled={sendingOtp || phoneVerified || otpCooldown > 0}
                   >
                     {phoneVerified
                       ? "Phone Verified"
                       : sendingOtp
                       ? "Sending OTP..."
+                      : otpCooldown > 0
+                      ? `Wait ${otpCooldown}s`
                       : otpSent
                       ? "Resend OTP"
                       : "Send OTP"}
                   </Button>
+
+                  {otpCooldown > 0 && !phoneVerified && (
+                    <p className="text-xs text-muted-foreground">
+                      To protect your account, please wait before requesting another OTP.
+                    </p>
+                  )}
 
                   <div className="flex gap-2">
                     <Input

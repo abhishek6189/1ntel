@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Building2, Car, CheckCircle, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Building2, Car, CheckCircle, Loader2, Sparkles, Star } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const plans = [
   {
@@ -20,6 +23,7 @@ const plans = [
     ],
     cta: "Get Started Free",
     link: "/dashboard",
+    checkoutPlan: null,
     highlighted: false,
   },
   {
@@ -38,6 +42,7 @@ const plans = [
     ],
     cta: "Upgrade to Garage",
     link: "/dashboard",
+    checkoutPlan: "garage",
     highlighted: true,
   },
   {
@@ -57,6 +62,7 @@ const plans = [
     ],
     cta: "Dealer Sign Up",
     link: "/dealer-registration",
+    checkoutPlan: null,
     highlighted: false,
   },
 ];
@@ -86,6 +92,36 @@ const OnePlusMark = ({ onBlue = false }: { onBlue?: boolean }) => (
 );
 
 export default function Pricing() {
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+
+  const startSubscriptionCheckout = async (plan: string) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    if (!sessionData.session) {
+      toast.error("Please log in before upgrading.");
+      window.location.href = "/auth?mode=login";
+      return;
+    }
+
+    try {
+      setCheckoutPlan(plan);
+      const { data, error } = await supabase.functions.invoke(
+        "create-subscription-checkout",
+        { body: { plan } }
+      );
+
+      if (error) throw error;
+      if (!data?.url) throw new Error("Could not start checkout.");
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      console.error("Subscription checkout error:", err);
+      toast.error(err?.message || "Could not start checkout.");
+    } finally {
+      setCheckoutPlan(null);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <Navbar />
@@ -174,21 +210,41 @@ export default function Pricing() {
                       ))}
                     </ul>
 
-                    <Button
-                      asChild
-                      size="lg"
-                      variant={plan.highlighted ? "default" : "outline"}
-                      className={`mt-7 h-11 w-full rounded-xl font-semibold ${
-                        plan.highlighted
-                          ? "bg-blue-600 hover:bg-blue-700"
-                          : "border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                      }`}
-                    >
-                      <Link to={plan.link}>
+                    {plan.checkoutPlan ? (
+                      <Button
+                        size="lg"
+                        variant={plan.highlighted ? "default" : "outline"}
+                        className={`mt-7 h-11 w-full rounded-xl font-semibold ${
+                          plan.highlighted
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : "border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        }`}
+                        disabled={checkoutPlan === plan.checkoutPlan}
+                        onClick={() => startSubscriptionCheckout(plan.checkoutPlan)}
+                      >
+                        {checkoutPlan === plan.checkoutPlan && (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
                         {plan.cta}
                         {plan.highlighted && <ArrowRight className="ml-2 h-4 w-4" />}
-                      </Link>
-                    </Button>
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        size="lg"
+                        variant={plan.highlighted ? "default" : "outline"}
+                        className={`mt-7 h-11 w-full rounded-xl font-semibold ${
+                          plan.highlighted
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : "border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        }`}
+                      >
+                        <Link to={plan.link}>
+                          {plan.cta}
+                          {plan.highlighted && <ArrowRight className="ml-2 h-4 w-4" />}
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 );
               })}

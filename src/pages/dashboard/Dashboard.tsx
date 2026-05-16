@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FALLBACK_AVATAR_URL, getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
+import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [profilePromptOpen, setProfilePromptOpen] = useState(false);
+  const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState({
     full_name: "",
@@ -64,6 +66,8 @@ export default function Dashboard() {
       .single();
 
     setProfile(profileData);
+    const access = await getSubscriptionAccess(currentUser.id, profileData?.plan || "free");
+    setSubscriptionAccess(access);
     setProfileDraft({
       full_name: profileData?.full_name || "",
       email: profileData?.email?.includes("@phone.1ntel.local") ? "" : profileData?.email || "",
@@ -84,7 +88,7 @@ export default function Dashboard() {
       .eq("seller_id", currentUser.id)
       .order("created_at", { ascending: false });
 
-    setCars(carsData || []);
+    setCars(access.allowed ? carsData || [] : []);
 
     // ✅ SAVED CARS
     const { data: savedData } = await supabase
@@ -107,10 +111,10 @@ export default function Dashboard() {
   };
 
   /* PLAN */
-  const PLAN_LIMITS: any = { free: 2, garage: 10, dealer: 35 };
-  const plan = profile?.plan || "free";
-  const LIMIT = PLAN_LIMITS[plan];
+  const plan = subscriptionAccess?.plan || profile?.plan || "free";
+  const LIMIT = subscriptionAccess?.limit || 2;
   const isLimitReached = cars.length >= LIMIT;
+  const listingAccessAllowed = subscriptionAccess?.allowed !== false;
 
   /* STATS */
   const active = cars.filter((c) => c.status !== "sold").length;
@@ -334,10 +338,26 @@ export default function Dashboard() {
         {/* ================= LISTINGS ================= */}
         {activeTab === "listings" && (
           <>
+            {!listingAccessAllowed && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <p className="font-semibold">Listing access is temporarily blocked.</p>
+                <p className="mt-1">
+                  {subscriptionAccess?.reason || "Please renew your subscription to restore your listings."}
+                </p>
+                <Button className="mt-3" onClick={() => navigate("/pricing")}>
+                  Renew Plan
+                </Button>
+              </div>
+            )}
+
             <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-4">
               <h3 className="font-semibold">Your Listings</h3>
 
-              {isLimitReached ? (
+              {!listingAccessAllowed ? (
+                <Button className="w-full bg-red-500 md:w-auto" onClick={() => navigate("/pricing")}>
+                  Renew your plan
+                </Button>
+              ) : isLimitReached ? (
                 <Button className="w-full bg-red-500 md:w-auto" onClick={() => navigate("/pricing")}>
                   Upgrade your plan 🚀
                 </Button>
