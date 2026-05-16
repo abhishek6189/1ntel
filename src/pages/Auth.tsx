@@ -28,6 +28,103 @@ const phoneToInternalEmail = (value: string) => {
   return `${normalizedPhone}@phone.1ntel.local`;
 };
 
+const getMissingSchemaColumn = (error: any) => {
+  const message = String(error?.message || error?.details || "");
+  const quotedMatch = message.match(/Could not find the '([^']+)' column/i);
+  const pgMatch = message.match(/column "?([^"\s]+)"? .*does not exist/i);
+  return quotedMatch?.[1] || pgMatch?.[1] || null;
+};
+
+const isDuplicateKeyError = (error: any) =>
+  error?.code === "23505" ||
+  String(error?.message || "").toLowerCase().includes("duplicate key value");
+
+const isMissingColumnError = (error: any) => Boolean(getMissingSchemaColumn(error));
+
+const findProfileByColumn = async (column: string, value?: string | null) => {
+  if (!value) return null;
+
+  const { data, error } = await (supabase as any)
+    .from("profiles")
+    .select("*")
+    .eq(column, value)
+    .maybeSingle();
+
+  if (!error) return data;
+
+  if (isMissingColumnError(error)) return null;
+
+  console.warn(`Could not read profile by ${column}:`, error);
+  return null;
+};
+
+const findProfileForAuth = async (userId: string, email?: string | null, phone?: string | null) =>
+  (await findProfileByColumn("id", userId)) ||
+  (await findProfileByColumn("user_id", userId)) ||
+  (await findProfileByColumn("email", email)) ||
+  (await findProfileByColumn("phone", phone));
+
+const updateProfileWithFallback = async (
+  profile: Record<string, any>,
+  payload: Record<string, any>
+) => {
+  const keys = [
+    profile?.id ? ["id", profile.id] : null,
+    profile?.user_id ? ["user_id", profile.user_id] : null,
+  ].filter(Boolean) as string[][];
+
+  for (const [column, value] of keys) {
+    const currentPayload = { ...payload };
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const { error } = await (supabase as any)
+        .from("profiles")
+        .update(currentPayload)
+        .eq(column, value);
+
+      if (!error) return true;
+
+      const missingColumn = getMissingSchemaColumn(error);
+      if (missingColumn === column) break;
+      if (missingColumn && missingColumn in currentPayload) {
+        delete currentPayload[missingColumn];
+        continue;
+      }
+
+      console.warn("Could not update profile:", error);
+      return false;
+    }
+  }
+
+  return false;
+};
+
+const insertProfileWithFallback = async (payloads: Record<string, any>[]) => {
+  for (const payload of payloads) {
+    const currentPayload = { ...payload };
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const { error } = await (supabase as any).from("profiles").insert(currentPayload);
+      if (!error) return true;
+
+      if (isDuplicateKeyError(error)) return false;
+
+      const missingColumn = getMissingSchemaColumn(error);
+      if (missingColumn && missingColumn in currentPayload) {
+        delete currentPayload[missingColumn];
+        continue;
+      }
+
+      const message = String(error?.message || "");
+      if (error?.code === "23502" && message.includes("null value")) break;
+
+      throw error;
+    }
+  }
+
+  return false;
+};
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -53,11 +150,8 @@ const Auth = () => {
       const user = sessionData.session?.user;
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, is_banned")
-        .eq("id", user.id)
-        .maybeSingle();
+      const metadataPhone = String(user.user_metadata?.phone || "");
+      const profile = await findProfileForAuth(user.id, user.email, metadataPhone);
 
       if (isAccountBanned(profile)) {
         await supabase.auth.signOut();
@@ -169,13 +263,23 @@ const Auth = () => {
   };
 
   const ensureBuyerProfile = async (userId: string, email: string, finalPhone: string) => {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, role, dealer_status, is_banned")
-      .eq("id", userId)
-      .maybeSingle();
+    const profile = await findProfileForAuth(userId, email, finalPhone);
 
-    if (profile) return profile;
+    if (profile) {
+      const role = String(profile.role || "").trim().toLowerCase();
+
+      if (role === "admin" || role === "dealer") return profile;
+
+      await updateProfileWithFallback(profile, {
+        email: profile.email || email,
+        phone: profile.phone || finalPhone,
+        role: profile.role || "buyer",
+        plan: profile.plan || "free",
+        dealer_status: profile.dealer_status ?? null,
+      });
+
+      return (await findProfileForAuth(userId, email, finalPhone)) || profile;
+    }
 
     const { data: userData } = await supabase.auth.getUser();
     if (
@@ -203,22 +307,43 @@ const Auth = () => {
       };
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .insert({
+    const baseProfile = {
+      email,
+      phone: finalPhone,
+      role: "buyer",
+      plan: "free",
+      dealer_status: null,
+      profile_completed: false,
+    };
+
+    const inserted = await insertProfileWithFallback([
+      {
         id: userId,
-        email,
-        phone: finalPhone,
+        ...baseProfile,
+      },
+      {
+        user_id: userId,
+        ...baseProfile,
+      },
+      {
+        id: userId,
+        user_id: userId,
+        ...baseProfile,
+      },
+    ]);
+
+    const savedProfile = await findProfileForAuth(userId, email, finalPhone);
+    if (savedProfile) return savedProfile;
+
+    if (!inserted) {
+      return {
+        id: userId,
         role: "buyer",
         plan: "free",
-        dealer_status: null,
-        profile_completed: false,
-      })
-      .select("id, role")
-      .single();
+      };
+    }
 
-    if (error) throw error;
-    return data;
+    throw new Error("Profile was created but could not be loaded. Please refresh and try again.");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
