@@ -198,7 +198,13 @@ const DealerListings = () => {
             No cars yet 🚀
           </p>
           <button
-            onClick={() => navigate("/dashboard/create-listing")}
+            onClick={() => {
+              if (subscriptionAccess?.allowed === false) {
+                navigate("/pricing");
+                return;
+              }
+              navigate("/dashboard/create-listing");
+            }}
             className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg"
           >
             Add your first car
@@ -273,7 +279,7 @@ const DealerListings = () => {
 
                     <button
                       className="text-blue-600 hover:scale-110"
-                      onClick={() => navigate(`/dashboard/create-listing?id=${car.id}`)}
+                      onClick={() => navigate(`/dashboard/create-listing?edit=${car.id}`)}
                     >
                       <Pencil size={16} />
                     </button>

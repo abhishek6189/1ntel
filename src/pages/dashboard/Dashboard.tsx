@@ -307,7 +307,7 @@ export default function Dashboard() {
             </Badge>
 
             <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate("/pricing")}>
-              Upgrade
+              {!listingAccessAllowed ? "Renew plan" : plan === "free" || plan === "individual" ? "Upgrade" : "Current plan"}
             </Button>
           </div>
         </div>

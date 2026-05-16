@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
+import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
 
 const SellerRoute = ({ children }: any) => {
 
@@ -20,7 +21,7 @@ const SellerRoute = ({ children }: any) => {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, dealer_status, is_banned")
         .eq("id", user.id)
         .single();
 
@@ -31,9 +32,17 @@ const SellerRoute = ({ children }: any) => {
       }
 
       // 🔥 FORCE TYPE (IMPORTANT)
-      const role = (data as any)?.role;
+      if (isAccountBanned(data)) {
+        await supabase.auth.signOut();
+        showBannedAccountMessage();
+        setLoading(false);
+        return;
+      }
 
-      if (role === "dealer") {
+      const role = (data as any)?.role;
+      const dealerStatus = (data as any)?.dealer_status;
+
+      if (role === "dealer" && dealerStatus === "approved") {
         setIsSeller(true);
       }
 

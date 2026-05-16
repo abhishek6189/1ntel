@@ -18,6 +18,10 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_URL") || "",
   Deno.env.get("SUPABASE_ANON_KEY") || ""
 );
+const adminSupabase = createClient(
+  Deno.env.get("SUPABASE_URL") || "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+);
 
 const priceByPlan: Record<string, string | undefined> = {
   garage: Deno.env.get("STRIPE_GARAGE_PRICE_ID"),
@@ -28,6 +32,14 @@ const maxListingsByPlan: Record<string, number> = {
   garage: 10,
   dealer: 35,
 };
+
+const activeStatuses = new Set(["active", "trialing", "past_due"]);
+
+const json = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -40,10 +52,7 @@ serve(async (req: Request) => {
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !userData.user) {
-      return new Response(JSON.stringify({ error: "Login required" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Login required" }, 401);
     }
 
     const { plan } = await req.json();
@@ -51,10 +60,48 @@ serve(async (req: Request) => {
     const priceId = priceByPlan[normalizedPlan];
 
     if (!priceId || !maxListingsByPlan[normalizedPlan]) {
-      return new Response(JSON.stringify({ error: "Invalid subscription plan" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Invalid subscription plan" }, 400);
+    }
+
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("role, dealer_status, is_banned, plan")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+
+    if (profile?.is_banned) {
+      return json({ error: "This account is banned. Please contact support." }, 403);
+    }
+
+    const role = String(profile?.role || "").toLowerCase();
+    const dealerStatus = String(profile?.dealer_status || "").toLowerCase();
+
+    if (normalizedPlan === "dealer" && (role !== "dealer" || dealerStatus !== "approved")) {
+      return json({ error: "Dealer plan is only available after admin approval." }, 403);
+    }
+
+    if (normalizedPlan === "garage" && role === "dealer") {
+      return json({ error: "Dealer accounts must use the dealer subscription." }, 403);
+    }
+
+    const { data: existingSubscription } = await adminSupabase
+      .from("subscriptions")
+      .select("plan, status")
+      .eq("user_id", userData.user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const existingStatus = String(existingSubscription?.status || "").toLowerCase();
+    if (existingSubscription && activeStatuses.has(existingStatus)) {
+      const existingPlan = String(existingSubscription.plan || "").toLowerCase();
+      if (existingPlan === normalizedPlan) {
+        return json({ error: "You already have this plan active." }, 409);
+      }
+
+      return json({
+        error: "You already have an active subscription. Please contact support to switch plans.",
+      }, 409);
     }
 
     const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
@@ -86,14 +133,8 @@ serve(async (req: Request) => {
       },
     });
 
-    return new Response(JSON.stringify({ url: session.url }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ url: session.url });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || "Checkout failed" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: err.message || "Checkout failed" }, 500);
   }
 });

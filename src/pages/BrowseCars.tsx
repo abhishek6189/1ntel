@@ -21,6 +21,7 @@ import { Slider } from "@/components/ui/slider";
 
 import { makes, bodyTypes, transmissions, fuelTypes } from "@/lib/mockData";
 import { supabase } from "@/integrations/supabase/client";
+import { filterVisibleCarsForPublic } from "@/utils/subscriptionAccess";
 
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
 import { motion } from "framer-motion";
@@ -129,8 +130,9 @@ const BrowseCars = () => {
         setCars([]);
         setTotalCount(0);
       } else {
-        setCars(data || []);
-        setTotalCount(count || 0);
+        const visibleCars = await filterVisibleCarsForPublic(data || []);
+        setCars(visibleCars);
+        setTotalCount(visibleCars.length < (data || []).length ? visibleCars.length : count || 0);
       }
 
       setLoading(false);

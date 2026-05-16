@@ -45,6 +45,7 @@ export default function AdminInspections({ inspections = [], onRefresh }) {
 
   const statusColors = {
     pending: "bg-yellow-100 text-yellow-800",
+    paid: "bg-yellow-100 text-yellow-800",
     in_progress: "bg-blue-100 text-blue-800",
     completed: "bg-green-100 text-green-800",
     cancelled: "bg-red-100 text-red-800",
@@ -97,7 +98,7 @@ export default function AdminInspections({ inspections = [], onRefresh }) {
                   </Badge>
 
                   <div className="flex flex-wrap gap-1">
-                    {(insp.status || "pending") === "pending" && (
+                    {["pending", "paid", undefined, null].includes(insp.status) && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -117,7 +118,7 @@ export default function AdminInspections({ inspections = [], onRefresh }) {
                       </Button>
                     )}
 
-                    {["pending", "in_progress", undefined, null].includes(insp.status) && (
+                    {["pending", "paid", "in_progress", undefined, null].includes(insp.status) && (
                       <Button
                         size="sm"
                         variant="outline"

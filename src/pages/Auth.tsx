@@ -55,7 +55,7 @@ const Auth = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, is_banned, account_status")
+        .select("role, is_banned")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -171,7 +171,7 @@ const Auth = () => {
   const ensureBuyerProfile = async (userId: string, email: string, finalPhone: string) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, role, dealer_status, is_banned, account_status")
+      .select("id, role, dealer_status, is_banned")
       .eq("id", userId)
       .maybeSingle();
 

@@ -16,7 +16,7 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
       if (sessionUser) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("is_banned, account_status")
+          .select("is_banned")
           .eq("id", sessionUser.id)
           .maybeSingle();
 

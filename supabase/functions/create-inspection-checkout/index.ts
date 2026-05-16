@@ -18,6 +18,16 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_URL") || "",
   Deno.env.get("SUPABASE_ANON_KEY") || ""
 );
+const adminSupabase = createClient(
+  Deno.env.get("SUPABASE_URL") || "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+);
+
+const json = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -30,27 +40,51 @@ serve(async (req: Request) => {
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !userData.user) {
-      return new Response(JSON.stringify({ error: "Login required" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Login required" }, 401);
     }
 
     const { carId, carTitle } = await req.json();
 
     if (!carId) {
-      return new Response(JSON.stringify({ error: "Car ID is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Car ID is required" }, 400);
+    }
+
+    const { data: car } = await adminSupabase
+      .from("cars")
+      .select("id, seller_id, status, title")
+      .eq("id", carId)
+      .maybeSingle();
+
+    if (!car || car.status === "sold") {
+      return json({ error: "This listing is not available for inspection." }, 404);
+    }
+
+    if (car.seller_id === userData.user.id) {
+      return json({ error: "You cannot request an inspection on your own listing." }, 403);
+    }
+
+    const duplicateAttempts = [
+      { buyer_id: userData.user.id, car_id: carId },
+      { user_id: userData.user.id, car_id: carId },
+      { buyer_id: userData.user.id, listing_id: carId },
+      { user_id: userData.user.id, listing_id: carId },
+    ];
+
+    for (const match of duplicateAttempts) {
+      const { data: existing, error } = await adminSupabase
+        .from("inspection_requests")
+        .select("id")
+        .match(match)
+        .maybeSingle();
+
+      if (!error && existing) {
+        return json({ error: "You already requested an inspection for this car." }, 409);
+      }
     }
 
     const priceId = Deno.env.get("STRIPE_INSPECTION_PRICE_ID");
     if (!priceId) {
-      return new Response(JSON.stringify({ error: "Stripe inspection price is not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Stripe inspection price is not configured" }, 500);
     }
 
     const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
@@ -69,18 +103,12 @@ serve(async (req: Request) => {
       metadata: {
         buyer_id: userData.user.id,
         car_id: carId,
-        car_title: carTitle || "",
+        car_title: carTitle || car.title || "",
       },
     });
 
-    return new Response(JSON.stringify({ url: session.url }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ url: session.url });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || "Checkout failed" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: err.message || "Checkout failed" }, 500);
   }
 });

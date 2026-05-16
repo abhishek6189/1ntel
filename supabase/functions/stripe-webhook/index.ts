@@ -41,39 +41,42 @@ const insertInspectionRequest = async (session: Stripe.Checkout.Session) => {
     {
       buyer_id: buyerId,
       car_id: carId,
-      status: "paid",
+      status: "pending",
+      payment_status: "paid",
       payment_amount: 50,
       stripe_payment_id: session.payment_intent as string,
     },
     {
       buyer_id: buyerId,
       car_id: carId,
-      status: "paid",
+      status: "pending",
       stripe_payment_id: session.payment_intent as string,
     },
     {
       user_id: buyerId,
       car_id: carId,
-      status: "paid",
+      status: "pending",
+      payment_status: "paid",
       payment_amount: 50,
       stripe_payment_id: session.payment_intent as string,
     },
     {
       user_id: buyerId,
       car_id: carId,
-      status: "paid",
+      status: "pending",
     },
     {
       buyer_id: buyerId,
       listing_id: carId,
-      status: "paid",
+      status: "pending",
+      payment_status: "paid",
       payment_amount: 50,
       stripe_payment_id: session.payment_intent as string,
     },
     {
       buyer_id: buyerId,
       listing_id: carId,
-      status: "paid",
+      status: "pending",
     },
   ];
 
@@ -109,9 +112,22 @@ const upsertSubscription = async (
       : null,
   };
 
-  const { error } = await supabase
+  const { data: existingSubscription } = await supabase
     .from("subscriptions")
-    .upsert(payload, { onConflict: "user_id" });
+    .select("id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = existingSubscription?.id
+    ? await supabase
+        .from("subscriptions")
+        .update(payload)
+        .eq("id", existingSubscription.id)
+    : await supabase
+        .from("subscriptions")
+        .insert(payload);
 
   if (error) throw error;
 

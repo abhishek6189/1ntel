@@ -23,6 +23,8 @@ export default function AdminUsers({ users = [], onRefresh }) {
     user.role === "user" ? "buyer" : user.role || "buyer";
 
   const filtered = users.filter((user) => {
+    if (user.deleted_at) return false;
+
     const role = getRole(user);
 
     if (roleFilter !== "all" && role !== roleFilter) return false;

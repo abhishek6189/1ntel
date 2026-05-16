@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,12 @@ import { getSubscriptionAccess } from "@/utils/subscriptionAccess";
 
 export default function CreateListing() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit") || searchParams.get("id");
 
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [loadingListing, setLoadingListing] = useState(Boolean(editId));
 
   const [customFields, setCustomFields] = useState<any>({
     body_type: false,
@@ -61,6 +64,55 @@ export default function CreateListing() {
     update(field, value.replace(/[^\d]/g, ""));
   };
 
+  useEffect(() => {
+    const loadListingForEdit = async () => {
+      if (!editId) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate("/auth?mode=login");
+        return;
+      }
+
+      const { data: car, error } = await supabase
+        .from("cars")
+        .select("*, car_images(image_url)")
+        .eq("id", editId)
+        .eq("seller_id", user.id)
+        .maybeSingle();
+
+      if (error || !car) {
+        toast.error("Listing not found or you do not have access.");
+        navigate("/dashboard");
+        return;
+      }
+
+      setForm({
+        title: car.title || "",
+        make: car.make || "",
+        model: car.model || "",
+        year: car.year ? String(car.year) : "",
+        price: car.price ? String(car.price) : "",
+        mileage: car.mileage ? String(car.mileage) : "",
+        location: car.location || "",
+        transmission: car.transmission || "",
+        fuel_type: car.fuel_type || "",
+        body_type: car.body_type || "",
+        drivetrain: car.drivetrain || "",
+        exterior_color: car.exterior_color || "",
+        interior_color: car.interior_color || "",
+        vin: car.vin || "",
+        condition: car.condition || "",
+        description: car.description || "",
+        seller_phone: car.seller_phone || "",
+      });
+      setImages((car.car_images || []).map((image: any) => image.image_url).filter(Boolean));
+      setLoadingListing(false);
+    };
+
+    loadListingForEdit();
+  }, [editId, navigate]);
+
   /* ================= PLAN LIMIT CHECK ================= */
   const checkPlanLimit = async (userId: string) => {
     const { data: profile } = await supabase
@@ -82,7 +134,7 @@ export default function CreateListing() {
       .select("*", { count: "exact", head: true })
       .eq("seller_id", userId);
 
-    if ((count || 0) >= access.limit) {
+    if (!editId && (count || 0) >= access.limit) {
       toast.error(`Limit reached (${access.limit}). Upgrade your plan.`);
       navigate("/pricing");
       return false;
@@ -152,19 +204,36 @@ export default function CreateListing() {
       return toast.error("Please fill all required fields");
     }
 
-    const { data, error } = await supabase
-      .from("cars")
-      .insert({
-        ...form,
-        seller_id: user.id,
-        status: "active",
-      })
-      .select()
-      .single();
+    const payload = {
+      ...form,
+      year: form.year ? Number(form.year) : null,
+      price: form.price ? Number(form.price) : null,
+      mileage: form.mileage ? Number(form.mileage) : null,
+      seller_id: user.id,
+      status: "active",
+    };
+
+    const { data, error } = editId
+      ? await supabase
+          .from("cars")
+          .update(payload)
+          .eq("id", editId)
+          .eq("seller_id", user.id)
+          .select()
+          .single()
+      : await supabase
+          .from("cars")
+          .insert(payload)
+          .select()
+          .single();
 
     if (error) return toast.error(error.message);
 
     if (images.length) {
+      if (editId) {
+        await supabase.from("car_images").delete().eq("car_id", data.id);
+      }
+
       await supabase.from("car_images").insert(
         images.map((img) => ({
           car_id: data.id,
@@ -202,6 +271,10 @@ export default function CreateListing() {
     }
   ];
 
+  if (loadingListing) {
+    return <div className="p-20 text-center">Loading listing...</div>;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -213,7 +286,9 @@ export default function CreateListing() {
           <Button variant="ghost" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-lg sm:text-xl font-semibold">List a New Car</h1>
+          <h1 className="text-lg sm:text-xl font-semibold">
+            {editId ? "Edit Listing" : "List a New Car"}
+          </h1>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white p-4 sm:p-6 rounded-xl border space-y-6">
@@ -236,14 +311,14 @@ export default function CreateListing() {
 
           {/* BASIC */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Title *" placeholder="2022 Honda Civic EX" onChange={(v)=>update("title",v)} />
-            <Field label="Make *" placeholder="Honda" onChange={(v)=>update("make",v)} />
-            <Field label="Model *" placeholder="Civic" onChange={(v)=>update("model",v)} />
-            <Field label="Year *" type="number" placeholder="2022" onChange={(v)=>update("year",v)} />
+            <Field label="Title *" placeholder="2022 Honda Civic EX" value={form.title} onChange={(v)=>update("title",v)} />
+            <Field label="Make *" placeholder="Honda" value={form.make} onChange={(v)=>update("make",v)} />
+            <Field label="Model *" placeholder="Civic" value={form.model} onChange={(v)=>update("model",v)} />
+            <Field label="Year *" type="number" placeholder="2022" value={form.year} onChange={(v)=>update("year",v)} />
             <NumberField label="Price ($) *" placeholder="28,500" value={form.price} onChange={(v)=>updateNumber("price",v)} />
             <NumberField label="Mileage (km)" placeholder="32,000" value={form.mileage} onChange={(v)=>updateNumber("mileage",v)} />
-            <Field label="Location *" placeholder="Toronto, ON" onChange={(v)=>update("location",v)} />
-            <Field label="Phone" placeholder="(416) 555-0123" onChange={(v)=>update("seller_phone",v)} />
+            <Field label="Location *" placeholder="Toronto, ON" value={form.location} onChange={(v)=>update("location",v)} />
+            <Field label="Phone" placeholder="(416) 555-0123" value={form.seller_phone} onChange={(v)=>update("seller_phone",v)} />
           </div>
 
           {/* DROPDOWNS */}
@@ -253,6 +328,7 @@ export default function CreateListing() {
                 <Label>{item.label}</Label>
 
                 <Select
+                  value={form[item.field] || undefined}
                   onValueChange={(value) => {
                     update(item.field, value);
                     setCustomFields((prev:any)=>({...prev,[item.field]:value==="other"}));
@@ -284,14 +360,14 @@ export default function CreateListing() {
 
           {/* COLORS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Exterior Color" placeholder="Black" onChange={(v)=>update("exterior_color",v)} />
-            <Field label="Interior Color" placeholder="Beige" onChange={(v)=>update("interior_color",v)} />
+            <Field label="Exterior Color" placeholder="Black" value={form.exterior_color} onChange={(v)=>update("exterior_color",v)} />
+            <Field label="Interior Color" placeholder="Beige" value={form.interior_color} onChange={(v)=>update("interior_color",v)} />
           </div>
 
           {/* CONDITION */}
           <div>
             <Label>Condition</Label>
-            <Select onValueChange={(value)=>{
+            <Select value={form.condition || undefined} onValueChange={(value)=>{
               update("condition",value);
               setCustomFields((prev:any)=>({...prev,condition:value==="other"}));
             }}>
@@ -311,17 +387,17 @@ export default function CreateListing() {
           </div>
 
           {/* EXTRA */}
-          <Field label="VIN" placeholder="Vehicle Identification Number" onChange={(v)=>update("vin",v)} />
+          <Field label="VIN" placeholder="Vehicle Identification Number" value={form.vin} onChange={(v)=>update("vin",v)} />
 
           <div>
             <Label>Description</Label>
-            <Textarea placeholder="Describe your vehicle..." onChange={(e)=>update("description",e.target.value)} />
+            <Textarea value={form.description} placeholder="Describe your vehicle..." onChange={(e)=>update("description",e.target.value)} />
           </div>
 
           {/* ACTIONS */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button type="submit" className="w-full sm:w-auto">
-              {uploading ? "Uploading..." : "Create Listing"}
+            <Button type="submit" className="w-full sm:w-auto" disabled={uploading}>
+              {uploading ? "Uploading..." : editId ? "Update Listing" : "Create Listing"}
             </Button>
 
             <Button
@@ -342,10 +418,10 @@ export default function CreateListing() {
 }
 
 /* REUSABLE FIELD */
-const Field = ({ label, placeholder, type="text", onChange }: any) => (
+const Field = ({ label, placeholder, type="text", value = "", onChange }: any) => (
   <div>
     <Label>{label}</Label>
-    <Input type={type} placeholder={placeholder} onChange={(e)=>onChange(e.target.value)} />
+    <Input type={type} value={value} placeholder={placeholder} onChange={(e)=>onChange(e.target.value)} />
   </div>
 );
 

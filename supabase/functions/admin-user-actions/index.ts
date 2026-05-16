@@ -95,9 +95,10 @@ serve(async (req: Request) => {
     }
 
     if (action === "toggle_ban") {
+      const shouldBan = Boolean(value);
       await updateProfileWithFallback(adminClient, userId, {
-        is_banned: Boolean(value),
-        banned_at: Boolean(value) ? new Date().toISOString() : null,
+        is_banned: shouldBan,
+        banned_at: shouldBan ? new Date().toISOString() : null,
       });
       return json({ ok: true });
     }
@@ -116,7 +117,18 @@ serve(async (req: Request) => {
         });
       }
 
-      await adminClient.from("profiles").delete().eq("id", userId);
+      const { error: profileDeleteError } = await adminClient
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
+
+      if (profileDeleteError) {
+        return json({
+          ok: true,
+          warning: "Auth user was deleted. Profile was marked deleted but could not be removed because related records still exist.",
+        });
+      }
+
       return json({ ok: true });
     }
 

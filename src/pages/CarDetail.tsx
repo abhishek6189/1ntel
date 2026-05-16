@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { filterVisibleCarsForPublic } from "@/utils/subscriptionAccess";
 
 import {
   ArrowLeft,
@@ -73,6 +74,14 @@ const CarDetail = () => {
         .single();
 
       if (!carData) return;
+
+      const [visibleCar] = await filterVisibleCarsForPublic([carData]);
+      if (!visibleCar || carData.status === "sold") {
+        toast.error("This listing is not available right now.");
+        navigate("/browse", { replace: true });
+        return;
+      }
+
       setCar(carData);
       setActiveImage(carData.image_url || "");
 
@@ -102,12 +111,14 @@ const CarDetail = () => {
 
         setSaved(!!savedData);
 
-        let { data: existingInspection, error: existingInspectionError } = await (supabase as any)
+        const inspectionResult = await (supabase as any)
           .from("inspection_requests")
           .select("id")
           .eq("buyer_id", currentUser.id)
           .eq("car_id", id)
           .maybeSingle();
+        let existingInspection = inspectionResult.data;
+        const existingInspectionError = inspectionResult.error;
 
         if (existingInspectionError?.message?.includes("car_id")) {
           const fallback = await (supabase as any)

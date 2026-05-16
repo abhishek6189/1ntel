@@ -17,7 +17,7 @@ const AccountStatusGuard = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("is_banned, account_status")
+        .select("is_banned")
         .eq("id", user.id)
         .maybeSingle();
 

@@ -46,6 +46,7 @@ export default function AdminDealers({ users = [], onRefresh }) {
 
     const fallbackProfiles = users
       .filter((user) => {
+        if (user.deleted_at) return false;
         const role = String(user.role || "").toLowerCase();
         const dealerStatus = String(user.dealer_status || "").toLowerCase();
         return role === "dealer" || ["pending", "approved", "rejected"].includes(dealerStatus);

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -93,6 +93,42 @@ const OnePlusMark = ({ onBlue = false }: { onBlue?: boolean }) => (
 
 export default function Pricing() {
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState("free");
+  const [currentStatus, setCurrentStatus] = useState("");
+  const paidPlanActive = ["active", "trialing", "past_due"].includes(currentStatus);
+
+  useEffect(() => {
+    const loadCurrentPlan = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData.session?.user;
+      if (!user) return;
+
+      const { data: subscription } = await (supabase as any)
+        .from("subscriptions")
+        .select("plan, status")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subscription?.plan) {
+        setCurrentPlan(String(subscription.plan).toLowerCase());
+        setCurrentStatus(String(subscription.status || "").toLowerCase());
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setCurrentPlan(String(profile?.plan || "free").toLowerCase());
+      setCurrentStatus("");
+    };
+
+    loadCurrentPlan();
+  }, []);
 
   const startSubscriptionCheckout = async (plan: string) => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -100,6 +136,15 @@ export default function Pricing() {
     if (!sessionData.session) {
       toast.error("Please log in before upgrading.");
       window.location.href = "/auth?mode=login";
+      return;
+    }
+
+    if (paidPlanActive) {
+      if (currentPlan === plan) {
+        toast.info("This plan is already active on your account.");
+      } else {
+        toast.info("Please contact support to switch an active subscription.");
+      }
       return;
     }
 
@@ -167,6 +212,19 @@ export default function Pricing() {
 
             <div className="mx-auto mt-10 grid max-w-6xl gap-5 md:grid-cols-2 lg:grid-cols-3 lg:items-center">
               {plans.map((plan) => {
+                const checkoutPlanName = plan.checkoutPlan || "";
+                const isCurrentPlan = currentPlan === plan.name.toLowerCase() && (plan.name === "Free" || paidPlanActive);
+                const activeDifferentPaidPlan = paidPlanActive && checkoutPlanName && currentPlan !== checkoutPlanName;
+                const disabled = Boolean(
+                  checkoutPlan === checkoutPlanName ||
+                    (checkoutPlanName && (isCurrentPlan || activeDifferentPaidPlan))
+                );
+                const buttonLabel = isCurrentPlan
+                  ? "Current Plan"
+                  : activeDifferentPaidPlan
+                    ? "Contact Support to Switch"
+                    : plan.cta;
+
                 return (
                   <div
                     key={plan.name}
@@ -219,13 +277,13 @@ export default function Pricing() {
                             ? "bg-blue-600 hover:bg-blue-700"
                             : "border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         }`}
-                        disabled={checkoutPlan === plan.checkoutPlan}
+                        disabled={disabled}
                         onClick={() => startSubscriptionCheckout(plan.checkoutPlan)}
                       >
                         {checkoutPlan === plan.checkoutPlan && (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         )}
-                        {plan.cta}
+                        {buttonLabel}
                         {plan.highlighted && <ArrowRight className="ml-2 h-4 w-4" />}
                       </Button>
                     ) : (
