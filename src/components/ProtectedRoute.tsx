@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const [loading, setLoading] = useState(true);
@@ -10,7 +11,25 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
     // 🔥 INITIAL CHECK
     const getSession = async () => {
       const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user ?? null);
+      const sessionUser = data.session?.user ?? null;
+
+      if (sessionUser) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_banned, account_status")
+          .eq("id", sessionUser.id)
+          .maybeSingle();
+
+        if (isAccountBanned(profile)) {
+          await supabase.auth.signOut();
+          showBannedAccountMessage();
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+      }
+
+      setUser(sessionUser);
       setLoading(false);
     };
 

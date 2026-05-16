@@ -50,6 +50,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AdminRoute from "@/components/AdminRoute";
 import InspectorRoute from "@/components/InspectorRoute";
 import SellerRoute from "@/components/SellerRoute";
+import AccountStatusGuard from "@/components/AccountStatusGuard";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const App = () => (
 
       <ProfileProvider>
         <BrowserRouter>
+          <AccountStatusGuard />
           <Routes>
             {/* ================= PUBLIC ================= */}
             <Route path="/" element={<Index />} />

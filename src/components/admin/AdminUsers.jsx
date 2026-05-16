@@ -17,6 +17,7 @@ import moment from "moment";
 export default function AdminUsers({ users = [], onRefresh }) {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [busyUserId, setBusyUserId] = useState("");
 
   const getRole = (user) =>
     user.role === "user" ? "buyer" : user.role || "buyer";
@@ -36,54 +37,65 @@ export default function AdminUsers({ users = [], onRefresh }) {
     );
   });
 
+  const runAdminAction = async ({ action, userId, value, successMessage }) => {
+    setBusyUserId(userId);
+
+    const { data, error } = await supabase.functions.invoke("admin-user-actions", {
+      body: { action, userId, value },
+    });
+
+    setBusyUserId("");
+
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || "Admin action failed");
+      return false;
+    }
+
+    if (data?.warning) {
+      toast.warning(data.warning);
+    } else {
+      toast.success(successMessage);
+    }
+
+    onRefresh?.();
+    return true;
+  };
+
   const handleRoleChange = async (userId, newRole) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role: newRole })
-      .eq("id", userId);
-
-    if (error) return toast.error("Role update failed");
-
-    toast.success("Role updated");
-    onRefresh();
+    await runAdminAction({
+      action: "update_role",
+      userId,
+      value: newRole,
+      successMessage: "Role updated",
+    });
   };
 
   const handlePlanChange = async (userId, newPlan) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ plan: newPlan })
-      .eq("id", userId);
-
-    if (error) return toast.error("Plan update failed");
-
-    toast.success("Plan updated");
-    onRefresh();
+    await runAdminAction({
+      action: "update_plan",
+      userId,
+      value: newPlan,
+      successMessage: "Plan updated",
+    });
   };
 
   const toggleBan = async (user) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_banned: !user.is_banned })
-      .eq("id", user.id);
-
-    if (error) return toast.error("Failed to update user");
-
-    toast.success(user.is_banned ? "User unbanned" : "User banned");
-    onRefresh();
+    await runAdminAction({
+      action: "toggle_ban",
+      userId: user.id,
+      value: !user.is_banned,
+      successMessage: user.is_banned ? "User unbanned" : "User banned",
+    });
   };
 
   const deleteUser = async (userId) => {
     if (!confirm("Delete this user permanently?")) return;
 
-    const { error } = await supabase
-      .from("profiles")
-      .delete()
-      .eq("id", userId);
-
-    if (error) return toast.error("Delete failed");
-
-    toast.success("User deleted");
-    onRefresh();
+    await runAdminAction({
+      action: "delete_user",
+      userId,
+      successMessage: "User deleted",
+    });
   };
 
   const roleColors = {
@@ -164,6 +176,7 @@ export default function AdminUsers({ users = [], onRefresh }) {
                     <Select
                       value={role}
                       onValueChange={(value) => handleRoleChange(user.id, value)}
+                      disabled={busyUserId === user.id}
                     >
                       <SelectTrigger className="h-8 w-28 rounded-lg text-xs">
                         <SelectValue />
@@ -180,6 +193,7 @@ export default function AdminUsers({ users = [], onRefresh }) {
                     <Select
                       value={user.plan || "free"}
                       onValueChange={(value) => handlePlanChange(user.id, value)}
+                      disabled={busyUserId === user.id}
                     >
                       <SelectTrigger className="h-8 w-28 rounded-lg text-xs">
                         <SelectValue />
@@ -219,6 +233,7 @@ export default function AdminUsers({ users = [], onRefresh }) {
                             : "border-red-200 text-red-600 hover:bg-red-50"
                         }`}
                         onClick={() => toggleBan(user)}
+                        disabled={busyUserId === user.id}
                       >
                         {user.is_banned ? "Unban" : "Ban"}
                       </Button>
@@ -228,6 +243,7 @@ export default function AdminUsers({ users = [], onRefresh }) {
                         variant="destructive"
                         className="px-3 text-xs"
                         onClick={() => deleteUser(user.id)}
+                        disabled={busyUserId === user.id}
                       >
                         Delete
                       </Button>

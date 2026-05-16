@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { auth } from "@/lib/firebase";
+import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
 
 const formatPhoneForFirebase = (value: string) => {
   const trimmed = value.trim();
@@ -54,9 +55,15 @@ const Auth = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, is_banned, account_status")
         .eq("id", user.id)
         .maybeSingle();
+
+      if (isAccountBanned(profile)) {
+        await supabase.auth.signOut();
+        showBannedAccountMessage();
+        return;
+      }
 
       if (profile?.role === "admin") {
         navigate("/admin", { replace: true });
@@ -164,7 +171,7 @@ const Auth = () => {
   const ensureBuyerProfile = async (userId: string, email: string, finalPhone: string) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, role, dealer_status")
+      .select("id, role, dealer_status, is_banned, account_status")
       .eq("id", userId)
       .maybeSingle();
 
@@ -242,6 +249,12 @@ const Auth = () => {
         if (!data.user) throw new Error("Login failed");
 
         const profile = await ensureBuyerProfile(data.user.id, authEmail, finalPhone);
+
+        if (isAccountBanned(profile)) {
+          await supabase.auth.signOut();
+          showBannedAccountMessage();
+          return;
+        }
 
         if (String((profile as any)?.role || "").trim().toLowerCase() === "admin") {
           navigate("/admin", { replace: true });

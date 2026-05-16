@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
 
 export default function DealerAuth() {
   const navigate = useNavigate();
@@ -38,6 +39,12 @@ export default function DealerAuth() {
         return;
       }
 
+      if (isAccountBanned(profile)) {
+        showBannedAccountMessage();
+        setLoading(false);
+        return;
+      }
+
       /* ❌ BLOCK IF NOT DEALER */
       if (profile.role !== "dealer") {
         toast.error("This account is not a dealer account.");
@@ -60,6 +67,13 @@ export default function DealerAuth() {
 
       if (error) {
         toast.error("Invalid password.");
+        setLoading(false);
+        return;
+      }
+
+      if (isAccountBanned(profile)) {
+        await supabase.auth.signOut();
+        showBannedAccountMessage();
         setLoading(false);
         return;
       }
