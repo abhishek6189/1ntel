@@ -215,12 +215,13 @@ export default function CreateListing() {
     const allowed = await checkPlanLimit(user.id);
     if (!allowed) return;
 
-    if (!form.title || !form.make || !form.model || !form.price || !form.location) {
-      return toast.error("Please fill all required fields");
+    if (!form.title || !form.make || !form.model || !form.price || !form.location || !String(form.vin || "").trim()) {
+      return toast.error("Please fill all required fields, including VIN.");
     }
 
     const payload = {
       ...form,
+      vin: String(form.vin || "").trim().toUpperCase(),
       year: form.year ? Number(form.year) : null,
       price: form.price ? Number(form.price) : null,
       mileage: form.mileage ? Number(form.mileage) : null,
@@ -402,7 +403,7 @@ export default function CreateListing() {
           </div>
 
           {/* EXTRA */}
-          <Field label="VIN" placeholder="Vehicle Identification Number" value={form.vin} onChange={(v)=>update("vin",v)} />
+          <Field label="VIN *" placeholder="Vehicle Identification Number" value={form.vin} onChange={(v)=>update("vin",v.toUpperCase())} required />
 
           <div>
             <Label>Description</Label>
@@ -433,10 +434,10 @@ export default function CreateListing() {
 }
 
 /* REUSABLE FIELD */
-const Field = ({ label, placeholder, type="text", value = "", onChange }: any) => (
+const Field = ({ label, placeholder, type="text", value = "", onChange, required = false }: any) => (
   <div>
     <Label>{label}</Label>
-    <Input type={type} value={value} placeholder={placeholder} onChange={(e)=>onChange(e.target.value)} />
+    <Input type={type} value={value} placeholder={placeholder} required={required} onChange={(e)=>onChange(e.target.value)} />
   </div>
 );
 
