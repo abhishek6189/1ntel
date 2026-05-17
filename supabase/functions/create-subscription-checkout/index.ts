@@ -34,6 +34,11 @@ const maxListingsByPlan: Record<string, number> = {
 };
 
 const activeStatuses = new Set(["active", "trialing", "past_due"]);
+const cleanEmail = (value: unknown) => {
+  const email = String(value || "").trim().toLowerCase();
+  if (!email || email.includes("@phone.1ntel.local")) return undefined;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : undefined;
+};
 
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -121,9 +126,7 @@ serve(async (req: Request) => {
     }
 
     const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
-    const customerEmail = String(profile?.email || userData.user.email || "").includes("@phone.1ntel.local")
-      ? undefined
-      : profile?.email || userData.user.email || undefined;
+    const customerEmail = cleanEmail(profile?.email) || cleanEmail(userData.user.email);
     const customer = await stripe.customers.create({
       email: customerEmail,
       phone: profile?.phone || undefined,

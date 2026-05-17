@@ -247,8 +247,11 @@ export default function Pricing() {
                 const planName = plan.name.toLowerCase();
                 const isFreePlan = planName === "free";
                 const isGaragePlan = checkoutPlanName === "garage";
-                const isCurrentPlan = currentPlan === planName && (plan.name === "Free" || paidPlanActive);
                 const dealerCannotUseNonDealerPlan = isApprovedDealer && (isFreePlan || isGaragePlan);
+                const isCurrentPlan =
+                  !dealerCannotUseNonDealerPlan &&
+                  currentPlan === planName &&
+                  (plan.name === "Free" || paidPlanActive);
                 const activeDifferentPaidPlan =
                   paidPlanActive && checkoutPlanName && currentPlan !== checkoutPlanName;
                 const disabled = Boolean(
