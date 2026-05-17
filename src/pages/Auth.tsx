@@ -28,6 +28,8 @@ const phoneToInternalEmail = (value: string) => {
   return `${normalizedPhone}@phone.1ntel.local`;
 };
 
+const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value.trim());
+
 const getMissingSchemaColumn = (error: any) => {
   const message = String(error?.message || error?.details || "");
   const quotedMatch = message.match(/Could not find the '([^']+)' column/i);
@@ -135,14 +137,29 @@ const Auth = () => {
   const confirmationResultRef = useRef<any>(null);
 
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [emailOtp, setEmailOtp] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
   const [otpCooldown, setOtpCooldown] = useState(0);
+  const [emailOtpCooldown, setEmailOtpCooldown] = useState(0);
+  const [resetChannel, setResetChannel] = useState<"phone" | "email">("phone");
+  const [resetIdentifier, setResetIdentifier] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetOtpSent, setResetOtpSent] = useState(false);
+  const [resetPhoneVerified, setResetPhoneVerified] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+
+  const mode = searchParams.get("mode");
+  const isForgot = mode === "forgot";
 
   useEffect(() => {
     const checkUser = async () => {
@@ -194,11 +211,86 @@ const Auth = () => {
     return () => window.clearTimeout(timer);
   }, [otpCooldown]);
 
+  useEffect(() => {
+    if (emailOtpCooldown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setEmailOtpCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [emailOtpCooldown]);
+
   const resetVerification = () => {
     setPhoneVerified(false);
     setOtpSent(false);
     setOtp("");
     confirmationResultRef.current = null;
+  };
+
+  const resetEmailVerification = () => {
+    setEmailVerified(false);
+    setEmailOtpSent(false);
+    setEmailOtp("");
+  };
+
+  const sendEmailOtp = async (targetEmail = email, purpose = "signup") => {
+    const normalizedEmail = targetEmail.trim().toLowerCase();
+    if (!isValidEmail(normalizedEmail)) return toast.error("Enter a valid email address");
+
+    if (purpose === "signup" && emailOtpCooldown > 0) {
+      return toast.info(`Please wait ${emailOtpCooldown}s before requesting another email OTP.`);
+    }
+
+    try {
+      setSendingEmailOtp(true);
+      const { data, error } = await supabase.functions.invoke("request-email-otp", {
+        body: {
+          email: normalizedEmail,
+          purpose,
+        },
+      });
+
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Could not send email OTP");
+
+      if (purpose === "signup") {
+        setEmailOtpSent(true);
+        setEmailOtpCooldown(60);
+      }
+
+      toast.success("Email OTP sent");
+      return true;
+    } catch (err: any) {
+      console.error("Email OTP error:", err);
+      toast.error(err?.message || "Could not send email OTP");
+      return false;
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  };
+
+  const verifyEmailOtp = async () => {
+    if (!emailOtp.trim()) return toast.error("Enter email OTP");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-email-otp", {
+        body: {
+          email: email.trim().toLowerCase(),
+          code: emailOtp.trim(),
+          purpose: "signup",
+        },
+      });
+
+      if (error || data?.error || !data?.verified) {
+        throw new Error(data?.error || error?.message || "Invalid email OTP");
+      }
+
+      setEmailVerified(true);
+      toast.success("Email verified");
+    } catch (err: any) {
+      console.error("Email verify error:", err);
+      toast.error(err?.message || "Invalid email OTP");
+    }
   };
 
   const sendOtp = async () => {
@@ -262,8 +354,13 @@ const Auth = () => {
     }
   };
 
-  const ensureBuyerProfile = async (userId: string, email: string, finalPhone: string) => {
-    const profile = await findProfileForAuth(userId, email, finalPhone);
+  const ensureBuyerProfile = async (
+    userId: string,
+    authEmail: string,
+    finalPhone: string,
+    contactEmail: string
+  ) => {
+    const profile = await findProfileForAuth(userId, authEmail, finalPhone);
 
     if (profile) {
       const role = String(profile.role || "").trim().toLowerCase();
@@ -271,14 +368,15 @@ const Auth = () => {
       if (role === "admin" || role === "dealer") return profile;
 
       await updateProfileWithFallback(profile, {
-        email: profile.email || email,
+        email: profile.email || contactEmail,
+        auth_email: authEmail,
         phone: profile.phone || finalPhone,
         role: profile.role || "buyer",
         plan: profile.plan || "free",
         dealer_status: profile.dealer_status ?? null,
       });
 
-      return (await findProfileForAuth(userId, email, finalPhone)) || profile;
+      return (await findProfileForAuth(userId, authEmail, finalPhone)) || profile;
     }
 
     const { data: userData } = await supabase.auth.getUser();
@@ -296,7 +394,7 @@ const Auth = () => {
     const { data: dealerRequest } = await (supabase as any)
       .from("dealer_requests")
       .select("id, status")
-      .or(`user_id.eq.${userId},email.eq.${email},phone.eq.${finalPhone}`)
+      .or(`user_id.eq.${userId},email.eq.${contactEmail},phone.eq.${finalPhone}`)
       .maybeSingle();
 
     if (dealerRequest) {
@@ -308,7 +406,8 @@ const Auth = () => {
     }
 
     const baseProfile = {
-      email,
+      email: contactEmail,
+      auth_email: authEmail,
       phone: finalPhone,
       role: "buyer",
       plan: "free",
@@ -332,7 +431,7 @@ const Auth = () => {
       },
     ]);
 
-    const savedProfile = await findProfileForAuth(userId, email, finalPhone);
+    const savedProfile = await findProfileForAuth(userId, authEmail, finalPhone);
     if (savedProfile) return savedProfile;
 
     if (!inserted) {
@@ -350,6 +449,10 @@ const Auth = () => {
     e.preventDefault();
     if (loading) return;
 
+    if (isForgot) {
+      return handlePasswordReset();
+    }
+
     if (!phone.trim() || !password.trim()) {
       return toast.error("Phone and password are required");
     }
@@ -358,11 +461,20 @@ const Auth = () => {
       return toast.error("Please verify your phone number first");
     }
 
+    if (!isLogin && (!email.trim() || !isValidEmail(email))) {
+      return toast.error("Enter a valid email address");
+    }
+
+    if (!isLogin && !emailVerified) {
+      return toast.error("Please verify your email address first");
+    }
+
     setLoading(true);
 
     try {
       const finalPhone = formatPhoneForFirebase(phone);
       const authEmail = phoneToInternalEmail(phone);
+      const contactEmail = email.trim().toLowerCase();
 
       if (isLogin) {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -373,7 +485,7 @@ const Auth = () => {
         if (error) throw error;
         if (!data.user) throw new Error("Login failed");
 
-        const profile = await ensureBuyerProfile(data.user.id, authEmail, finalPhone);
+        const profile = await ensureBuyerProfile(data.user.id, authEmail, finalPhone, contactEmail);
 
         if (isAccountBanned(profile)) {
           await supabase.auth.signOut();
@@ -403,6 +515,7 @@ const Auth = () => {
         options: {
           data: {
             phone: finalPhone,
+            contact_email: contactEmail,
             role: "buyer",
           },
         },
@@ -411,7 +524,7 @@ const Auth = () => {
       if (error) throw error;
       if (!data.user) throw new Error("Signup failed");
 
-      await ensureBuyerProfile(data.user.id, authEmail, finalPhone);
+      await ensureBuyerProfile(data.user.id, authEmail, finalPhone, contactEmail);
 
       await supabase.auth.signInWithPassword({
         email: authEmail,
@@ -422,6 +535,93 @@ const Auth = () => {
     } catch (err: any) {
       console.error("Auth error:", err);
       toast.error(err?.message || "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendResetOtp = async () => {
+    if (!resetIdentifier.trim()) {
+      return toast.error(resetChannel === "phone" ? "Enter your phone number" : "Enter your email address");
+    }
+
+    try {
+      if (resetChannel === "phone") {
+        setSendingOtp(true);
+        const firebasePhone = formatPhoneForFirebase(resetIdentifier);
+
+        try {
+          recaptchaRef.current?.clear?.();
+        } catch {}
+
+        recaptchaRef.current = new RecaptchaVerifier(auth, "buyer-recaptcha-container", {
+          size: "invisible",
+        });
+
+        confirmationResultRef.current = await signInWithPhoneNumber(
+          auth,
+          firebasePhone,
+          recaptchaRef.current
+        );
+
+        setResetOtpSent(true);
+        toast.success("OTP sent to your phone");
+        return;
+      }
+
+      const sent = await sendEmailOtp(resetIdentifier, "password_reset");
+      if (sent) setResetOtpSent(true);
+    } catch (err: any) {
+      console.error("Reset OTP error:", err);
+      toast.error(err?.message || "Could not send OTP");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const verifyResetPhoneOtp = async () => {
+    if (resetChannel !== "phone") return;
+    if (!resetOtp.trim()) return toast.error("Enter OTP");
+    if (!confirmationResultRef.current) return toast.error("Send OTP first");
+
+    try {
+      await confirmationResultRef.current.confirm(resetOtp.trim());
+      setResetPhoneVerified(true);
+      toast.success("Phone verified");
+    } catch (err) {
+      console.error("Reset phone verify error:", err);
+      toast.error("Invalid OTP");
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!resetIdentifier.trim()) return toast.error("Enter your phone or email");
+    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    if (resetChannel === "email" && !resetOtp.trim()) return toast.error("Enter email OTP");
+    if (resetChannel === "phone" && !resetPhoneVerified) return toast.error("Please verify your phone OTP first");
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("reset-user-password", {
+        body: {
+          channel: resetChannel,
+          identifier:
+            resetChannel === "phone"
+              ? formatPhoneForFirebase(resetIdentifier)
+              : resetIdentifier.trim().toLowerCase(),
+          code: resetChannel === "email" ? resetOtp.trim() : "firebase-phone-verified",
+          newPassword,
+        },
+      });
+
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Password reset failed");
+
+      toast.success("Password updated. Please login with your new password.");
+      navigate("/auth?mode=login", { replace: true });
+    } catch (err: any) {
+      console.error("Reset password error:", err);
+      toast.error(err?.message || "Password reset failed");
     } finally {
       setLoading(false);
     }
@@ -443,28 +643,115 @@ const Auth = () => {
                 <Phone className="h-6 w-6" />
               </div>
               <h1 className="text-xl sm:text-2xl font-bold">
-                {isLogin ? "Welcome Back" : "Create Account"}
+                {isForgot ? "Reset Password" : isLogin ? "Welcome Back" : "Create Account"}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                {isLogin
+                {isForgot
+                  ? "Choose email or phone OTP, then set a new password."
+                  : isLogin
                   ? "Log in with your phone number and password."
-                  : "Verify your phone number to start selling or saving cars."}
+                  : "Verify your phone number and email to start using 1ntel."}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
-                  resetVerification();
-                }}
-                placeholder="Phone number"
-                inputMode="tel"
-                required
-              />
+              {isForgot ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2 rounded-lg border bg-white/70 p-1">
+                    <Button
+                      type="button"
+                      variant={resetChannel === "phone" ? "default" : "ghost"}
+                      onClick={() => {
+                        setResetChannel("phone");
+                        setResetOtp("");
+                        setResetOtpSent(false);
+                        setResetPhoneVerified(false);
+                      }}
+                    >
+                      Phone OTP
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={resetChannel === "email" ? "default" : "ghost"}
+                      onClick={() => {
+                        setResetChannel("email");
+                        setResetOtp("");
+                        setResetOtpSent(false);
+                        setResetPhoneVerified(false);
+                      }}
+                    >
+                      Email OTP
+                    </Button>
+                  </div>
 
-              {!isLogin && (
+                  <Input
+                    value={resetIdentifier}
+                    onChange={(e) => {
+                      setResetIdentifier(e.target.value);
+                      setResetOtpSent(false);
+                      setResetPhoneVerified(false);
+                    }}
+                    placeholder={resetChannel === "phone" ? "Phone number" : "Email address"}
+                    inputMode={resetChannel === "phone" ? "tel" : "email"}
+                    required
+                  />
+
+                  <div className="flex gap-2">
+                    <Input
+                      value={resetOtp}
+                      onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="Enter OTP"
+                      inputMode="numeric"
+                      disabled={resetChannel === "phone" && resetPhoneVerified}
+                    />
+                    <Button type="button" onClick={sendResetOtp} disabled={sendingOtp || sendingEmailOtp}>
+                      {resetOtpSent ? "Resend" : "Send"}
+                    </Button>
+                    {resetChannel === "phone" && (
+                      <Button type="button" onClick={verifyResetPhoneOtp} disabled={resetPhoneVerified}>
+                        {resetPhoneVerified ? "Verified" : "Verify"}
+                      </Button>
+                    )}
+                  </div>
+
+                  <Input
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password"
+                    type="password"
+                    required
+                  />
+                </>
+              ) : (
+                <>
+                  <Input
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      resetVerification();
+                    }}
+                    placeholder="Phone number"
+                    inputMode="tel"
+                    required
+                  />
+
+                  {!isLogin && (
+                    <Input
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        resetEmailVerification();
+                      }}
+                      placeholder="Email address"
+                      inputMode="email"
+                      type="email"
+                      required
+                    />
+                  )}
+                </>
+              )}
+
+              {!isLogin && !isForgot && (
                 <div className="space-y-2 rounded-lg border bg-white/70 p-3">
                   <Button
                     type="button"
@@ -509,7 +796,47 @@ const Auth = () => {
                 </div>
               )}
 
-              <div className="relative">
+              {!isLogin && !isForgot && (
+                <div className="space-y-2 rounded-lg border bg-white/70 p-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => sendEmailOtp()}
+                    disabled={sendingEmailOtp || emailVerified || emailOtpCooldown > 0}
+                  >
+                    {emailVerified
+                      ? "Email Verified"
+                      : sendingEmailOtp
+                      ? "Sending Email OTP..."
+                      : emailOtpCooldown > 0
+                      ? `Wait ${emailOtpCooldown}s`
+                      : emailOtpSent
+                      ? "Resend Email OTP"
+                      : "Send Email OTP"}
+                  </Button>
+
+                  <div className="flex gap-2">
+                    <Input
+                      value={emailOtp}
+                      onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="Enter email OTP"
+                      inputMode="numeric"
+                      disabled={emailVerified}
+                    />
+                    <Button
+                      type="button"
+                      onClick={verifyEmailOtp}
+                      disabled={emailVerified}
+                    >
+                      Verify
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!isForgot && (
+                <div className="relative">
                 <Input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -526,18 +853,27 @@ const Auth = () => {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              )}
 
               <Button className="w-full" disabled={loading}>
-                {loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
+                {loading ? "Please wait..." : isForgot ? "Update Password" : isLogin ? "Login" : "Sign Up"}
               </Button>
             </form>
 
             <div className="mt-5 space-y-2 text-center text-sm">
+              {isLogin && !isForgot && (
+                <div>
+                  <Link to="/auth?mode=forgot" className="font-semibold text-blue-600">
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
+
               <Link
-                to={isLogin ? "/auth?mode=signup" : "/auth?mode=login"}
+                to={isLogin && !isForgot ? "/auth?mode=signup" : "/auth?mode=login"}
                 className="font-semibold text-blue-600"
               >
-                {isLogin ? "Create a buyer account" : "Already have an account? Login"}
+                {isLogin && !isForgot ? "Create a buyer account" : "Already have an account? Login"}
               </Link>
 
               <div>

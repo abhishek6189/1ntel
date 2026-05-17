@@ -65,7 +65,7 @@ serve(async (req: Request) => {
 
     const { data: profile } = await adminSupabase
       .from("profiles")
-      .select("role, dealer_status, is_banned, plan")
+      .select("role, dealer_status, is_banned, plan, email, phone")
       .eq("id", userData.user.id)
       .maybeSingle();
 
@@ -105,9 +105,25 @@ serve(async (req: Request) => {
     }
 
     const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
+    const customerEmail = String(profile?.email || userData.user.email || "").includes("@phone.1ntel.local")
+      ? undefined
+      : profile?.email || userData.user.email || undefined;
+    const customer = await stripe.customers.create({
+      email: customerEmail,
+      phone: profile?.phone || undefined,
+      metadata: {
+        user_id: userData.user.id,
+        plan: normalizedPlan,
+      },
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_collection: "always",
+      customer: customer.id,
+      phone_number_collection: {
+        enabled: true,
+      },
       line_items: [
         {
           price: priceId,
@@ -124,7 +140,6 @@ serve(async (req: Request) => {
       },
       success_url: `${origin}/dashboard?subscription=success&plan=${normalizedPlan}`,
       cancel_url: `${origin}/pricing?subscription=cancelled`,
-      customer_email: userData.user.email || undefined,
       client_reference_id: userData.user.id,
       metadata: {
         user_id: userData.user.id,

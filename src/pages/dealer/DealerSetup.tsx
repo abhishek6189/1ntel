@@ -11,6 +11,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 const provinces = ["AB", "BC", "MB", "NB", "NL", "NS", "ON", "PE", "QC", "SK", "NT", "NU", "YT"];
+const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value.trim());
 
 export default function DealerSetup() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function DealerSetup() {
     business_name: "",
     dealer_license_number: "",
     phone: "",
+    email: "",
     city: "",
     province: "",
   });
@@ -33,19 +35,23 @@ export default function DealerSetup() {
   const [docPreview, setDocPreview] = useState("");
 
   const [phoneOtp, setPhoneOtp] = useState("");
+  const [emailOtp, setEmailOtp] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [sendingPhoneOtp, setSendingPhoneOtp] = useState(false);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [otpCooldown, setOtpCooldown] = useState(0);
+  const [emailOtpCooldown, setEmailOtpCooldown] = useState(0);
 
   const passwordsMatch =
     form.password.length >= 6 &&
     form.confirmPassword.length >= 6 &&
     form.password === form.confirmPassword;
 
-  const canSubmit = phoneVerified && passwordsMatch && !loading;
+  const canSubmit = phoneVerified && emailVerified && passwordsMatch && !loading;
 
   const handleChange = (field: string, value: string) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -54,6 +60,11 @@ export default function DealerSetup() {
       setPhoneVerified(false);
       setPhoneOtp("");
       confirmationResultRef.current = null;
+    }
+
+    if (field === "email") {
+      setEmailVerified(false);
+      setEmailOtp("");
     }
   };
 
@@ -75,6 +86,16 @@ export default function DealerSetup() {
 
     return () => window.clearTimeout(timer);
   }, [otpCooldown]);
+
+  useEffect(() => {
+    if (emailOtpCooldown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setEmailOtpCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [emailOtpCooldown]);
 
   const handleFile = (e: any) => {
     const file = e.target.files?.[0];
@@ -180,7 +201,62 @@ export default function DealerSetup() {
     }
   };
 
-  const checkPhoneExists = async (finalPhone: string, email: string) => {
+  const sendEmailOtp = async () => {
+    const contactEmail = form.email.trim().toLowerCase();
+    if (!isValidEmail(contactEmail)) return toast.error("Enter a valid email");
+
+    if (emailOtpCooldown > 0) {
+      return toast.info(`Please wait ${emailOtpCooldown}s before requesting another email OTP.`);
+    }
+
+    try {
+      setSendingEmailOtp(true);
+      const { data, error } = await supabase.functions.invoke("request-email-otp", {
+        body: {
+          email: contactEmail,
+          purpose: "signup",
+        },
+      });
+
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Could not send email OTP");
+
+      toast.success("Email OTP sent");
+      setEmailOtpCooldown(60);
+    } catch (err: any) {
+      console.error("EMAIL OTP ERROR:", err);
+      toast.error(err.message || "Could not send email OTP");
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  };
+
+  const verifyEmail = async () => {
+    const contactEmail = form.email.trim().toLowerCase();
+    if (!emailOtp) return toast.error("Enter email OTP");
+    if (!isValidEmail(contactEmail)) return toast.error("Enter a valid email");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-email-otp", {
+        body: {
+          email: contactEmail,
+          code: emailOtp.trim(),
+          purpose: "signup",
+        },
+      });
+
+      if (error || data?.error || !data?.verified) {
+        throw new Error(data?.error || error?.message || "Invalid email OTP");
+      }
+
+      setEmailVerified(true);
+      toast.success("Email verified");
+    } catch (err: any) {
+      console.error("EMAIL VERIFY ERROR:", err);
+      toast.error(err.message || "Invalid email OTP");
+    }
+  };
+
+  const checkPhoneExists = async (finalPhone: string, contactEmail: string) => {
     const possiblePhones = [
       finalPhone,
       finalPhone.replace(/\D/g, ""),
@@ -192,21 +268,31 @@ export default function DealerSetup() {
       .from("profiles")
       .select("id, phone, email, role, dealer_status")
       .or(
-        `phone.in.(${possiblePhones.map((phone) => `"${phone}"`).join(",")}),email.eq.${email}`
+        `phone.in.(${possiblePhones.map((phone) => `"${phone}"`).join(",")}),email.eq.${contactEmail}`
       )
       .maybeSingle();
 
     if (profileError) throw profileError;
 
     if (existingProfile) {
-      throw new Error("This phone number is already registered.");
+      const existingRole = String((existingProfile as any).role || "").toLowerCase();
+      const samePhone = possiblePhones.includes(String((existingProfile as any).phone || ""));
+      const sameEmail = String((existingProfile as any).email || "").toLowerCase() === contactEmail;
+
+      if (existingRole === "dealer" || existingRole === "admin") {
+        throw new Error("This account is already registered as a dealer.");
+      }
+
+      if (!samePhone || !sameEmail) {
+        throw new Error("This email or phone is already used by another account.");
+      }
     }
 
     const { data: existingRequest, error: requestError } = await supabase
       .from("dealer_requests")
       .select("id, phone, email, status")
       .or(
-        `phone.in.(${possiblePhones.map((phone) => `"${phone}"`).join(",")}),email.eq.${email}`
+        `phone.in.(${possiblePhones.map((phone) => `"${phone}"`).join(",")}),email.eq.${contactEmail}`
       )
       .maybeSingle();
 
@@ -215,6 +301,8 @@ export default function DealerSetup() {
     if (existingRequest) {
       throw new Error("A dealer application already exists for this phone number.");
     }
+
+    return existingProfile;
   };
 
   const getMissingSchemaColumn = (error: any) => {
@@ -268,13 +356,16 @@ export default function DealerSetup() {
     e.preventDefault();
 
     if (!phoneVerified) return toast.error("Verify phone first");
+    if (!emailVerified) return toast.error("Verify email first");
+    if (!isValidEmail(form.email)) return toast.error("Enter a valid email");
     if (!passwordsMatch) return toast.error("Passwords must match and be at least 6 characters");
     if (!docFile) return toast.error("Upload license document");
 
     setLoading(true);
 
     try {
-      const email = phoneToInternalEmail(form.phone);
+      const authEmail = phoneToInternalEmail(form.phone);
+      const contactEmail = form.email.trim().toLowerCase();
       const finalPhone = getFirebasePhone(form.phone);
       const normalizedLicense = form.dealer_license_number.replace(/\D/g, "");
       const normalizedPhone = finalPhone.replace(/\D/g, "");
@@ -283,37 +374,58 @@ export default function DealerSetup() {
         throw new Error("Dealer license number and phone number cannot be the same.");
       }
 
-      await checkPhoneExists(finalPhone, email);
+      const existingProfile = await checkPhoneExists(finalPhone, contactEmail);
+      let activeUserId = "";
 
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password: form.password,
-        options: {
-          data: {
-            phone: finalPhone,
-            role: "dealer",
-            business_name: form.business_name,
+      if (existingProfile) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: form.password,
+        });
+
+        if (signInError) {
+          throw new Error("This buyer account already exists. Enter its current password to apply as a dealer.");
+        }
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) throw new Error("Could not start dealer signup session");
+        activeUserId = user.id;
+      } else {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: authEmail,
+          password: form.password,
+          options: {
+            data: {
+              phone: finalPhone,
+              contact_email: contactEmail,
+              role: "dealer",
+              business_name: form.business_name,
+            },
           },
-        },
-      });
+        });
 
-      if (signUpError) throw signUpError;
-      if (!signUpData.user) throw new Error("Signup failed");
+        if (signUpError) throw signUpError;
+        if (!signUpData.user) throw new Error("Signup failed");
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: form.password,
-      });
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: form.password,
+        });
 
-      if (signInError) throw signInError;
+        if (signInError) throw signInError;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (!user) throw new Error("Could not start dealer signup session");
+        if (!user) throw new Error("Could not start dealer signup session");
+        activeUserId = user.id;
+      }
 
-      const path = `${user.id}/${Date.now()}-${docFile.name}`;
+      const path = `${activeUserId}/${Date.now()}-${docFile.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
@@ -324,8 +436,9 @@ export default function DealerSetup() {
       const { data: url } = supabase.storage.from("documents").getPublicUrl(path);
 
       await insertWithSchemaFallback("dealer_requests", {
-        user_id: user.id,
-        email,
+        user_id: activeUserId,
+        email: contactEmail,
+        auth_email: authEmail,
         full_name: form.full_name,
         business_name: form.business_name,
         dealer_license_number: form.dealer_license_number,
@@ -339,8 +452,10 @@ export default function DealerSetup() {
       });
 
       await upsertProfileWithSchemaFallback({
-        id: user.id,
-        email,
+        id: (existingProfile as any)?.id || activeUserId,
+        user_id: activeUserId,
+        email: contactEmail,
+        auth_email: authEmail,
         full_name: form.full_name,
         phone: finalPhone,
         role: "dealer",
@@ -412,6 +527,44 @@ export default function DealerSetup() {
                 />
                 <Button type="button" onClick={verifyPhone} disabled={phoneVerified}>
                   {phoneVerified ? "Verified" : "Verify"}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label>Email</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  placeholder="Email address"
+                  required
+                />
+                <Button
+                  type="button"
+                  onClick={sendEmailOtp}
+                  disabled={sendingEmailOtp || emailVerified || emailOtpCooldown > 0}
+                >
+                  {sendingEmailOtp
+                    ? "Sending..."
+                    : emailOtpCooldown > 0
+                      ? `${emailOtpCooldown}s`
+                      : emailVerified
+                        ? "Sent"
+                        : "OTP"}
+                </Button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                <Input
+                  placeholder="Enter email OTP"
+                  value={emailOtp}
+                  onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  disabled={emailVerified}
+                />
+                <Button type="button" onClick={verifyEmail} disabled={emailVerified}>
+                  {emailVerified ? "Verified" : "Verify"}
                 </Button>
               </div>
             </div>

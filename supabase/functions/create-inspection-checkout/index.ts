@@ -87,9 +87,30 @@ serve(async (req: Request) => {
       return json({ error: "Stripe inspection price is not configured" }, 500);
     }
 
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("email, phone")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+
     const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
+    const customerEmail = String(profile?.email || userData.user.email || "").includes("@phone.1ntel.local")
+      ? undefined
+      : profile?.email || userData.user.email || undefined;
+    const customer = await stripe.customers.create({
+      email: customerEmail,
+      phone: profile?.phone || undefined,
+      metadata: {
+        user_id: userData.user.id,
+      },
+    });
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      customer: customer.id,
+      phone_number_collection: {
+        enabled: true,
+      },
       line_items: [
         {
           price: priceId,
@@ -98,7 +119,6 @@ serve(async (req: Request) => {
       ],
       success_url: `${origin}/car/${carId}?inspection=success`,
       cancel_url: `${origin}/car/${carId}?inspection=cancelled`,
-      customer_email: userData.user.email || undefined,
       client_reference_id: `${userData.user.id}:${carId}`,
       metadata: {
         buyer_id: userData.user.id,
