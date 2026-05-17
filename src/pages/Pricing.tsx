@@ -62,7 +62,7 @@ const plans = [
     ],
     cta: "Dealer Sign Up",
     link: "/dealer-registration",
-    checkoutPlan: null,
+    checkoutPlan: "dealer",
     highlighted: false,
   },
 ];
@@ -95,7 +95,10 @@ export default function Pricing() {
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
   const [currentPlan, setCurrentPlan] = useState("free");
   const [currentStatus, setCurrentStatus] = useState("");
+  const [profileRole, setProfileRole] = useState("");
+  const [dealerStatus, setDealerStatus] = useState("");
   const paidPlanActive = ["active", "trialing", "past_due"].includes(currentStatus);
+  const isApprovedDealer = profileRole === "dealer" && dealerStatus === "approved";
 
   useEffect(() => {
     const loadCurrentPlan = async () => {
@@ -119,10 +122,12 @@ export default function Pricing() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("plan")
+        .select("plan, role, dealer_status")
         .eq("id", user.id)
         .maybeSingle();
 
+      setProfileRole(String((profile as any)?.role || "").toLowerCase());
+      setDealerStatus(String((profile as any)?.dealer_status || "").toLowerCase());
       setCurrentPlan(String(profile?.plan || "free").toLowerCase());
       setCurrentStatus("");
     };
@@ -134,8 +139,14 @@ export default function Pricing() {
     const { data: sessionData } = await supabase.auth.getSession();
 
     if (!sessionData.session) {
-      toast.error("Please log in before upgrading.");
-      window.location.href = "/auth?mode=login";
+      toast.error(plan === "dealer" ? "Please sign up as a dealer first." : "Please log in before upgrading.");
+      window.location.href = plan === "dealer" ? "/dealer-registration" : "/auth?mode=login";
+      return;
+    }
+
+    if (plan === "dealer" && !isApprovedDealer) {
+      toast.info("Please complete dealer signup and wait for admin approval first.");
+      window.location.href = "/dealer-registration";
       return;
     }
 
@@ -213,6 +224,7 @@ export default function Pricing() {
             <div className="mx-auto mt-10 grid max-w-6xl gap-5 md:grid-cols-2 lg:grid-cols-3 lg:items-center">
               {plans.map((plan) => {
                 const checkoutPlanName = plan.checkoutPlan || "";
+                const isDealerCheckout = plan.name === "Dealer";
                 const isCurrentPlan = currentPlan === plan.name.toLowerCase() && (plan.name === "Free" || paidPlanActive);
                 const activeDifferentPaidPlan = paidPlanActive && checkoutPlanName && currentPlan !== checkoutPlanName;
                 const disabled = Boolean(
@@ -223,7 +235,11 @@ export default function Pricing() {
                   ? "Current Plan"
                   : activeDifferentPaidPlan
                     ? "Contact Support to Switch"
-                    : plan.cta;
+                    : isDealerCheckout && !isApprovedDealer
+                      ? "Dealer Sign Up"
+                      : isDealerCheckout
+                        ? "Start Dealer Plan"
+                        : plan.cta;
 
                 return (
                   <div
@@ -278,7 +294,13 @@ export default function Pricing() {
                             : "border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         }`}
                         disabled={disabled}
-                        onClick={() => startSubscriptionCheckout(plan.checkoutPlan)}
+                        onClick={() => {
+                          if (isDealerCheckout && !isApprovedDealer) {
+                            window.location.href = "/dealer-registration";
+                            return;
+                          }
+                          startSubscriptionCheckout(plan.checkoutPlan);
+                        }}
                       >
                         {checkoutPlan === plan.checkoutPlan && (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
