@@ -41,6 +41,26 @@ const json = (body: Record<string, unknown>, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const findProfileForUser = async (userId: string) => {
+  const byId = await adminSupabase
+    .from("profiles")
+    .select("role, dealer_status, is_banned, plan, email, phone")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!byId.error && byId.data) return byId.data;
+
+  const byUserId = await adminSupabase
+    .from("profiles")
+    .select("role, dealer_status, is_banned, plan, email, phone")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!byUserId.error && byUserId.data) return byUserId.data;
+
+  return null;
+};
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -63,11 +83,7 @@ serve(async (req: Request) => {
       return json({ error: "Invalid subscription plan" }, 400);
     }
 
-    const { data: profile } = await adminSupabase
-      .from("profiles")
-      .select("role, dealer_status, is_banned, plan, email, phone")
-      .eq("id", userData.user.id)
-      .maybeSingle();
+    const profile = await findProfileForUser(userData.user.id);
 
     if (profile?.is_banned) {
       return json({ error: "This account is banned. Please contact support." }, 403);

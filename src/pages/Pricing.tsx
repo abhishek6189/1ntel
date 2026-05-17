@@ -114,20 +114,27 @@ export default function Pricing() {
         .limit(1)
         .maybeSingle();
 
+      const { data: profileById } = await supabase
+        .from("profiles")
+        .select("plan, role, dealer_status")
+        .eq("id", user.id)
+        .maybeSingle();
+      const { data: profileByUserId } = await (supabase as any)
+        .from("profiles")
+        .select("plan, role, dealer_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const profile = profileById || profileByUserId;
+
+      setProfileRole(String((profile as any)?.role || "").toLowerCase());
+      setDealerStatus(String((profile as any)?.dealer_status || "").toLowerCase());
+
       if (subscription?.plan) {
         setCurrentPlan(String(subscription.plan).toLowerCase());
         setCurrentStatus(String(subscription.status || "").toLowerCase());
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("plan, role, dealer_status")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      setProfileRole(String((profile as any)?.role || "").toLowerCase());
-      setDealerStatus(String((profile as any)?.dealer_status || "").toLowerCase());
       setCurrentPlan(String(profile?.plan || "free").toLowerCase());
       setCurrentStatus("");
     };
@@ -225,17 +232,22 @@ export default function Pricing() {
               {plans.map((plan) => {
                 const checkoutPlanName = plan.checkoutPlan || "";
                 const isDealerCheckout = plan.name === "Dealer";
-                const isCurrentPlan = currentPlan === plan.name.toLowerCase() && (plan.name === "Free" || paidPlanActive);
-                const dealerCannotBuyGarage = isApprovedDealer && checkoutPlanName === "garage";
+                const planName = plan.name.toLowerCase();
+                const isFreePlan = planName === "free";
+                const isGaragePlan = checkoutPlanName === "garage";
+                const isCurrentPlan = currentPlan === planName && (plan.name === "Free" || paidPlanActive);
+                const dealerCannotUseNonDealerPlan = isApprovedDealer && (isFreePlan || isGaragePlan);
                 const activeDifferentPaidPlan =
                   paidPlanActive && checkoutPlanName && currentPlan !== checkoutPlanName;
                 const disabled = Boolean(
                   checkoutPlan === checkoutPlanName ||
-                    (checkoutPlanName && (isCurrentPlan || activeDifferentPaidPlan || dealerCannotBuyGarage))
+                    isCurrentPlan ||
+                    activeDifferentPaidPlan ||
+                    dealerCannotUseNonDealerPlan
                 );
                 const buttonLabel = isCurrentPlan
                   ? "Current Plan"
-                  : dealerCannotBuyGarage
+                  : dealerCannotUseNonDealerPlan
                     ? "Contact Support to Switch"
                   : activeDifferentPaidPlan
                     ? "Contact Support to Switch"
@@ -299,8 +311,8 @@ export default function Pricing() {
                         }`}
                         disabled={disabled}
                         onClick={() => {
-                          if (dealerCannotBuyGarage) {
-                            toast.info("Dealer accounts cannot switch to Garage from here. Please contact support.");
+                          if (dealerCannotUseNonDealerPlan) {
+                            toast.info("Dealer accounts cannot switch to this plan from here. Please contact support.");
                             return;
                           }
                           if (isDealerCheckout && !isApprovedDealer) {
@@ -318,7 +330,6 @@ export default function Pricing() {
                       </Button>
                     ) : (
                       <Button
-                        asChild
                         size="lg"
                         variant={plan.highlighted ? "default" : "outline"}
                         className={`mt-7 h-11 w-full rounded-xl font-semibold ${
@@ -326,11 +337,17 @@ export default function Pricing() {
                             ? "bg-blue-600 hover:bg-blue-700"
                             : "border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         }`}
+                        disabled={disabled}
+                        onClick={() => {
+                          if (dealerCannotUseNonDealerPlan) {
+                            toast.info("Dealer accounts cannot switch to this plan from here. Please contact support.");
+                            return;
+                          }
+                          window.location.href = plan.link;
+                        }}
                       >
-                        <Link to={plan.link}>
-                          {plan.cta}
-                          {plan.highlighted && <ArrowRight className="ml-2 h-4 w-4" />}
-                        </Link>
+                        {buttonLabel}
+                        {plan.highlighted && <ArrowRight className="ml-2 h-4 w-4" />}
                       </Button>
                     )}
                   </div>
