@@ -73,6 +73,14 @@ const DealerDashboard = () => {
   const pendingCars = cars.filter((c) => c.status === "pending").length;
   const totalValue = cars.reduce((sum, c) => sum + (c.price || 0), 0);
   const formatPrice = (value: any) => `₹ ${Number(value || 0).toLocaleString()}`;
+  const listingBlocked = !subscriptionAccess || subscriptionAccess.allowed === false;
+  const nextPaymentText = subscriptionAccess?.currentPeriodEnd
+    ? subscriptionAccess.currentPeriodEnd.toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
 
   return (
     <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 space-y-6">
@@ -92,7 +100,7 @@ const DealerDashboard = () => {
         {/* BUTTON */}
         <button
           onClick={() => {
-            if (subscriptionAccess?.allowed === false) {
+            if (listingBlocked) {
               navigate("/pricing");
               return;
             }
@@ -100,24 +108,42 @@ const DealerDashboard = () => {
           }}
           className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm"
         >
-          {subscriptionAccess?.allowed === false ? "Activate Plan" : "+ Add Car"}
+          {listingBlocked ? "Activate Plan" : "+ Add Car"}
         </button>
       </div>
 
-      {subscriptionAccess?.allowed === false && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <p className="font-semibold">Dealer subscription required.</p>
-          <p className="mt-1">
-            {subscriptionAccess.reason || "Please activate your dealer plan before listing cars."}
-          </p>
+      <div
+        className={`rounded-xl border p-4 text-sm ${
+          subscriptionAccess?.allowed
+            ? "border-blue-200 bg-blue-50 text-blue-800"
+            : "border-red-200 bg-red-50 text-red-700"
+        }`}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold">
+              {subscriptionAccess?.allowed ? "Dealer plan active" : "Dealer subscription required"}
+            </p>
+            <p className="mt-1">
+              Plan: Dealer • Status: {subscriptionAccess?.status || "checking"}
+              {nextPaymentText ? ` • Next payment / trial ends: ${nextPaymentText}` : ""}
+            </p>
+            {subscriptionAccess?.allowed === false && (
+              <p className="mt-1">
+                {subscriptionAccess.reason || "Please activate your dealer plan before listing cars."}
+              </p>
+            )}
+          </div>
           <button
             onClick={() => navigate("/pricing")}
-            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-white"
+            className={`rounded-lg px-4 py-2 text-white ${
+              subscriptionAccess?.allowed ? "bg-blue-600" : "bg-red-600"
+            }`}
           >
-            Activate Dealer Plan
+            {subscriptionAccess?.allowed ? "Manage Plan" : "Activate Dealer Plan"}
           </button>
         </div>
-      )}
+      </div>
 
       {/* ================= STATS ================= */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">

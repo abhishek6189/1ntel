@@ -17,6 +17,7 @@ export type SubscriptionAccess = {
   limit: number;
   status: string;
   graceUntil: Date | null;
+  currentPeriodEnd: Date | null;
   reason?: string;
 };
 
@@ -97,6 +98,7 @@ export const getSubscriptionAccess = async (
       limit,
       status,
       graceUntil: null,
+      currentPeriodEnd: addDays(subscription?.current_period_end, 0),
     };
   }
 
@@ -107,6 +109,7 @@ export const getSubscriptionAccess = async (
       limit,
       status,
       graceUntil: null,
+      currentPeriodEnd: addDays(subscription?.current_period_end, 0),
     };
   }
 
@@ -120,6 +123,7 @@ export const getSubscriptionAccess = async (
       limit,
       status,
       graceUntil,
+      currentPeriodEnd: addDays(subscription?.current_period_end, 0),
       reason: "Payment grace period",
     };
   }
@@ -130,6 +134,7 @@ export const getSubscriptionAccess = async (
     limit,
     status,
     graceUntil,
+    currentPeriodEnd: addDays(subscription?.current_period_end, 0),
     reason:
       status === "missing"
         ? "Subscription payment is required."
