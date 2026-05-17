@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Car, DollarSign, CheckCircle, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
 
 type CarType = {
   id: string;
@@ -14,6 +15,7 @@ type CarType = {
 const DealerDashboard = () => {
   const [cars, setCars] = useState<CarType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
 
   const navigate = useNavigate();
 
@@ -30,6 +32,26 @@ const DealerDashboard = () => {
   const loadData = async () => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("plan, role")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+
+    const access = await getSubscriptionAccess(
+      auth.user.id,
+      String((profile as any)?.role || "").toLowerCase() === "dealer"
+        ? "dealer"
+        : profile?.plan || "dealer"
+    );
+    setSubscriptionAccess(access);
+
+    if (!access.allowed) {
+      setCars([]);
+      setLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from("cars")
@@ -69,12 +91,33 @@ const DealerDashboard = () => {
 
         {/* BUTTON */}
         <button
-          onClick={() => navigate("/dashboard/create-listing")}
+          onClick={() => {
+            if (subscriptionAccess?.allowed === false) {
+              navigate("/pricing");
+              return;
+            }
+            navigate("/dashboard/create-listing");
+          }}
           className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm"
         >
-          + Add Car
+          {subscriptionAccess?.allowed === false ? "Activate Plan" : "+ Add Car"}
         </button>
       </div>
+
+      {subscriptionAccess?.allowed === false && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <p className="font-semibold">Dealer subscription required.</p>
+          <p className="mt-1">
+            {subscriptionAccess.reason || "Please activate your dealer plan before listing cars."}
+          </p>
+          <button
+            onClick={() => navigate("/pricing")}
+            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-white"
+          >
+            Activate Dealer Plan
+          </button>
+        </div>
+      )}
 
       {/* ================= STATS ================= */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">

@@ -26,11 +26,16 @@ const DealerListings = () => {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("plan")
+      .select("plan, role")
       .eq("id", user.id)
       .single();
 
-    const access = await getSubscriptionAccess(user.id, profile?.plan || "dealer");
+    const access = await getSubscriptionAccess(
+      user.id,
+      String((profile as any)?.role || "").toLowerCase() === "dealer"
+        ? "dealer"
+        : profile?.plan || "dealer"
+    );
     setSubscriptionAccess(access);
 
     if (!access.allowed) {

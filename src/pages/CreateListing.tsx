@@ -117,11 +117,15 @@ export default function CreateListing() {
   const checkPlanLimit = async (userId: string) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("plan")
+      .select("plan, role")
       .eq("id", userId)
       .single();
 
-    const access = await getSubscriptionAccess(userId, profile?.plan || "free");
+    const requiredPlan =
+      String((profile as any)?.role || "").toLowerCase() === "dealer"
+        ? "dealer"
+        : profile?.plan || "free";
+    const access = await getSubscriptionAccess(userId, requiredPlan);
 
     if (!access.allowed) {
       toast.error(access.reason || "Please renew your subscription to list cars.");
@@ -142,6 +146,17 @@ export default function CreateListing() {
 
     return true;
   };
+
+  useEffect(() => {
+    const verifyListingAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await checkPlanLimit(user.id);
+    };
+
+    verifyListingAccess();
+  }, []);
 
   /* ================= IMAGE UPLOAD ================= */
   const uploadImages = async (files: FileList) => {
