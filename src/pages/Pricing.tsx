@@ -226,13 +226,17 @@ export default function Pricing() {
                 const checkoutPlanName = plan.checkoutPlan || "";
                 const isDealerCheckout = plan.name === "Dealer";
                 const isCurrentPlan = currentPlan === plan.name.toLowerCase() && (plan.name === "Free" || paidPlanActive);
-                const activeDifferentPaidPlan = paidPlanActive && checkoutPlanName && currentPlan !== checkoutPlanName;
+                const dealerCannotBuyGarage = isApprovedDealer && checkoutPlanName === "garage";
+                const activeDifferentPaidPlan =
+                  paidPlanActive && checkoutPlanName && currentPlan !== checkoutPlanName;
                 const disabled = Boolean(
                   checkoutPlan === checkoutPlanName ||
-                    (checkoutPlanName && (isCurrentPlan || activeDifferentPaidPlan))
+                    (checkoutPlanName && (isCurrentPlan || activeDifferentPaidPlan || dealerCannotBuyGarage))
                 );
                 const buttonLabel = isCurrentPlan
                   ? "Current Plan"
+                  : dealerCannotBuyGarage
+                    ? "Contact Support to Switch"
                   : activeDifferentPaidPlan
                     ? "Contact Support to Switch"
                     : isDealerCheckout && !isApprovedDealer
@@ -295,6 +299,10 @@ export default function Pricing() {
                         }`}
                         disabled={disabled}
                         onClick={() => {
+                          if (dealerCannotBuyGarage) {
+                            toast.info("Dealer accounts cannot switch to Garage from here. Please contact support.");
+                            return;
+                          }
                           if (isDealerCheckout && !isApprovedDealer) {
                             window.location.href = "/dealer-registration";
                             return;
