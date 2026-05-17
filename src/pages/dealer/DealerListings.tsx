@@ -12,6 +12,7 @@ const DealerListings = () => {
   const [showSoldPopup, setShowSoldPopup] = useState<any>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,6 +56,27 @@ const DealerListings = () => {
 
     setCars(carsData || []);
     setLoading(false);
+  };
+
+  const startDealerCheckout = async () => {
+    if (checkoutLoading) return;
+
+    try {
+      setCheckoutLoading(true);
+      const { data, error } = await supabase.functions.invoke("create-subscription-checkout", {
+        body: { plan: "dealer" },
+      });
+
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Could not start checkout.");
+      if (!data?.url) throw new Error("Could not start checkout.");
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      console.error("Dealer checkout error:", err);
+      toast.error(err?.message || "Could not start checkout.");
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   /* ================= DELETE ================= */
@@ -138,7 +160,12 @@ const DealerListings = () => {
   /* ================= 🔥 NEW: FILTER ================= */
   const activeCars = cars.filter(c => c.status !== "sold");
   const soldCars = cars.filter(c => c.status === "sold");
-  const formatPrice = (value: any) => `₹ ${Number(value || 0).toLocaleString()}`;
+  const formatPrice = (value: any) =>
+    new Intl.NumberFormat("en-CA", {
+      style: "currency",
+      currency: "CAD",
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0));
   const listingBlocked = !subscriptionAccess || subscriptionAccess.allowed === false;
   const nextPaymentText = subscriptionAccess?.currentPeriodEnd
     ? subscriptionAccess.currentPeriodEnd.toLocaleDateString("en-CA", {
@@ -173,15 +200,16 @@ const DealerListings = () => {
         <button
           onClick={() => {
             if (listingBlocked) {
-              navigate("/pricing");
+              startDealerCheckout();
               return;
             }
             navigate("/dashboard/create-listing");
           }}
+          disabled={checkoutLoading}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 md:w-auto"
         >
           <Plus size={16} />
-          {listingBlocked ? "Activate Plan" : "Add Car"}
+          {checkoutLoading ? "Opening checkout..." : listingBlocked ? "Activate Plan" : "Add Car"}
         </button>
 
       </div>
@@ -210,12 +238,23 @@ const DealerListings = () => {
             )}
           </div>
           <button
-            onClick={() => navigate("/pricing")}
+            onClick={() => {
+              if (subscriptionAccess?.allowed) {
+                navigate("/pricing");
+                return;
+              }
+              startDealerCheckout();
+            }}
+            disabled={checkoutLoading}
             className={`rounded-lg px-4 py-2 text-white ${
               subscriptionAccess?.allowed ? "bg-blue-600" : "bg-red-600"
             }`}
           >
-            {subscriptionAccess?.allowed ? "Manage Plan" : "Activate Dealer Plan"}
+            {checkoutLoading
+              ? "Opening checkout..."
+              : subscriptionAccess?.allowed
+                ? "Manage Plan"
+                : "Activate Dealer Plan"}
           </button>
         </div>
       </div>
@@ -231,14 +270,14 @@ const DealerListings = () => {
           <button
             onClick={() => {
               if (listingBlocked) {
-                navigate("/pricing");
+                startDealerCheckout();
                 return;
               }
               navigate("/dashboard/create-listing");
             }}
             className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg"
           >
-            {listingBlocked ? "Activate Dealer Plan" : "Add your first car"}
+            {checkoutLoading ? "Opening checkout..." : listingBlocked ? "Activate Dealer Plan" : "Add your first car"}
           </button>
         </div>
 

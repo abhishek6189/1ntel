@@ -17,11 +17,10 @@ const formatPhoneForFirebase = (value: string) => {
   const digits = trimmed.replace(/\D/g, "");
 
   if (trimmed.startsWith("+") && digits.length >= 10) return `+${digits}`;
-  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   if (digits.length === 10) return `+1${digits}`;
 
-  throw new Error("Enter a valid phone number with country code.");
+  throw new Error("Enter a valid Canadian phone number.");
 };
 
 const phoneToInternalEmail = (value: string) => {

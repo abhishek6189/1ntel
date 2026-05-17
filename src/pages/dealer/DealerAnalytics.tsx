@@ -41,7 +41,12 @@ const DealerAnalytics = () => {
 
   const avgPrice =
     totalCars > 0 ? Math.round(totalValue / totalCars) : 0;
-  const formatPrice = (value: any) => `₹ ${Number(value || 0).toLocaleString()}`;
+  const formatPrice = (value: any) =>
+    new Intl.NumberFormat("en-CA", {
+      style: "currency",
+      currency: "CAD",
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0));
 
   const activePercent =
     totalCars > 0 ? Math.round((activeCars / totalCars) * 100) : 0;

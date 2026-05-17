@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Car, DollarSign, CheckCircle, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
+import { toast } from "sonner";
 
 type CarType = {
   id: string;
@@ -16,6 +17,7 @@ const DealerDashboard = () => {
   const [cars, setCars] = useState<CarType[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -67,12 +69,38 @@ const DealerDashboard = () => {
     setLoading(false);
   };
 
+  const startDealerCheckout = async () => {
+    if (checkoutLoading) return;
+
+    try {
+      setCheckoutLoading(true);
+      const { data, error } = await supabase.functions.invoke("create-subscription-checkout", {
+        body: { plan: "dealer" },
+      });
+
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Could not start checkout.");
+      if (!data?.url) throw new Error("Could not start checkout.");
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      console.error("Dealer checkout error:", err);
+      toast.error(err?.message || "Could not start checkout.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   /* ================= STATS ================= */
   const totalCars = cars.length;
   const activeCars = cars.filter((c) => c.status === "active").length;
   const pendingCars = cars.filter((c) => c.status === "pending").length;
   const totalValue = cars.reduce((sum, c) => sum + (c.price || 0), 0);
-  const formatPrice = (value: any) => `₹ ${Number(value || 0).toLocaleString()}`;
+  const formatPrice = (value: any) =>
+    new Intl.NumberFormat("en-CA", {
+      style: "currency",
+      currency: "CAD",
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0));
   const listingBlocked = !subscriptionAccess || subscriptionAccess.allowed === false;
   const nextPaymentText = subscriptionAccess?.currentPeriodEnd
     ? subscriptionAccess.currentPeriodEnd.toLocaleDateString("en-CA", {
@@ -101,14 +129,15 @@ const DealerDashboard = () => {
         <button
           onClick={() => {
             if (listingBlocked) {
-              navigate("/pricing");
+              startDealerCheckout();
               return;
             }
             navigate("/dashboard/create-listing");
           }}
+          disabled={checkoutLoading}
           className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm"
         >
-          {listingBlocked ? "Activate Plan" : "+ Add Car"}
+          {checkoutLoading ? "Opening checkout..." : listingBlocked ? "Activate Plan" : "+ Add Car"}
         </button>
       </div>
 
@@ -135,12 +164,23 @@ const DealerDashboard = () => {
             )}
           </div>
           <button
-            onClick={() => navigate("/pricing")}
+            onClick={() => {
+              if (subscriptionAccess?.allowed) {
+                navigate("/pricing");
+                return;
+              }
+              startDealerCheckout();
+            }}
+            disabled={checkoutLoading}
             className={`rounded-lg px-4 py-2 text-white ${
               subscriptionAccess?.allowed ? "bg-blue-600" : "bg-red-600"
             }`}
           >
-            {subscriptionAccess?.allowed ? "Manage Plan" : "Activate Dealer Plan"}
+            {checkoutLoading
+              ? "Opening checkout..."
+              : subscriptionAccess?.allowed
+                ? "Manage Plan"
+                : "Activate Dealer Plan"}
           </button>
         </div>
       </div>

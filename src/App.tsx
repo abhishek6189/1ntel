@@ -20,6 +20,8 @@ import BrowseCars from "./pages/BrowseCars";
 import CarDetail from "./pages/CarDetail";
 import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
+import FAQ from "./pages/FAQ";
+import Contact from "./pages/Contact";
 
 /* MESSAGING */
 import ChatPage from "./pages/ChatPage";
@@ -71,6 +73,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/sell" element={<Pricing />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/contact" element={<Contact />} />
 
             {/* ================= DEALER AUTH ================= */}
             <Route path="/dealer-auth" element={<DealerAuth />} />

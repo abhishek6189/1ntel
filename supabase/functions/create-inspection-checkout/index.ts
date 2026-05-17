@@ -100,6 +100,9 @@ serve(async (req: Request) => {
     const customer = await stripe.customers.create({
       email: customerEmail,
       phone: profile?.phone || undefined,
+      address: {
+        country: "CA",
+      },
       metadata: {
         user_id: userData.user.id,
       },

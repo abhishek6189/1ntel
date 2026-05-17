@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, Users, Star, Shield, BarChart3, Building2 } from 'lucide-react';
+import { Car, Users, Star, Shield, BarChart3, Building2, Mail } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
 import { toast } from "sonner";
@@ -11,13 +11,15 @@ import AdminUsers from "../components/admin/AdminUsers";
 import AdminFeatured from "../components/admin/AdminFeatured";
 import AdminInspections from "../components/admin/AdminInspections";
 import AdminDealers from "../components/admin/AdminDealers";
+import AdminContactMessages from "../components/admin/AdminContactMessages";
 
 export default function AdminDashboard() {
 
   const [stats, setStats] = useState({
     cars: [],
     users: [],
-    inspections: []
+    inspections: [],
+    contactMessages: []
   });
 
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,16 @@ export default function AdminDashboard() {
       inspections = legacyInspections || [];
     }
 
+    let contactMessages: any[] = [];
+    const { data: contactRows, error: contactError } = await (supabase as any)
+      .from("contact_messages")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!contactError) {
+      contactMessages = contactRows || [];
+    }
+
     if (carsError) toast.error("Could not load listings");
     if (usersError) toast.error("Could not load users");
 
@@ -86,7 +98,8 @@ export default function AdminDashboard() {
     setStats({
       cars: enrichedCars,
       users: users || [],
-      inspections: enrichedInspections
+      inspections: enrichedInspections,
+      contactMessages
     });
 
     setLoading(false);
@@ -170,6 +183,10 @@ export default function AdminDashboard() {
                 <Shield className="h-4 w-4" /> Inspections
               </TabsTrigger>
 
+              <TabsTrigger value="contact" className="gap-2">
+                <Mail className="h-4 w-4" /> Contact
+              </TabsTrigger>
+
             </TabsList>
 
             {/* CONTENT */}
@@ -195,6 +212,10 @@ export default function AdminDashboard() {
 
             <TabsContent value="inspections" className="mt-6">
               <AdminInspections inspections={stats.inspections} onRefresh={fetchAll} />
+            </TabsContent>
+
+            <TabsContent value="contact" className="mt-6">
+              <AdminContactMessages messages={stats.contactMessages} onRefresh={fetchAll} />
             </TabsContent>
 
           </Tabs>

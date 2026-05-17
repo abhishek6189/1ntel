@@ -114,11 +114,10 @@ export default function DealerSetup() {
   const getFirebasePhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
 
-    if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
     if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
     if (digits.length === 10) return `+1${digits}`;
 
-    throw new Error("Enter a valid phone number with country code.");
+    throw new Error("Enter a valid Canadian phone number.");
   };
 
   const phoneToInternalEmail = (value: string) => {
@@ -172,7 +171,7 @@ export default function DealerSetup() {
         setOtpCooldown(120);
         toast.error("OTP is temporarily blocked for this number or device. Please wait a few minutes, then try again.");
       } else if (err?.code === "auth/invalid-phone-number") {
-        toast.error("Please enter a valid phone number with country code.");
+        toast.error("Please enter a valid Canadian phone number.");
       } else if (err?.code === "auth/network-request-failed") {
         toast.error("Network issue while sending OTP. Please check your connection and try again.");
       } else {
@@ -261,7 +260,6 @@ export default function DealerSetup() {
       finalPhone,
       finalPhone.replace(/\D/g, ""),
       finalPhone.replace(/^\+1/, ""),
-      finalPhone.replace(/^\+91/, ""),
     ];
 
     const { data: existingProfile, error: profileError } = await supabase

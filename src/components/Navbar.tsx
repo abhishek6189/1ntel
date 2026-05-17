@@ -19,6 +19,8 @@ const navLinks = [
   { label: "Browse Cars", href: "/browse" },
   // { label: "Sell Your Car", href: "/sell" },
   { label: "How It Works", href: "/how-it-works" },
+  { label: "FAQ", href: "/faq" },
+  { label: "Contact", href: "/contact" },
   { label: "1ne+", href: "/pricing" },
 ];
 

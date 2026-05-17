@@ -169,18 +169,6 @@ const HeroSection = () => {
 
           </div>
 
-          {/* DOTS */}
-          <div className="flex justify-center gap-2 mt-3">
-            {images.map((_, i) => (
-              <div
-                key={i}
-                className={`h-2 w-2 rounded-full ${
-                  i === index ? "bg-blue-600 w-4" : "bg-gray-300"
-                }`}
-              />
-            ))}
-          </div>
-
         </motion.div>
       </div>
 
