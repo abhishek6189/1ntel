@@ -137,9 +137,6 @@ serve(async (req: Request) => {
       mode: "subscription",
       payment_method_collection: "always",
       customer: customer.id,
-      phone_number_collection: {
-        enabled: true,
-      },
       line_items: [
         {
           price: priceId,

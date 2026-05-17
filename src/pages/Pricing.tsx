@@ -106,14 +106,6 @@ export default function Pricing() {
       const user = sessionData.session?.user;
       if (!user) return;
 
-      const { data: subscription } = await (supabase as any)
-        .from("subscriptions")
-        .select("plan, status")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
       const { data: profileById } = await supabase
         .from("profiles")
         .select("plan, role, dealer_status")
@@ -125,9 +117,20 @@ export default function Pricing() {
         .eq("user_id", user.id)
         .maybeSingle();
       const profile = profileById || profileByUserId;
+      const role = String((profile as any)?.role || "").toLowerCase();
+      const status = String((profile as any)?.dealer_status || "").toLowerCase();
+      const approvedDealer = role === "dealer" && status === "approved";
 
-      setProfileRole(String((profile as any)?.role || "").toLowerCase());
-      setDealerStatus(String((profile as any)?.dealer_status || "").toLowerCase());
+      setProfileRole(role);
+      setDealerStatus(status);
+
+      const { data: subscription } = await (supabase as any)
+        .from("subscriptions")
+        .select("plan, status")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (subscription?.plan) {
         setCurrentPlan(String(subscription.plan).toLowerCase());
@@ -173,7 +176,16 @@ export default function Pricing() {
         { body: { plan } }
       );
 
-      if (error) throw error;
+      if (error) {
+        let message = error.message || "Could not start checkout.";
+        try {
+          const context = (error as any).context;
+          const body = typeof context?.json === "function" ? await context.json() : null;
+          message = body?.error || message;
+        } catch {}
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
       if (!data?.url) throw new Error("Could not start checkout.");
 
       window.location.href = data.url;
@@ -247,7 +259,7 @@ export default function Pricing() {
                 );
                 const buttonLabel = isCurrentPlan
                   ? "Current Plan"
-                  : dealerCannotUseNonDealerPlan
+                    : dealerCannotUseNonDealerPlan || (isApprovedDealer && isFreePlan)
                     ? "Contact Support to Switch"
                   : activeDifferentPaidPlan
                     ? "Contact Support to Switch"
@@ -311,7 +323,7 @@ export default function Pricing() {
                         }`}
                         disabled={disabled}
                         onClick={() => {
-                          if (dealerCannotUseNonDealerPlan) {
+                          if (dealerCannotUseNonDealerPlan || (isApprovedDealer && isFreePlan)) {
                             toast.info("Dealer accounts cannot switch to this plan from here. Please contact support.");
                             return;
                           }
