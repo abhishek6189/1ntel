@@ -24,6 +24,22 @@ const formatPhoneForFirebase = (value: string) => {
   throw new Error("Enter a valid phone number with country code.");
 };
 
+const phoneToInternalEmail = (value: string) => {
+  const normalizedPhone = formatPhoneForFirebase(value).replace(/\D/g, "");
+  return `${normalizedPhone}@phone.1ntel.local`;
+};
+
+const getDealerAuthEmail = (profile: any) => {
+  if (profile?.auth_email) return profile.auth_email;
+
+  const savedEmail = String(profile?.email || "");
+  if (savedEmail.includes("@phone.1ntel.local")) return savedEmail;
+
+  if (profile?.phone) return phoneToInternalEmail(profile.phone);
+
+  return "";
+};
+
 export default function DealerAuth() {
   const navigate = useNavigate();
   const recaptchaRef = useRef<any>(null);
@@ -89,13 +105,14 @@ export default function DealerAuth() {
         return;
       }
 
-      if (!profile.email) {
-        toast.error("Dealer login is missing an account email. Please contact support.");
+      const authEmail = getDealerAuthEmail(profile);
+      if (!authEmail) {
+        toast.error("Dealer login is missing auth details. Please contact support.");
         return;
       }
 
       const { error } = await supabase.auth.signInWithPassword({
-        email: profile.email,
+        email: authEmail,
         password,
       });
 
