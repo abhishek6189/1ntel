@@ -199,6 +199,11 @@ serve(async (req: Request) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: any) {
+    console.error("stripe-webhook failed", {
+      message: err?.message,
+      name: err?.name,
+      stack: err?.stack,
+    });
     return new Response(JSON.stringify({ error: err.message || "Webhook failed" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

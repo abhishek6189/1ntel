@@ -160,6 +160,11 @@ serve(async (req: Request) => {
 
     return json({ ok: true, subscription: synced });
   } catch (err: any) {
+    console.error("sync-subscription-checkout failed", {
+      message: err?.message,
+      name: err?.name,
+      stack: err?.stack,
+    });
     return json({ error: err.message || "Could not sync subscription." }, 500);
   }
 });
