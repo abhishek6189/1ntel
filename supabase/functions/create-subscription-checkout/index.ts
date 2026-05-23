@@ -157,7 +157,7 @@ serve(async (req: Request) => {
           max_listings: String(maxListingsByPlan[normalizedPlan]),
         },
       },
-      success_url: `${origin}/dashboard?subscription=success&plan=${normalizedPlan}`,
+      success_url: `${origin}/${normalizedPlan === "dealer" ? "dealer-dashboard" : "dashboard"}?subscription=success&plan=${normalizedPlan}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing?subscription=cancelled`,
       client_reference_id: userData.user.id,
       metadata: {

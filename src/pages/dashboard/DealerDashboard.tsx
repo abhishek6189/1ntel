@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Car, DollarSign, CheckCircle, Clock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
 import { toast } from "sonner";
 
@@ -20,6 +20,7 @@ const DealerDashboard = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
 
   useEffect(() => {
     loadData();
@@ -31,9 +32,32 @@ const DealerDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const syncCheckoutReturn = async () => {
+    const sessionId = params.get("session_id");
+    if (!sessionId || sessionStorage.getItem(`subscription_synced_${sessionId}`)) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-subscription-checkout", {
+        body: { session_id: sessionId },
+      });
+
+      if (error || data?.error) {
+        throw new Error(data?.error || error?.message || "Payment succeeded, but plan sync failed.");
+      }
+
+      sessionStorage.setItem(`subscription_synced_${sessionId}`, "true");
+      toast.success("Payment confirmed. Your dealer plan is active.");
+      setParams({}, { replace: true });
+    } catch (err: any) {
+      toast.error(err?.message || "Payment sync failed. Please refresh once.");
+    }
+  };
+
   const loadData = async () => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
+
+    await syncCheckoutReturn();
 
     const { data: profile } = await supabase
       .from("profiles")

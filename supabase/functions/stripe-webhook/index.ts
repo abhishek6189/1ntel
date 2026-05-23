@@ -31,6 +31,14 @@ const normalizeSubscriptionStatus = (status: string) => {
   return "past_due";
 };
 
+const updateProfilePlan = async (userId: string, plan: string) => {
+  const byId = await supabase.from("profiles").update({ plan }).eq("id", userId);
+  if (!byId.error) return;
+
+  const byUserId = await supabase.from("profiles").update({ plan }).eq("user_id", userId);
+  if (byUserId.error) throw byUserId.error;
+};
+
 const insertInspectionRequest = async (session: Stripe.Checkout.Session) => {
   const buyerId = session.metadata?.buyer_id;
   const carId = session.metadata?.car_id;
@@ -131,10 +139,7 @@ const upsertSubscription = async (
 
   if (error) throw error;
 
-  await supabase
-    .from("profiles")
-    .update({ plan })
-    .eq("id", userId);
+  await updateProfilePlan(userId, plan);
 };
 
 serve(async (req: Request) => {

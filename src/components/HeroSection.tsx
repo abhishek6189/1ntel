@@ -94,7 +94,7 @@ const HeroSection = () => {
 
           {/* SEARCH */}
           <form onSubmit={handleSearch} className="mb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_0.8fr_0.6fr_auto] gap-2 p-2 bg-white rounded-xl shadow">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 p-2 bg-white rounded-xl shadow">
 
               <div className="relative">
                 <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" />
@@ -105,9 +105,6 @@ const HeroSection = () => {
                   className="pl-10 border-0"
                 />
               </div>
-
-              <Input placeholder="Max Price" className="border-0" />
-              <Input placeholder="Year" className="border-0" />
 
               <Button type="submit" className="w-full lg:w-auto">
                 <Search className="h-4 w-4 mr-1" /> Search
