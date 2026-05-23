@@ -44,6 +44,27 @@ const maxListingsForPlan = (plan: string) => {
   return 2;
 };
 
+const normalizeEmail = (value: unknown) => String(value || "").trim().toLowerCase();
+const normalizePhone = (value: unknown) => String(value || "").replace(/\D/g, "");
+
+const getCurrentProfile = async (userId: string) => {
+  const byId = await adminSupabase
+    .from("profiles")
+    .select("email, phone")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!byId.error && byId.data) return byId.data;
+
+  const byUserId = await adminSupabase
+    .from("profiles")
+    .select("email, phone")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return byUserId.data;
+};
+
 const updateProfilePlan = async (userId: string, plan: string) => {
   const byId = await adminSupabase
     .from("profiles")
@@ -64,9 +85,11 @@ const updateProfilePlan = async (userId: string, plan: string) => {
 
 const syncSubscription = async (
   subscription: Stripe.Subscription,
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
+  syncUserId?: string
 ) => {
   const userId =
+    syncUserId ||
     subscription.metadata?.user_id ||
     session.metadata?.user_id ||
     session.client_reference_id;
@@ -138,7 +161,23 @@ serve(async (req: Request) => {
 
     const sessionUserId = session.metadata?.user_id || session.client_reference_id;
     if (sessionUserId !== userData.user.id) {
-      return json({ error: "This checkout session does not belong to your account." }, 403);
+      const profile = await getCurrentProfile(userData.user.id);
+      const customerEmail =
+        normalizeEmail(session.customer_details?.email) ||
+        normalizeEmail((session as any).customer_email);
+      const customerPhone = normalizePhone(session.customer_details?.phone);
+      const profileEmail = normalizeEmail((profile as any)?.email || userData.user.email);
+      const profilePhone = normalizePhone((profile as any)?.phone || userData.user.phone);
+      const emailMatches = Boolean(profileEmail && customerEmail && profileEmail === customerEmail);
+      const phoneMatches = Boolean(
+        profilePhone &&
+          customerPhone &&
+          (profilePhone.endsWith(customerPhone) || customerPhone.endsWith(profilePhone))
+      );
+
+      if (!emailMatches && !phoneMatches) {
+        return json({ error: "This checkout session does not belong to your logged-in account." }, 403);
+      }
     }
 
     if (session.mode !== "subscription" || !session.subscription) {
@@ -156,7 +195,7 @@ serve(async (req: Request) => {
       return json({ error: `Payment is not completed yet. Stripe status: ${session.payment_status}.` }, 402);
     }
 
-    const synced = await syncSubscription(subscription, session);
+    const synced = await syncSubscription(subscription, session, userData.user.id);
 
     return json({ ok: true, subscription: synced });
   } catch (err: any) {

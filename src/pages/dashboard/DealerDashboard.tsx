@@ -4,6 +4,7 @@ import { Car, DollarSign, CheckCircle, Clock } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
 import { toast } from "sonner";
+import { getFunctionErrorMessage } from "@/utils/functionErrors";
 
 type CarType = {
   id: string;
@@ -41,8 +42,12 @@ const DealerDashboard = () => {
         body: { session_id: sessionId },
       });
 
-      if (error || data?.error) {
-        throw new Error(data?.error || error?.message || "Payment succeeded, but plan sync failed.");
+      if (error) {
+        throw new Error(await getFunctionErrorMessage(error, "Payment succeeded, but plan sync failed."));
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast.success("Payment confirmed. Your dealer plan is active.");

@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FALLBACK_AVATAR_URL, getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
+import { getFunctionErrorMessage } from "@/utils/functionErrors";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -59,8 +60,12 @@ export default function Dashboard() {
         body: { session_id: sessionId },
       });
 
-      if (error || data?.error) {
-        throw new Error(data?.error || error?.message || "Payment succeeded, but plan sync failed.");
+      if (error) {
+        throw new Error(await getFunctionErrorMessage(error, "Payment succeeded, but plan sync failed."));
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast.success("Payment confirmed. Your plan is active.");
