@@ -34,6 +34,7 @@ const maxListingsByPlan: Record<string, number> = {
 };
 
 const activeStatuses = new Set(["active", "trialing", "past_due"]);
+const stripeBlockingStatuses = ["active", "trialing", "past_due", "unpaid", "incomplete"];
 const cleanEmail = (value: unknown) => {
   const email = String(value || "").trim().toLowerCase();
   if (!email || email.includes("@phone.1ntel.local")) return undefined;
@@ -62,6 +63,78 @@ const findProfileForUser = async (userId: string) => {
     .maybeSingle();
 
   if (!byUserId.error && byUserId.data) return byUserId.data;
+
+  return null;
+};
+
+const getExistingStripeCustomerId = async (userId: string, email?: string) => {
+  const { data: subscription } = await adminSupabase
+    .from("subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", userId)
+    .not("stripe_customer_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (subscription?.stripe_customer_id) {
+    return subscription.stripe_customer_id as string;
+  }
+
+  if (!email) return null;
+
+  const customers = await stripe.customers.list({ email, limit: 10 });
+  const matchingCustomer = customers.data.find((customer) => {
+    const metadataUserId = customer.metadata?.user_id;
+    return metadataUserId === userId || !metadataUserId;
+  });
+
+  return matchingCustomer?.id || null;
+};
+
+const ensureStripeCustomer = async (
+  userId: string,
+  plan: string,
+  email?: string,
+  phone?: string
+) => {
+  const existingCustomerId = await getExistingStripeCustomerId(userId, email);
+
+  if (existingCustomerId) {
+    const customer = await stripe.customers.update(existingCustomerId, {
+      email,
+      phone: phone || undefined,
+      metadata: {
+        user_id: userId,
+        plan,
+      },
+    });
+    return customer;
+  }
+
+  return stripe.customers.create({
+    email,
+    phone: phone || undefined,
+    address: {
+      country: "CA",
+    },
+    metadata: {
+      user_id: userId,
+      plan,
+    },
+  });
+};
+
+const findBlockingStripeSubscription = async (customerId: string) => {
+  for (const status of stripeBlockingStatuses) {
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: status as Stripe.SubscriptionListParams.Status,
+      limit: 1,
+    });
+
+    if (subscriptions.data[0]) return subscriptions.data[0];
+  }
 
   return null;
 };
@@ -127,17 +200,21 @@ serve(async (req: Request) => {
 
     const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
     const customerEmail = cleanEmail(profile?.email) || cleanEmail(userData.user.email);
-    const customer = await stripe.customers.create({
-      email: customerEmail,
-      phone: profile?.phone || undefined,
-      address: {
-        country: "CA",
-      },
-      metadata: {
-        user_id: userData.user.id,
-        plan: normalizedPlan,
-      },
-    });
+    const customer = await ensureStripeCustomer(
+      userData.user.id,
+      normalizedPlan,
+      customerEmail,
+      profile?.phone
+    );
+    const blockingSubscription = await findBlockingStripeSubscription(customer.id);
+
+    if (blockingSubscription) {
+      return json({
+        error: "A Stripe subscription already exists for this account. Please wait a minute and refresh your dashboard, or contact support if it still does not activate.",
+        stripe_subscription_id: blockingSubscription.id,
+        stripe_status: blockingSubscription.status,
+      }, 409);
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",

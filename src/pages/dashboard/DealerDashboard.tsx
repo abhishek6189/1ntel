@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Car, DollarSign, CheckCircle, Clock } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -19,6 +19,7 @@ const DealerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const syncedSessionRef = useRef<string | null>(null);
 
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -35,7 +36,9 @@ const DealerDashboard = () => {
 
   const syncCheckoutReturn = async () => {
     const sessionId = params.get("session_id");
-    if (!sessionId) return;
+    if (!sessionId || syncedSessionRef.current === sessionId) return;
+
+    syncedSessionRef.current = sessionId;
 
     try {
       const { data, error } = await supabase.functions.invoke("sync-subscription-checkout", {
@@ -53,6 +56,7 @@ const DealerDashboard = () => {
       toast.success("Payment confirmed. Your dealer plan is active.");
       setParams({}, { replace: true });
     } catch (err: any) {
+      syncedSessionRef.current = null;
       toast.error(err?.message || "Payment sync failed. Please refresh once.");
     }
   };

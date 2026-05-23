@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [profilePromptOpen, setProfilePromptOpen] = useState(false);
   const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const syncedSessionRef = useRef<string | null>(null);
   const [profileDraft, setProfileDraft] = useState({
     full_name: "",
     email: "",
@@ -53,7 +54,9 @@ export default function Dashboard() {
 
   const syncCheckoutReturn = async () => {
     const sessionId = params.get("session_id");
-    if (!sessionId) return;
+    if (!sessionId || syncedSessionRef.current === sessionId) return;
+
+    syncedSessionRef.current = sessionId;
 
     try {
       const { data, error } = await supabase.functions.invoke("sync-subscription-checkout", {
@@ -71,6 +74,7 @@ export default function Dashboard() {
       toast.success("Payment confirmed. Your plan is active.");
       setParams({}, { replace: true });
     } catch (err: any) {
+      syncedSessionRef.current = null;
       toast.error(err?.message || "Payment sync failed. Please refresh once.");
     }
   };
