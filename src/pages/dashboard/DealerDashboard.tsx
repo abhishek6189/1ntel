@@ -34,7 +34,7 @@ const DealerDashboard = () => {
 
   const syncCheckoutReturn = async () => {
     const sessionId = params.get("session_id");
-    if (!sessionId || sessionStorage.getItem(`subscription_synced_${sessionId}`)) return;
+    if (!sessionId) return;
 
     try {
       const { data, error } = await supabase.functions.invoke("sync-subscription-checkout", {
@@ -45,7 +45,6 @@ const DealerDashboard = () => {
         throw new Error(data?.error || error?.message || "Payment succeeded, but plan sync failed.");
       }
 
-      sessionStorage.setItem(`subscription_synced_${sessionId}`, "true");
       toast.success("Payment confirmed. Your dealer plan is active.");
       setParams({}, { replace: true });
     } catch (err: any) {

@@ -45,10 +45,20 @@ const maxListingsForPlan = (plan: string) => {
 };
 
 const updateProfilePlan = async (userId: string, plan: string) => {
-  const byId = await adminSupabase.from("profiles").update({ plan }).eq("id", userId);
-  if (!byId.error) return;
+  const byId = await adminSupabase
+    .from("profiles")
+    .update({ plan })
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle();
+  if (!byId.error && byId.data) return;
 
-  const byUserId = await adminSupabase.from("profiles").update({ plan }).eq("user_id", userId);
+  const byUserId = await adminSupabase
+    .from("profiles")
+    .update({ plan })
+    .eq("user_id", userId)
+    .select("id")
+    .maybeSingle();
   if (byUserId.error) throw byUserId.error;
 };
 
@@ -135,11 +145,17 @@ serve(async (req: Request) => {
       return json({ error: "This checkout session is not a subscription." }, 400);
     }
 
-    if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
-      return json({ error: "Payment is not completed yet." }, 402);
+    const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+    const subscriptionStatus = String(subscription.status || "").toLowerCase();
+    const paymentOk =
+      session.payment_status === "paid" ||
+      session.payment_status === "no_payment_required" ||
+      ["active", "trialing"].includes(subscriptionStatus);
+
+    if (!paymentOk) {
+      return json({ error: `Payment is not completed yet. Stripe status: ${session.payment_status}.` }, 402);
     }
 
-    const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
     const synced = await syncSubscription(subscription, session);
 
     return json({ ok: true, subscription: synced });

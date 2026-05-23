@@ -32,10 +32,20 @@ const normalizeSubscriptionStatus = (status: string) => {
 };
 
 const updateProfilePlan = async (userId: string, plan: string) => {
-  const byId = await supabase.from("profiles").update({ plan }).eq("id", userId);
-  if (!byId.error) return;
+  const byId = await supabase
+    .from("profiles")
+    .update({ plan })
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle();
+  if (!byId.error && byId.data) return;
 
-  const byUserId = await supabase.from("profiles").update({ plan }).eq("user_id", userId);
+  const byUserId = await supabase
+    .from("profiles")
+    .update({ plan })
+    .eq("user_id", userId)
+    .select("id")
+    .maybeSingle();
   if (byUserId.error) throw byUserId.error;
 };
 
