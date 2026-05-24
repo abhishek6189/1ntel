@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Building2, Car, CheckCircle, Loader2, Sparkles, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { chooseBestSubscription } from "@/utils/subscriptionAccess";
 
 const plans = [
   {
@@ -124,13 +125,13 @@ export default function Pricing() {
       setProfileRole(role);
       setDealerStatus(status);
 
-      const { data: subscription } = await (supabase as any)
+      const { data: subscriptions } = await (supabase as any)
         .from("subscriptions")
         .select("plan, status")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
+
+      const subscription = chooseBestSubscription(subscriptions || []);
 
       if (subscription?.plan) {
         setCurrentPlan(String(subscription.plan).toLowerCase());

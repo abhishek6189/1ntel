@@ -29,6 +29,26 @@ const addDays = (date: string | null | undefined, days: number) => {
   return value;
 };
 
+const getSubscriptionRank = (subscription: any) => {
+  const status = String(subscription?.status || "").toLowerCase();
+  if (ACTIVE_STATUSES.has(status)) return 3;
+  if (GRACE_STATUSES.has(status)) return 2;
+  return 1;
+};
+
+const getPeriodTime = (subscription: any) => {
+  const value = new Date(subscription?.current_period_end || subscription?.created_at || 0).getTime();
+  return Number.isNaN(value) ? 0 : value;
+};
+
+export const chooseBestSubscription = (subscriptions: any[] = []) => {
+  return [...subscriptions].sort((a, b) => {
+    const rankDiff = getSubscriptionRank(b) - getSubscriptionRank(a);
+    if (rankDiff) return rankDiff;
+    return getPeriodTime(b) - getPeriodTime(a);
+  })[0];
+};
+
 export const hasPaidListingAccess = (subscription: any, fallbackPlan = "free") => {
   const plan = String(subscription?.plan || fallbackPlan || "free").toLowerCase();
   const status = String(subscription?.status || (PAID_PLANS.has(plan) ? "missing" : "active")).toLowerCase();
@@ -58,11 +78,11 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
     .order("created_at", { ascending: false });
 
   const profilesById = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
-  const subscriptionsByUserId = new Map();
+  const subscriptionsByUserId = new Map<string, any[]>();
   for (const subscription of subscriptions || []) {
-    if (!subscriptionsByUserId.has(subscription.user_id)) {
-      subscriptionsByUserId.set(subscription.user_id, subscription);
-    }
+    const userSubscriptions = subscriptionsByUserId.get(subscription.user_id) || [];
+    userSubscriptions.push(subscription);
+    subscriptionsByUserId.set(subscription.user_id, userSubscriptions);
   }
 
   return cars.filter((car) => {
@@ -70,7 +90,7 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
     const profile = profilesById.get(sellerId) as any;
     if (profile?.is_banned) return false;
 
-    const subscription = subscriptionsByUserId.get(sellerId);
+    const subscription = chooseBestSubscription(subscriptionsByUserId.get(sellerId) || []);
     return hasPaidListingAccess(subscription, profile?.plan || "free");
   });
 };
@@ -79,13 +99,13 @@ export const getSubscriptionAccess = async (
   userId: string,
   fallbackPlan = "free"
 ): Promise<SubscriptionAccess> => {
-  const { data: subscription } = await (supabase as any)
+  const { data: subscriptions } = await (supabase as any)
     .from("subscriptions")
     .select("*")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
+
+  const subscription = chooseBestSubscription(subscriptions || []);
 
   const plan = String(subscription?.plan || fallbackPlan || "free").toLowerCase();
   const limit = PLAN_LIMITS[plan] || PLAN_LIMITS.free;

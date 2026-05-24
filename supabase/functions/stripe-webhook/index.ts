@@ -49,6 +49,22 @@ const updateProfilePlan = async (userId: string, plan: string) => {
   if (byUserId.error) throw byUserId.error;
 };
 
+const hasActiveSubscriptionForUser = async (userId: string, excludeSubscriptionId?: string) => {
+  let query = supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .in("status", ["active", "trialing", "past_due"]);
+
+  if (excludeSubscriptionId) {
+    query = query.neq("stripe_subscription_id", excludeSubscriptionId);
+  }
+
+  const { data, error } = await query.limit(1);
+  if (error) throw error;
+  return Boolean(data?.length);
+};
+
 const insertInspectionRequest = async (session: Stripe.Checkout.Session) => {
   const buyerId = session.metadata?.buyer_id;
   const carId = session.metadata?.car_id;
@@ -133,10 +149,12 @@ const upsertSubscription = async (
   const { data: existingSubscription } = await supabase
     .from("subscriptions")
     .select("id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("stripe_subscription_id", subscription.id)
     .maybeSingle();
+
+  if (!existingSubscription?.id && payload.status === "cancelled") {
+    return;
+  }
 
   const { error } = existingSubscription?.id
     ? await supabase
@@ -149,7 +167,15 @@ const upsertSubscription = async (
 
   if (error) throw error;
 
-  await updateProfilePlan(userId, plan);
+  if (payload.status === "active" || payload.status === "trialing" || payload.status === "past_due") {
+    await updateProfilePlan(userId, plan);
+    return;
+  }
+
+  const hasOtherActiveSubscription = await hasActiveSubscriptionForUser(userId, subscription.id);
+  if (!hasOtherActiveSubscription) {
+    await updateProfilePlan(userId, "free");
+  }
 };
 
 serve(async (req: Request) => {

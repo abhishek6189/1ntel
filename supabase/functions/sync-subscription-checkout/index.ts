@@ -121,9 +121,7 @@ const syncSubscription = async (
   const { data: existingSubscription } = await adminSupabase
     .from("subscriptions")
     .select("id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("stripe_subscription_id", subscription.id)
     .maybeSingle();
 
   const { error } = existingSubscription?.id

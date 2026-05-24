@@ -182,7 +182,8 @@ serve(async (req: Request) => {
       .from("subscriptions")
       .select("plan, status")
       .eq("user_id", userData.user.id)
-      .order("created_at", { ascending: false })
+      .in("status", Array.from(activeStatuses))
+      .order("current_period_end", { ascending: false })
       .limit(1)
       .maybeSingle();
 
