@@ -14,6 +14,66 @@ const json = (body: Record<string, unknown>, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const isAdminRole = (role: unknown) => String(role || "").trim().toLowerCase() === "admin";
+
+const getMissingSchemaColumn = (error: any) => {
+  const message = String(error?.message || error?.details || "");
+  const match = message.match(/Could not find the '([^']+)' column/i);
+  return match?.[1] || null;
+};
+
+const updateCarWithFallback = async (
+  adminClient: any,
+  carId: string,
+  payload: Record<string, unknown>
+) => {
+  const currentPayload = { ...payload };
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const { error } = await adminClient.from("cars").update(currentPayload).eq("id", carId);
+    if (!error) return;
+
+    const missingColumn = getMissingSchemaColumn(error);
+    if (missingColumn && missingColumn in currentPayload) {
+      delete currentPayload[missingColumn];
+      continue;
+    }
+
+    throw error;
+  }
+};
+
+const ignoreMissingColumnDelete = async (query: PromiseLike<any>) => {
+  const { error } = await query;
+  if (error && !getMissingSchemaColumn(error)) throw error;
+};
+
+const hasAdminAccess = async (adminClient: any, user: any) => {
+  const profileChecks = [
+    adminClient.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    adminClient.from("profiles").select("role").eq("email", user.email).maybeSingle(),
+  ];
+
+  for (const check of profileChecks) {
+    const { data, error } = await check;
+    if (!error && isAdminRole(data?.role)) return true;
+  }
+
+  const { data: roleRows, error: roleError } = await adminClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id);
+
+  if (!roleError && roleRows?.some((row: any) => isAdminRole(row.role))) return true;
+
+  const { data: hasRole, error: rpcError } = await adminClient.rpc("has_role", {
+    _user_id: user.id,
+    _role: "admin",
+  });
+
+  return !rpcError && hasRole === true;
+};
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -34,13 +94,8 @@ serve(async (req: Request) => {
     const { data: userData, error: userError } = await authClient.auth.getUser(token);
     if (userError || !userData.user) return json({ error: "Login required." }, 401);
 
-    const { data: adminProfile, error: adminError } = await adminClient
-      .from("profiles")
-      .select("role")
-      .eq("id", userData.user.id)
-      .maybeSingle();
-
-    if (adminError || String(adminProfile?.role || "").toLowerCase() !== "admin") {
+    const isAdmin = await hasAdminAccess(adminClient, userData.user);
+    if (!isAdmin) {
       return json({ error: "Admin access required." }, 403);
     }
 
@@ -50,18 +105,15 @@ serve(async (req: Request) => {
     }
 
     if (action === "delete_listing") {
-      await adminClient
-        .from("cars")
-        .update({
-          status: "removed",
-          is_featured: false,
-          feature_request_status: "none",
-        })
-        .eq("id", carId);
+      await updateCarWithFallback(adminClient, carId, {
+        status: "removed",
+        is_featured: false,
+        feature_request_status: "none",
+      });
 
-      await adminClient.from("car_images").delete().eq("car_id", carId);
-      await adminClient.from("saved_cars").delete().eq("car_id", carId);
-      await adminClient.from("saved_cars").delete().eq("listing_id", carId);
+      await ignoreMissingColumnDelete(adminClient.from("car_images").delete().eq("car_id", carId));
+      await ignoreMissingColumnDelete(adminClient.from("saved_cars").delete().eq("car_id", carId));
+      await ignoreMissingColumnDelete(adminClient.from("saved_cars").delete().eq("listing_id", carId));
 
       const { error: deleteError } = await adminClient.from("cars").delete().eq("id", carId);
       if (!deleteError) return json({ ok: true, deleted: true });
@@ -70,12 +122,7 @@ serve(async (req: Request) => {
     }
 
     if (action === "update_inspection") {
-      const { error } = await adminClient
-        .from("cars")
-        .update({ inspection_status: value })
-        .eq("id", carId);
-
-      if (error) throw error;
+      await updateCarWithFallback(adminClient, carId, { inspection_status: value });
       return json({ ok: true });
     }
 
@@ -87,8 +134,7 @@ serve(async (req: Request) => {
             ? { feature_request_status: "rejected" }
             : { is_featured: false, feature_request_status: "none" };
 
-      const { error } = await adminClient.from("cars").update(payload).eq("id", carId);
-      if (error) throw error;
+      await updateCarWithFallback(adminClient, carId, payload);
       return json({ ok: true });
     }
 

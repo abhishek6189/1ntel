@@ -131,9 +131,9 @@ export default function AdminListings({ cars = [], onRefresh }) {
           {filtered.map((car) => (
             <div
               key={car.id}
-              className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)_auto] gap-3 border-b bg-card p-2.5 last:border-b-0 hover:bg-muted/30 sm:grid-cols-[80px_minmax(0,1fr)_120px_116px] sm:items-center"
+              className="flex min-h-20 items-center gap-3 border-b bg-card p-2.5 last:border-b-0 hover:bg-muted/30"
             >
-              <div className="h-14 w-[72px] overflow-hidden rounded-md bg-gray-100 sm:h-16 sm:w-20">
+              <div className="h-14 w-[72px] shrink-0 overflow-hidden rounded-md bg-gray-100 sm:h-16 sm:w-20">
                 <img
                   src={getImage(car)}
                   alt={car.title || "Car listing"}
@@ -141,7 +141,7 @@ export default function AdminListings({ cars = [], onRefresh }) {
                 />
               </div>
 
-              <div className="min-w-0 space-y-0.5">
+              <div className="min-w-0 flex-1 space-y-0.5">
                 <div className="min-w-0">
                   <h4 className="truncate text-sm font-semibold text-foreground">
                     {car.title || "Untitled listing"}
@@ -169,7 +169,7 @@ export default function AdminListings({ cars = [], onRefresh }) {
                 )}
               </div>
 
-              <div className="hidden flex-wrap items-center gap-1.5 sm:flex sm:flex-col sm:items-start">
+              <div className="hidden w-28 shrink-0 flex-wrap items-center gap-1.5 sm:flex sm:flex-col sm:items-start">
                 <Badge className="max-w-full px-2 py-0.5 text-[11px] capitalize">
                   <span className="truncate">{car.status || "unknown"}</span>
                 </Badge>
@@ -185,7 +185,7 @@ export default function AdminListings({ cars = [], onRefresh }) {
                 </Badge>
               </div>
 
-              <div className="flex items-center justify-end gap-1.5">
+              <div className="flex shrink-0 items-center justify-end gap-1.5">
                 <Button
                   variant="outline"
                   size="icon"

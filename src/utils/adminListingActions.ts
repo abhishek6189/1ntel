@@ -10,7 +10,15 @@ export const runAdminListingAction = async (
   });
 
   if (error || data?.error) {
-    throw new Error(data?.error || error?.message || "Admin listing action failed.");
+    let message = data?.error || error?.message || "Admin listing action failed.";
+
+    try {
+      const context = (error as any)?.context;
+      const body = typeof context?.json === "function" ? await context.json() : null;
+      message = body?.error || message;
+    } catch {}
+
+    throw new Error(message);
   }
 
   return data;
