@@ -20,8 +20,13 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FALLBACK_AVATAR_URL, getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
-import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
+import type { SubscriptionAccess } from "@/utils/subscriptionAccess";
 import { getFunctionErrorMessage } from "@/utils/functionErrors";
+import {
+  getListingAllowance,
+  startListingCreditCheckout,
+  type ListingAllowance,
+} from "@/utils/listingAccess";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -31,7 +36,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [profilePromptOpen, setProfilePromptOpen] = useState(false);
   const [subscriptionAccess, setSubscriptionAccess] = useState<SubscriptionAccess | null>(null);
+  const [listingAllowance, setListingAllowance] = useState<ListingAllowance | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [creditCheckoutLoading, setCreditCheckoutLoading] = useState(false);
   const syncedSessionRef = useRef<string | null>(null);
   const [profileDraft, setProfileDraft] = useState({
     full_name: "",
@@ -59,19 +66,25 @@ export default function Dashboard() {
     syncedSessionRef.current = sessionId;
 
     try {
-      const { data, error } = await supabase.functions.invoke("sync-subscription-checkout", {
-        body: { session_id: sessionId },
-      });
+      const isListingCreditReturn = params.get("listing_credit") === "success";
+      const { data, error } = await supabase.functions.invoke(
+        isListingCreditReturn ? "sync-listing-credit-checkout" : "sync-subscription-checkout",
+        { body: { session_id: sessionId } }
+      );
 
       if (error) {
-        throw new Error(await getFunctionErrorMessage(error, "Payment succeeded, but plan sync failed."));
+        throw new Error(await getFunctionErrorMessage(error, "Payment succeeded, but sync failed."));
       }
 
       if (data?.error) {
         throw new Error(data.error);
       }
 
-      toast.success("Payment confirmed. Your plan is active.");
+      toast.success(
+        isListingCreditReturn
+          ? "Payment confirmed. One listing credit was added."
+          : "Payment confirmed. Your plan is active."
+      );
       setParams({}, { replace: true });
     } catch (err: any) {
       syncedSessionRef.current = null;
@@ -96,7 +109,9 @@ export default function Dashboard() {
       .single();
 
     setProfile(profileData);
-    const access = await getSubscriptionAccess(currentUser.id, profileData?.plan || "free");
+    const allowance = await getListingAllowance(currentUser.id);
+    const access = allowance.access;
+    setListingAllowance(allowance);
     setSubscriptionAccess(access);
     setProfileDraft({
       full_name: profileData?.full_name || "",
@@ -142,8 +157,10 @@ export default function Dashboard() {
 
   /* PLAN */
   const plan = subscriptionAccess?.plan || profile?.plan || "free";
-  const LIMIT = subscriptionAccess?.limit || 2;
-  const isLimitReached = cars.length >= LIMIT;
+  const LIMIT = listingAllowance?.displayLimit || subscriptionAccess?.limit || 2;
+  const displayedListingUsage = listingAllowance?.displayUsed ?? cars.length;
+  const isLimitReached = listingAllowance ? !listingAllowance.canCreate : cars.length >= LIMIT;
+  const needsListingCredit = Boolean(listingAllowance?.needsCredit);
   const listingAccessAllowed = subscriptionAccess?.allowed !== false;
 
   /* STATS */
@@ -333,11 +350,24 @@ export default function Dashboard() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Badge className="bg-blue-100 text-blue-700">
-              {plan.toUpperCase()} — {cars.length}/{LIMIT}
+              {plan.toUpperCase()} — {displayedListingUsage}/{LIMIT}
+              {listingAllowance?.paidListingCredits
+                ? ` • ${listingAllowance.paidListingCredits} credit${listingAllowance.paidListingCredits === 1 ? "" : "s"}`
+                : ""}
             </Badge>
 
-            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate("/pricing")}>
-              {!listingAccessAllowed ? "Renew plan" : plan === "free" || plan === "individual" ? "Upgrade" : "Current plan"}
+            <Button
+              className="w-full sm:w-auto"
+              variant="outline"
+              onClick={() => navigate(needsListingCredit ? "/pricing?plan=individual" : "/pricing")}
+            >
+              {!listingAccessAllowed
+                ? "Renew plan"
+                : needsListingCredit
+                  ? "Buy Listing Credit"
+                  : plan === "free" || plan === "individual"
+                    ? "Upgrade"
+                    : "Current plan"}
             </Button>
           </div>
         </div>
@@ -388,8 +418,25 @@ export default function Dashboard() {
                   Renew your plan
                 </Button>
               ) : isLimitReached ? (
-                <Button className="w-full bg-red-500 md:w-auto" onClick={() => navigate("/pricing")}>
-                  Upgrade your plan 🚀
+                <Button
+                  className="w-full bg-red-500 md:w-auto"
+                  disabled={creditCheckoutLoading}
+                  onClick={async () => {
+                    if (!needsListingCredit) {
+                      navigate("/pricing");
+                      return;
+                    }
+
+                    try {
+                      setCreditCheckoutLoading(true);
+                      await startListingCreditCheckout();
+                    } catch (err: any) {
+                      toast.error(err?.message || "Could not start checkout.");
+                      setCreditCheckoutLoading(false);
+                    }
+                  }}
+                >
+                  {creditCheckoutLoading ? "Opening checkout..." : needsListingCredit ? "Buy $29 listing credit" : "Upgrade your plan"}
                 </Button>
               ) : (
                 <Button className="w-full md:w-auto" onClick={() => navigate("/dashboard/create-listing")}>
@@ -513,7 +560,7 @@ export default function Dashboard() {
               <div>{plan}</div>
 
               <div>Listings</div>
-              <div>{cars.length}/{LIMIT}</div>
+              <div>{displayedListingUsage}/{LIMIT}</div>
             </div>
 
             <Button className="mt-6 w-full sm:w-auto" variant="outline" onClick={async () => {

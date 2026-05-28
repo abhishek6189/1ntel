@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UploadCloud, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
-import { getSubscriptionAccess } from "@/utils/subscriptionAccess";
+import { consumeListingSlot, getListingAllowance } from "@/utils/listingAccess";
 
 export default function CreateListing() {
   const navigate = useNavigate();
@@ -115,17 +115,8 @@ export default function CreateListing() {
 
   /* ================= PLAN LIMIT CHECK ================= */
   const checkPlanLimit = async (userId: string) => {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("plan, role")
-      .eq("id", userId)
-      .single();
-
-    const requiredPlan =
-      String((profile as any)?.role || "").toLowerCase() === "dealer"
-        ? "dealer"
-        : profile?.plan || "free";
-    const access = await getSubscriptionAccess(userId, requiredPlan);
+    const allowance = await getListingAllowance(userId);
+    const access = allowance.access;
 
     if (!access.allowed) {
       toast.error(access.reason || "Please renew your subscription to list cars.");
@@ -133,13 +124,12 @@ export default function CreateListing() {
       return false;
     }
 
-    const { count } = await supabase
-      .from("cars")
-      .select("*", { count: "exact", head: true })
-      .eq("seller_id", userId);
-
-    if (!editId && (count || 0) >= access.limit) {
-      toast.error(`Limit reached (${access.limit}). Upgrade your plan.`);
+    if (!editId && !allowance.canCreate) {
+      toast.error(
+        allowance.needsCredit
+          ? "Free listing limit reached. Buy an individual listing credit to add another car."
+          : `Limit reached (${allowance.displayLimit}). Upgrade your plan.`
+      );
       navigate("/pricing");
       return false;
     }
@@ -244,6 +234,20 @@ export default function CreateListing() {
           .single();
 
     if (error) return toast.error(error.message);
+
+    if (!editId) {
+      const allowance = await getListingAllowance(user.id);
+      const plan = String(allowance.access.plan || "").toLowerCase();
+
+      if (plan !== "garage" && plan !== "dealer") {
+        try {
+          await consumeListingSlot(user.id);
+        } catch (slotError: any) {
+          await supabase.from("cars").delete().eq("id", data.id);
+          return toast.error(slotError?.message || "Listing limit reached.");
+        }
+      }
+    }
 
     if (images.length) {
       if (editId) {

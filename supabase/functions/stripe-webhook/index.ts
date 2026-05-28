@@ -121,6 +121,22 @@ const insertInspectionRequest = async (session: Stripe.Checkout.Session) => {
   }
 };
 
+const addListingCredit = async (session: Stripe.Checkout.Session) => {
+  const userId = session.metadata?.user_id || session.client_reference_id;
+  const credits = Number(session.metadata?.credits || 1);
+
+  if (!userId) return;
+
+  const { error } = await supabase.rpc("record_listing_credit_payment", {
+    _user_id: userId,
+    _stripe_checkout_session_id: session.id,
+    _stripe_payment_intent_id: session.payment_intent ? String(session.payment_intent) : null,
+    _credits: Number.isFinite(credits) && credits > 0 ? credits : 1,
+  });
+
+  if (error) throw error;
+};
+
 const upsertSubscription = async (
   subscription: Stripe.Subscription,
   session?: Stripe.Checkout.Session
@@ -202,6 +218,14 @@ serve(async (req: Request) => {
       const session = event.data.object as Stripe.Checkout.Session;
 
       if (session.mode === "payment") {
+        if (session.metadata?.type === "listing_credit") {
+          await addListingCredit(session);
+          return new Response(JSON.stringify({ received: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         await insertInspectionRequest(session);
       }
 

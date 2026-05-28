@@ -7,6 +7,7 @@ import { ArrowRight, Building2, Car, CheckCircle, Loader2, Sparkles, Star } from
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { chooseBestSubscription } from "@/utils/subscriptionAccess";
+import { startListingCreditCheckout } from "@/utils/listingAccess";
 
 const plans = [
   {
@@ -25,6 +26,24 @@ const plans = [
     cta: "Get Started Free",
     link: "/dashboard",
     checkoutPlan: null,
+    highlighted: false,
+  },
+  {
+    name: "Individual Listing",
+    monthlyPrice: "$29",
+    period: "/listing",
+    desc: "For private sellers who need one more car listing.",
+    icon: Sparkles,
+    features: [
+      "One additional listing credit",
+      "Pay once per extra car",
+      "Use after your 2 free lifetime listings",
+      "Basic listing with photos",
+      "Moderated chat with buyers",
+    ],
+    cta: "Buy Listing Credit",
+    link: "/dashboard",
+    checkoutPlan: "individual_listing",
     highlighted: false,
   },
   {
@@ -100,6 +119,9 @@ export default function Pricing() {
   const [dealerStatus, setDealerStatus] = useState("");
   const paidPlanActive = ["active", "trialing", "past_due"].includes(currentStatus);
   const isApprovedDealer = profileRole === "dealer" && dealerStatus === "approved";
+  const visiblePlans = isApprovedDealer
+    ? plans.filter((plan) => plan.checkoutPlan === "dealer")
+    : plans.filter((plan) => plan.checkoutPlan !== "dealer");
 
   useEffect(() => {
     const loadCurrentPlan = async () => {
@@ -158,6 +180,17 @@ export default function Pricing() {
     if (plan === "dealer" && !isApprovedDealer) {
       toast.info("Please complete dealer signup and wait for admin approval first.");
       window.location.href = "/dealer-registration";
+      return;
+    }
+
+    if (plan === "individual_listing") {
+      try {
+        setCheckoutPlan(plan);
+        await startListingCreditCheckout();
+      } catch (err: any) {
+        toast.error(err?.message || "Could not start checkout.");
+        setCheckoutPlan(null);
+      }
       return;
     }
 
@@ -236,15 +269,18 @@ export default function Pricing() {
               <div className="mt-6 flex justify-center">
                 <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-600 shadow-sm">
                   <Sparkles className="h-4 w-4" />
-                  Free trial for the first month for Dealer plan
+                  {isApprovedDealer
+                    ? "Dealer plan is available after approval"
+                    : "Buy extra listings one at a time when you need them"}
                 </div>
               </div>
             </div>
 
             <div className="mx-auto mt-10 grid max-w-6xl gap-5 md:grid-cols-2 lg:grid-cols-3 lg:items-center">
-              {plans.map((plan) => {
+              {visiblePlans.map((plan) => {
                 const checkoutPlanName = plan.checkoutPlan || "";
                 const isDealerCheckout = plan.name === "Dealer";
+                const isIndividualListing = checkoutPlanName === "individual_listing";
                 const planName = plan.name.toLowerCase();
                 const isFreePlan = planName === "free";
                 const isGaragePlan = checkoutPlanName === "garage";
@@ -254,7 +290,7 @@ export default function Pricing() {
                   currentPlan === planName &&
                   (plan.name === "Free" || paidPlanActive);
                 const activeDifferentPaidPlan =
-                  paidPlanActive && checkoutPlanName && currentPlan !== checkoutPlanName;
+                  paidPlanActive && checkoutPlanName && !isIndividualListing && currentPlan !== checkoutPlanName;
                 const disabled = Boolean(
                   checkoutPlan === checkoutPlanName ||
                     isCurrentPlan ||
@@ -269,6 +305,8 @@ export default function Pricing() {
                     ? "Contact Support to Switch"
                     : isDealerCheckout && !isApprovedDealer
                       ? "Dealer Sign Up"
+                      : isIndividualListing
+                        ? plan.cta
                       : isDealerCheckout
                         ? "Start Dealer Plan"
                         : plan.cta;
