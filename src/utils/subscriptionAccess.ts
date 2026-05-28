@@ -68,8 +68,8 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
 
   const { data: profiles } = await (supabase as any)
     .from("profiles")
-    .select("id, plan, is_banned")
-    .in("id", sellerIds);
+    .select("id, user_id, plan, is_banned")
+    .or(`id.in.(${sellerIds.join(",")}),user_id.in.(${sellerIds.join(",")})`);
 
   const { data: subscriptions } = await (supabase as any)
     .from("subscriptions")
@@ -77,7 +77,12 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
     .in("user_id", sellerIds)
     .order("created_at", { ascending: false });
 
-  const profilesById = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+  const profilesBySellerId = new Map<string, any>();
+  for (const profile of profiles || []) {
+    if (profile.id) profilesBySellerId.set(profile.id, profile);
+    if (profile.user_id) profilesBySellerId.set(profile.user_id, profile);
+  }
+
   const subscriptionsByUserId = new Map<string, any[]>();
   for (const subscription of subscriptions || []) {
     const userSubscriptions = subscriptionsByUserId.get(subscription.user_id) || [];
@@ -87,10 +92,12 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
 
   return cars.filter((car) => {
     const sellerId = car.seller_id || "";
-    const profile = profilesById.get(sellerId) as any;
+    const profile = profilesBySellerId.get(sellerId) as any;
     if (profile?.is_banned) return false;
 
     const subscription = chooseBestSubscription(subscriptionsByUserId.get(sellerId) || []);
+    if (!subscription) return true;
+
     return hasPaidListingAccess(subscription, profile?.plan || "free");
   });
 };
