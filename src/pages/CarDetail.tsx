@@ -4,14 +4,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FullscreenGallery from "@/components/FullscreenGallery";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { filterVisibleCarsForPublic } from "@/utils/subscriptionAccess";
@@ -26,7 +18,6 @@ import {
   MapPin,
   Images,
   Info,
-  Loader2,
   ShieldCheck,
 } from "lucide-react";
 
@@ -46,8 +37,6 @@ const CarDetail = () => {
   const [seller, setSeller] = useState<any>(null);
 
   const [chatLoading, setChatLoading] = useState(false);
-  const [inspectionOpen, setInspectionOpen] = useState(false);
-  const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspectionRequested, setInspectionRequested] = useState(false);
 
   useEffect(() => {
@@ -205,42 +194,7 @@ const CarDetail = () => {
   };
 
   const requestInspection = async () => {
-    if (!user) {
-      toast.error("Please log in to request an inspection.");
-      navigate("/auth?mode=login");
-      return;
-    }
-
-    if (!car?.id) return;
-
-    if (user.id === car.seller_id) {
-      toast.error("You cannot request an inspection on your own listing.");
-      return;
-    }
-
-    setInspectionLoading(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "create-inspection-checkout",
-        {
-          body: {
-            carId: car.id,
-            carTitle: car.title,
-          },
-        }
-      );
-
-      if (error) throw error;
-      if (!data?.url) throw new Error("Could not start checkout.");
-
-      window.location.href = data.url;
-    } catch (err: any) {
-      console.error("Inspection request error:", err);
-      toast.error(err?.message || "Could not start inspection checkout.");
-    } finally {
-      setInspectionLoading(false);
-    }
+    toast.info("Inspection requests are coming soon.");
   };
 
   if (!car) return <div className="p-20 text-center">Loading...</div>;
@@ -415,11 +369,10 @@ const CarDetail = () => {
               <Button
                 variant="outline"
                 className="w-full border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-                onClick={() => setInspectionOpen(true)}
-                disabled={inspectionRequested}
+                onClick={requestInspection}
               >
                 <ShieldCheck className="mr-2 h-4 w-4" />
-                {inspectionRequested ? "Inspection Requested" : "Request Inspection"}
+                Coming Soon
               </Button>
 
               <div className="flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
@@ -486,10 +439,9 @@ const CarDetail = () => {
         <Button
           className="min-w-0 px-2"
           variant="outline"
-          onClick={() => setInspectionOpen(true)}
-          disabled={inspectionRequested}
+          onClick={requestInspection}
         >
-          Inspect
+          Soon
         </Button>
       </div>
 
@@ -503,49 +455,6 @@ const CarDetail = () => {
           onClose={() => setGalleryOpen(false)}
         />
       )}
-
-      <Dialog open={inspectionOpen} onOpenChange={setInspectionOpen}>
-        <DialogContent className="max-w-[92vw] sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Request Inspection</DialogTitle>
-            <DialogDescription>
-              Get a professional pre-purchase inspection report before you buy
-              this vehicle.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 text-sm">
-            <div className="rounded-lg border bg-blue-50 p-3 text-blue-900">
-              <p className="font-semibold">$50 one-time inspection fee</p>
-              <p className="mt-1 text-xs text-blue-800">
-                This fee is non-refundable. Our team will inspect the car,
-                prepare a report, and suggest whether it is a good buy.
-              </p>
-            </div>
-
-            <div className="rounded-lg border p-3">
-              <p className="font-medium">{car.title}</p>
-              <p className="text-xs text-muted-foreground">
-                {car.location || "Location not added"}
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setInspectionOpen(false)}
-              disabled={inspectionLoading}
-            >
-              Cancel
-            </Button>
-            <Button onClick={requestInspection} disabled={inspectionLoading}>
-              {inspectionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Continue to Payment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
