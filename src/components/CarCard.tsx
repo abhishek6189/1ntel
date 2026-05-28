@@ -3,18 +3,15 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Gauge, Calendar, Fuel, Heart } from "lucide-react";
 
-const statusConfig: any = {
-  none: { label: "Not Inspected", variant: "secondary" },
-  pending: { label: "Inspection Pending", variant: "outline" },
-  passed: { label: "Verified", variant: "default" },
-  passed_with_issues: { label: "Verified (Issues)", variant: "outline" },
-  failed: { label: "Failed", variant: "destructive" }
+const planConfig: any = {
+  dealer: { label: "Dealer", className: "bg-blue-600 text-white border-blue-600" },
+  free: { label: "Private Seller", className: "bg-white text-gray-900 border-white" },
 };
 
 const CarCard = ({ car, index = 0 }: any) => {
-
-  const status =
-    statusConfig[car?.inspection_status] || statusConfig.none;
+  const sellerPlan = String(car?.seller_plan || "free").toLowerCase();
+  const plan = planConfig[sellerPlan] || planConfig.free;
+  const sellerLabel = car?.seller_plan_label || plan.label;
 
   const image =
     car?.image_url ||
@@ -41,19 +38,15 @@ const CarCard = ({ car, index = 0 }: any) => {
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             />
 
-            {/* STATUS BADGE */}
+            {/* SELLER TYPE BADGE */}
 
             <div className="absolute top-3 left-3">
 
               <Badge
-                variant={status.variant}
-                className={
-                  car?.inspection_status === "passed"
-                    ? "bg-green-600 text-white border-green-600"
-                    : ""
-                }
+                variant="outline"
+                className={plan.className}
               >
-                {status.label}
+                {sellerLabel}
               </Badge>
 
             </div>

@@ -11,6 +11,19 @@ const PAID_PLANS = new Set(["garage", "dealer"]);
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 const GRACE_STATUSES = new Set(["past_due", "unpaid", "incomplete"]);
 
+const getSellerPlan = (profile: any, subscription: any) => {
+  const role = String(profile?.role || "").toLowerCase();
+  const plan = String(subscription?.plan || profile?.plan || "").toLowerCase();
+
+  if (plan === "dealer" || role === "dealer") return "dealer";
+  return "free";
+};
+
+export const getSellerPlanLabel = (plan: string | null | undefined) => {
+  if (plan === "dealer") return "Dealer";
+  return "Private Seller";
+};
+
 export type SubscriptionAccess = {
   allowed: boolean;
   plan: string;
@@ -66,10 +79,25 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
   const sellerIds = Array.from(new Set(cars.map((car) => car.seller_id).filter(Boolean)));
   if (!sellerIds.length) return cars;
 
-  const { data: profiles } = await (supabase as any)
+  const profileRows: any[] = [];
+
+  const byProfileId = await (supabase as any)
     .from("profiles")
-    .select("id, user_id, plan, is_banned")
-    .or(`id.in.(${sellerIds.join(",")}),user_id.in.(${sellerIds.join(",")})`);
+    .select("id, plan, role, is_banned")
+    .in("id", sellerIds);
+
+  if (!byProfileId.error && byProfileId.data) {
+    profileRows.push(...byProfileId.data);
+  }
+
+  const byUserId = await (supabase as any)
+    .from("profiles")
+    .select("id, user_id, plan, role, is_banned")
+    .in("user_id", sellerIds);
+
+  if (!byUserId.error && byUserId.data) {
+    profileRows.push(...byUserId.data);
+  }
 
   const { data: subscriptions } = await (supabase as any)
     .from("subscriptions")
@@ -78,7 +106,7 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
     .order("created_at", { ascending: false });
 
   const profilesBySellerId = new Map<string, any>();
-  for (const profile of profiles || []) {
+  for (const profile of profileRows) {
     if (profile.id) profilesBySellerId.set(profile.id, profile);
     if (profile.user_id) profilesBySellerId.set(profile.user_id, profile);
   }
@@ -90,15 +118,22 @@ export const filterVisibleCarsForPublic = async <T extends { seller_id?: string 
     subscriptionsByUserId.set(subscription.user_id, userSubscriptions);
   }
 
-  return cars.filter((car) => {
+  return cars.flatMap((car) => {
     const sellerId = car.seller_id || "";
     const profile = profilesBySellerId.get(sellerId) as any;
-    if (profile?.is_banned) return false;
+    if (profile?.is_banned) return [];
 
     const subscription = chooseBestSubscription(subscriptionsByUserId.get(sellerId) || []);
-    if (!subscription) return true;
+    const sellerPlan = getSellerPlan(profile, subscription);
+    const enrichedCar = {
+      ...car,
+      seller_plan: sellerPlan,
+      seller_plan_label: getSellerPlanLabel(sellerPlan),
+    };
 
-    return hasPaidListingAccess(subscription, profile?.plan || "free");
+    if (!subscription) return [enrichedCar];
+
+    return hasPaidListingAccess(subscription, profile?.plan || "free") ? [enrichedCar] : [];
   });
 };
 
