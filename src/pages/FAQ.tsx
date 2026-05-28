@@ -6,6 +6,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import SEO from "@/components/SEO";
 
 const faqGroups = [
   {
@@ -125,6 +126,25 @@ const faqGroups = [
 
 const FAQ = () => (
   <div className="min-h-screen bg-gray-50">
+    <SEO
+      title="Car Buying and Selling FAQ"
+      description="Answers to common questions about buying, selling, listing credits, garage plans, dealer accounts, inspections, safety, and support on 1ntel."
+      path="/faq"
+      structuredData={{
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faqGroups.flatMap((group) =>
+          group.items.map((item) => ({
+            "@type": "Question",
+            name: item.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: item.answer,
+            },
+          }))
+        ),
+      }}
+    />
     <Navbar />
 
     <main className="mx-auto max-w-4xl px-4 py-12 sm:py-16">

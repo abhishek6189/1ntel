@@ -12,6 +12,7 @@ import {
   MessageSquare,
   CheckCircle,
 } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const steps = [
   {
@@ -59,6 +60,11 @@ const steps = [
 export default function HowItWorks() {
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO
+        title="How 1ntel Works"
+        description="Learn how 1ntel helps Canadians browse used cars, list vehicles, connect with sellers, and use inspection support for safer car buying."
+        path="/how-it-works"
+      />
       <Navbar />
 
       {/* HERO */}

@@ -7,6 +7,7 @@ import CarCard from "@/components/CarCard";
 import Footer from "@/components/Footer";
 import GlobalLoader from "@/components/GlobalLoader";
 import Navbar from "@/components/Navbar";
+import SEO from "@/components/SEO";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,6 +161,11 @@ const BrowseCars = () => {
 
   return (
     <div className="min-h-screen">
+      <SEO
+        title="Browse Used Cars for Sale in Canada"
+        description="Search used cars for sale across Canada. Filter by make, model, price, body type, transmission, fuel type, and location on 1ntel."
+        path="/browse"
+      />
       <Navbar />
 
       <main className="container px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

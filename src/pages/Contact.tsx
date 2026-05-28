@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Mail, Phone, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import SEO from "@/components/SEO";
 
 const supportEmail = "1ntelcarz@gmail.com";
 const supportPhone = "+14378607157";
@@ -55,6 +56,11 @@ const Contact = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <SEO
+        title="Contact 1ntel"
+        description="Contact 1ntel for support with car listings, buyer questions, seller accounts, dealer registration, garage plans, and marketplace help."
+        path="/contact"
+      />
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 py-12 sm:py-16">

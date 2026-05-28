@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { chooseBestSubscription } from "@/utils/subscriptionAccess";
 import { startListingCreditCheckout } from "@/utils/listingAccess";
+import SEO from "@/components/SEO";
 
 const plans = [
   {
@@ -233,6 +234,11 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      <SEO
+        title="Car Listing Pricing for Private Sellers and Garages"
+        description="Compare 1ntel pricing for Canadian car sellers: free lifetime listings, one-time individual listing credits, and garage plans."
+        path="/pricing"
+      />
       <Navbar />
 
       <main className="relative overflow-hidden">

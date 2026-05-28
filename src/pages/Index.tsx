@@ -6,9 +6,37 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import SEO, { SITE_URL } from '@/components/SEO';
 
 const Index = () => (
   <div className="min-h-screen">
+    <SEO
+      title="1ntel - Buy and Sell Used Cars in Canada"
+      description="Browse used cars, list your vehicle, and connect with buyers and sellers across Canada on 1ntel."
+      path="/"
+      structuredData={[
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "1ntel",
+          url: SITE_URL,
+          potentialAction: {
+            "@type": "SearchAction",
+            target: `${SITE_URL}/browse?q={search_term_string}`,
+            "query-input": "required name=search_term_string",
+          },
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "AutoDealer",
+          name: "1ntel",
+          url: SITE_URL,
+          image: `${SITE_URL}/logo.png`,
+          telephone: "+1-437-860-7157",
+          areaServed: "Canada",
+        },
+      ]}
+    />
     <Navbar />
     <HeroSection />
     <FeaturedCars />

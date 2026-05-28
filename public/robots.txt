@@ -12,3 +12,15 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /dealer-dashboard
+Disallow: /admin
+Disallow: /auth
+Disallow: /chat
+Disallow: /messages
+Disallow: /profile-settings
+Disallow: /profile-setup
+Disallow: /dealer-profile-setup
+Disallow: /dealer-pending
+
+Sitemap: https://www.1ntel.ca/sitemap.xml

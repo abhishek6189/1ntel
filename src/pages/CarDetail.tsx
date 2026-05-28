@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { filterVisibleCarsForPublic } from "@/utils/subscriptionAccess";
+import SEO, { SITE_URL } from "@/components/SEO";
 
 import {
   ArrowLeft,
@@ -201,6 +202,8 @@ const CarDetail = () => {
 
   const galleryImages = images.map((img: any) => img.image_url).filter(Boolean);
   const displayImages = galleryImages.length ? galleryImages : activeImage ? [activeImage] : [];
+  const carTitle = `${car.year || ""} ${car.make || ""} ${car.model || car.title || "Used Car"}`.replace(/\s+/g, " ").trim();
+  const carDescription = `${carTitle} for sale in ${car.location || "Canada"} for $${Number(car.price || 0).toLocaleString()}. View mileage, fuel type, photos, and seller details on 1ntel.`;
 
   const selectImage = (index: number) => {
     const nextImage = displayImages[index];
@@ -219,6 +222,37 @@ const CarDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 lg:pb-0">
+      <SEO
+        title={`${carTitle} for Sale`}
+        description={carDescription}
+        path={`/car/${car.id}`}
+        image={displayImages[0] || "/logo.png"}
+        type="product"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "Vehicle",
+          name: carTitle,
+          url: `${SITE_URL}/car/${car.id}`,
+          image: displayImages,
+          brand: car.make,
+          model: car.model,
+          vehicleModelDate: car.year ? String(car.year) : undefined,
+          mileageFromOdometer: car.mileage
+            ? {
+                "@type": "QuantitativeValue",
+                value: Number(car.mileage),
+                unitCode: "KMT",
+              }
+            : undefined,
+          offers: {
+            "@type": "Offer",
+            price: Number(car.price || 0),
+            priceCurrency: "CAD",
+            availability: "https://schema.org/InStock",
+            url: `${SITE_URL}/car/${car.id}`,
+          },
+        }}
+      />
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 py-6 sm:py-10">
