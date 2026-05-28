@@ -18,7 +18,10 @@ const isAdminRole = (role: unknown) => String(role || "").trim().toLowerCase() =
 
 const getMissingSchemaColumn = (error: any) => {
   const message = String(error?.message || error?.details || "");
-  const match = message.match(/Could not find the '([^']+)' column/i);
+  const match =
+    message.match(/Could not find the '([^']+)' column/i) ||
+    message.match(/column [^.]+\."?([^"\s]+)"? does not exist/i);
+
   return match?.[1] || null;
 };
 
