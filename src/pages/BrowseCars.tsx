@@ -162,8 +162,8 @@ const BrowseCars = () => {
   return (
     <div className="min-h-screen">
       <SEO
-        title="Browse Used Cars for Sale in Canada"
-        description="Search used cars for sale across Canada. Filter by make, model, price, body type, transmission, fuel type, and location on 1ntel."
+        title="Used Cars for Sale in Canada | 1ntel"
+        description="Browse used cars for sale in Toronto and across Canada. Filter by make, model, price, body type, transmission, fuel type, and location on 1ntel."
         path="/browse"
       />
       <Navbar />
@@ -174,10 +174,10 @@ const BrowseCars = () => {
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
           <h1 className="font-heading text-2xl sm:text-3xl font-bold mb-1">
-            Browse Cars
+            Used Cars for Sale in Canada
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Find your next verified vehicle.
+            Browse private seller, dealer, and garage listings in Toronto and across Canada.
           </p>
         </motion.div>
 

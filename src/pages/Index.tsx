@@ -12,7 +12,7 @@ const Index = () => (
   <div className="min-h-screen">
     <SEO
       title="1ntel - Buy and Sell Used Cars in Canada"
-      description="Browse used cars, list your vehicle, and connect with buyers and sellers across Canada on 1ntel."
+      description="Browse used cars for sale in Toronto and across Canada, list your vehicle, and connect with buyers and sellers on 1ntel."
       path="/"
       structuredData={[
         {
@@ -52,14 +52,14 @@ const Index = () => (
           className="glass rounded-xl sm:rounded-2xl p-6 sm:p-10 md:p-16 text-center max-w-3xl mx-auto"
         >
           <h2 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
-            Ready to Get Started?
+            Ready to Buy or Sell a Used Car?
           </h2>
           <p className="text-sm sm:text-base text-muted-foreground mb-8 max-w-md mx-auto">
-            Join thousands of Canadians buying and selling cars with confidence through verified inspections.
+            Browse used cars in Canada or list your vehicle privately with 1ntel.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-3">
             <Button size="lg" className="w-full sm:w-auto" asChild>
-              <Link to="/browse">Browse Cars</Link>
+              <Link to="/browse">Browse Used Cars</Link>
             </Button>
             <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
               <Link to="/sell">List Your Car</Link>

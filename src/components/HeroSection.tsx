@@ -80,16 +80,16 @@ const HeroSection = () => {
         >
           <div className="inline-flex max-w-full items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm mb-5 sm:mb-6">
             <ShieldCheck className="h-4 w-4" />
-            <span className="truncate">Trusted Car Marketplace</span>
+            <span className="truncate">Canada Used Car Marketplace</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-5 sm:mb-6 leading-tight">
-            Find Inspected Cars <br />
-            <span className="text-blue-600">Avoid Scams</span>
+            Buy Used Cars in Canada <br />
+            <span className="text-blue-600">With More Confidence</span>
           </h1>
 
           <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 max-w-xl">
-            Find the car you want to buy, use inspection report from 1ntel to understand the car before you buy and avoid expensive surprises  
+            Search used cars for sale in Toronto and across Canada. 1ntel helps buyers compare listings, talk to sellers, and review vehicle details before making a decision.
           </p>
 
           {/* SEARCH */}
@@ -99,7 +99,7 @@ const HeroSection = () => {
               <div className="relative">
                 <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" />
                 <Input
-                  placeholder="Search car..."
+                  placeholder="Search Toyota, Honda, SUV..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-10 border-0"
@@ -115,11 +115,11 @@ const HeroSection = () => {
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Button className="w-full sm:w-auto" asChild>
-              <Link to="/browse">Browse Cars</Link>
+              <Link to="/browse">Browse Used Cars</Link>
             </Button>
 
             <Button variant="outline" className="w-full sm:w-auto" asChild>
-              <Link to="/sell">Sell Car</Link>
+              <Link to="/sell">Sell Your Car</Link>
             </Button>
           </div>
         </motion.div>
@@ -173,9 +173,9 @@ const HeroSection = () => {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-12 sm:mt-16 lg:mt-20 max-w-5xl mx-auto px-4 sm:px-6">
 
         {[
-          { icon: ShieldCheck, label: "Live chats with sellers" },
+          { icon: ShieldCheck, label: "Compare used cars in Canada" },
           { icon: Eye, label: "Sell your car privately"},
-          { icon: BadgeCheck, label: "Avoid fraud (or scams) through inspection report", desc: "" }
+          { icon: BadgeCheck, label: "Vehicle details before you buy", desc: "" }
         ].map((item) => (
           <div
             key={item.label}
