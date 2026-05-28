@@ -18,9 +18,12 @@ export default function AdminListings({ cars = [], onRefresh }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [localCars, setLocalCars] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     setLocalCars(cars);
+    setSelectedIds(new Set());
   }, [cars]);
 
   const getImage = (car) =>
@@ -52,6 +55,35 @@ export default function AdminListings({ cars = [], onRefresh }) {
     });
   }, [localCars, search, statusFilter]);
 
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((car) => selectedIds.has(car.id));
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+
+      if (allFilteredSelected) {
+        filtered.forEach((car) => next.delete(car.id));
+      } else {
+        filtered.forEach((car) => next.add(car.id));
+      }
+
+      return next;
+    });
+  };
+
   const handleDelete = async (id) => {
     if (!confirm("Delete this listing?")) return;
 
@@ -63,6 +95,40 @@ export default function AdminListings({ cars = [], onRefresh }) {
     } catch (error) {
       toast.error(error.message);
     }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+
+    if (!confirm(`Delete ${ids.length} selected listing${ids.length === 1 ? "" : "s"}?`)) {
+      return;
+    }
+
+    setBulkDeleting(true);
+
+    const failed = [];
+    const deletedIds = [];
+    for (const id of ids) {
+      try {
+        await runAdminListingAction("delete_listing", id);
+        deletedIds.push(id);
+      } catch (error) {
+        failed.push(error.message || id);
+      }
+    }
+
+    setBulkDeleting(false);
+
+    if (failed.length) {
+      toast.error(`${failed.length} listing${failed.length === 1 ? "" : "s"} could not be deleted.`);
+    } else {
+      toast.success(`Deleted ${ids.length} listing${ids.length === 1 ? "" : "s"}`);
+    }
+
+    setSelectedIds(new Set(ids.filter((id) => !deletedIds.includes(id))));
+    setLocalCars((prev) => prev.filter((car) => !deletedIds.includes(car.id)));
+    onRefresh?.();
   };
 
   const toggleInspection = async (car) => {
@@ -116,10 +182,30 @@ export default function AdminListings({ cars = [], onRefresh }) {
         </Select>
       </div>
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-sm text-muted-foreground">
           {filtered.length} listings
+          {selectedIds.size ? ` • ${selectedIds.size} selected` : ""}
         </p>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleSelectAll}
+            disabled={!filtered.length || bulkDeleting}
+          >
+            {allFilteredSelected ? "Clear selection" : "Select all visible"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkDelete}
+            disabled={!selectedIds.size || bulkDeleting}
+          >
+            {bulkDeleting ? "Deleting..." : `Delete selected${selectedIds.size ? ` (${selectedIds.size})` : ""}`}
+          </Button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -133,6 +219,14 @@ export default function AdminListings({ cars = [], onRefresh }) {
               key={car.id}
               className="flex min-h-20 items-center gap-3 border-b bg-card p-2.5 last:border-b-0 hover:bg-muted/30"
             >
+              <input
+                type="checkbox"
+                checked={selectedIds.has(car.id)}
+                onChange={() => toggleSelect(car.id)}
+                aria-label={`Select ${car.title || "listing"}`}
+                className="h-4 w-4 shrink-0 rounded border-gray-300"
+              />
+
               <div className="h-14 w-[72px] shrink-0 overflow-hidden rounded-md bg-gray-100 sm:h-16 sm:w-20">
                 <img
                   src={getImage(car)}
