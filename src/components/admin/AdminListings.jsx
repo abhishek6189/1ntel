@@ -11,10 +11,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Eye, Trash2, Search, ShieldCheck, ShieldX, User } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { runAdminListingAction } from "@/utils/adminListingActions";
 
-export default function AdminListings({ cars = [] }) {
+export default function AdminListings({ cars = [], onRefresh }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [localCars, setLocalCars] = useState([]);
@@ -34,6 +34,8 @@ export default function AdminListings({ cars = [] }) {
 
   const filtered = useMemo(() => {
     return localCars.filter((car) => {
+      if (car.status === "removed") return false;
+
       if (statusFilter !== "all" && (car.status || "unknown") !== statusFilter) {
         return false;
       }
@@ -53,40 +55,35 @@ export default function AdminListings({ cars = [] }) {
   const handleDelete = async (id) => {
     if (!confirm("Delete this listing?")) return;
 
-    const { error } = await supabase.from("cars").delete().eq("id", id);
-
-    if (error) {
+    try {
+      await runAdminListingAction("delete_listing", id);
+      toast.success("Deleted");
+      setLocalCars((prev) => prev.filter((car) => car.id !== id));
+      onRefresh?.();
+    } catch (error) {
       toast.error(error.message);
-      return;
     }
-
-    toast.success("Deleted");
-    setLocalCars((prev) => prev.filter((car) => car.id !== id));
   };
 
   const toggleInspection = async (car) => {
     const newStatus =
       car.inspection_status === "passed" ? "not_inspected" : "passed";
 
-    const { error } = await supabase
-      .from("cars")
-      .update({ inspection_status: newStatus })
-      .eq("id", car.id);
+    try {
+      await runAdminListingAction("update_inspection", car.id, newStatus);
+      toast.success(
+        newStatus === "passed" ? "Marked as Verified" : "Marked as Unverified"
+      );
 
-    if (error) {
+      setLocalCars((prev) =>
+        prev.map((item) =>
+          item.id === car.id ? { ...item, inspection_status: newStatus } : item
+        )
+      );
+      onRefresh?.();
+    } catch (error) {
       toast.error(error.message);
-      return;
     }
-
-    toast.success(
-      newStatus === "passed" ? "Marked as Verified" : "Marked as Unverified"
-    );
-
-    setLocalCars((prev) =>
-      prev.map((item) =>
-        item.id === car.id ? { ...item, inspection_status: newStatus } : item
-      )
-    );
   };
 
   const isVerified = (car) =>
@@ -130,13 +127,13 @@ export default function AdminListings({ cars = [] }) {
           No listings found
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="overflow-hidden rounded-lg border">
           {filtered.map((car) => (
             <div
               key={car.id}
-              className="grid min-w-0 gap-4 rounded-xl border bg-card p-4 transition-all hover:shadow-sm sm:grid-cols-[160px_minmax(0,1fr)] sm:items-center md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[180px_minmax(0,1fr)_150px_132px]"
+              className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)_auto] gap-3 border-b bg-card p-2.5 last:border-b-0 hover:bg-muted/30 sm:grid-cols-[80px_minmax(0,1fr)_120px_116px] sm:items-center"
             >
-              <div className="h-36 w-full overflow-hidden rounded-lg bg-gray-100 sm:h-[90px] sm:w-[160px] md:h-[102px] md:w-[180px]">
+              <div className="h-14 w-[72px] overflow-hidden rounded-md bg-gray-100 sm:h-16 sm:w-20">
                 <img
                   src={getImage(car)}
                   alt={car.title || "Car listing"}
@@ -144,17 +141,17 @@ export default function AdminListings({ cars = [] }) {
                 />
               </div>
 
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 space-y-0.5">
                 <div className="min-w-0">
-                  <h4 className="truncate text-base font-semibold text-foreground">
+                  <h4 className="truncate text-sm font-semibold text-foreground">
                     {car.title || "Untitled listing"}
                   </h4>
-                  <p className="text-lg font-bold text-primary">
+                  <p className="text-base font-bold text-primary">
                     ${Number(car.price || 0).toLocaleString()}
                   </p>
                 </div>
 
-                <div className="min-w-0 text-xs text-muted-foreground">
+                <div className="min-w-0 text-[11px] leading-4 text-muted-foreground">
                   <p className="truncate font-medium text-foreground/80">
                     {getSellerName(car)}
                   </p>
@@ -164,7 +161,7 @@ export default function AdminListings({ cars = [] }) {
                 {car.seller_id && (
                   <Link
                     to={`/seller/${car.seller_id}`}
-                    className="inline-flex max-w-full items-center gap-1 text-xs text-blue-600 hover:underline"
+                    className="inline-flex max-w-full items-center gap-1 text-[11px] text-blue-600 hover:underline"
                   >
                     <User className="h-3 w-3 shrink-0" />
                     <span className="truncate">View Seller Profile</span>
@@ -172,13 +169,13 @@ export default function AdminListings({ cars = [] }) {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 sm:col-start-2 lg:col-start-auto lg:flex-col lg:items-start">
-                <Badge className="max-w-full capitalize">
+              <div className="hidden flex-wrap items-center gap-1.5 sm:flex sm:flex-col sm:items-start">
+                <Badge className="max-w-full px-2 py-0.5 text-[11px] capitalize">
                   <span className="truncate">{car.status || "unknown"}</span>
                 </Badge>
 
                 <Badge
-                  className={`max-w-full text-xs ${
+                  className={`max-w-full px-2 py-0.5 text-[11px] ${
                     isVerified(car)
                       ? "bg-green-100 text-green-800"
                       : "bg-gray-100 text-gray-600"
@@ -188,23 +185,24 @@ export default function AdminListings({ cars = [] }) {
                 </Badge>
               </div>
 
-              <div className="flex items-center gap-2 sm:col-start-2 lg:col-start-auto lg:justify-end">
+              <div className="flex items-center justify-end gap-1.5">
                 <Button
                   variant="outline"
                   size="icon"
+                  className="h-8 w-8"
                   title={isVerified(car) ? "Mark unverified" : "Mark verified"}
                   onClick={() => toggleInspection(car)}
                 >
                   {isVerified(car) ? (
-                    <ShieldX className="h-4 w-4" />
+                    <ShieldX className="h-3.5 w-3.5" />
                   ) : (
-                    <ShieldCheck className="h-4 w-4" />
+                    <ShieldCheck className="h-3.5 w-3.5" />
                   )}
                 </Button>
 
-                <Button asChild variant="outline" size="icon" title="View listing">
+                <Button asChild variant="outline" size="icon" className="h-8 w-8" title="View listing">
                   <Link to={`/car/${car.id}`}>
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
 
@@ -212,10 +210,10 @@ export default function AdminListings({ cars = [] }) {
                   variant="outline"
                   size="icon"
                   title="Delete listing"
-                  className="border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
+                  className="h-8 w-8 border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
                   onClick={() => handleDelete(car.id)}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>

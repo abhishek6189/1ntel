@@ -76,7 +76,7 @@ const CarDetail = () => {
       if (!carData) return;
 
       const [visibleCar] = await filterVisibleCarsForPublic([carData]);
-      if (!visibleCar || carData.status === "sold") {
+      if (!visibleCar || (carData.status && carData.status !== "active")) {
         toast.error("This listing is not available right now.");
         navigate("/browse", { replace: true });
         return;

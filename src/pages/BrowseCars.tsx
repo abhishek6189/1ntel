@@ -100,7 +100,7 @@ const BrowseCars = () => {
         `,
           { count: "exact" }
         )
-        .or("status.is.null,status.neq.sold")
+        .or("status.is.null,status.eq.active")
         .gte("price", priceRange[0])
         .lte("price", priceRange[1]);
 

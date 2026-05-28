@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, Check, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { runAdminListingAction } from "@/utils/adminListingActions";
 
 export default function AdminFeatured({ cars = [], onRefresh }) {
   const pendingRequests = cars.filter(
@@ -20,56 +20,33 @@ export default function AdminFeatured({ cars = [], onRefresh }) {
     car.seller?.full_name || car.seller?.email || car.seller?.phone || "Unknown seller";
 
   const handleApprove = async (carId) => {
-    const { error } = await supabase
-      .from("cars")
-      .update({
-        is_featured: true,
-        feature_request_status: "approved",
-      })
-      .eq("id", carId);
-
-    if (error) {
+    try {
+      await runAdminListingAction("update_feature", carId, "approved");
+      toast.success("Car approved as featured");
+      onRefresh();
+    } catch (error) {
       toast.error(error.message);
-      return;
     }
-
-    toast.success("Car approved as featured");
-    onRefresh();
   };
 
   const handleReject = async (carId) => {
-    const { error } = await supabase
-      .from("cars")
-      .update({
-        feature_request_status: "rejected",
-      })
-      .eq("id", carId);
-
-    if (error) {
+    try {
+      await runAdminListingAction("update_feature", carId, "rejected");
+      toast.success("Feature request rejected");
+      onRefresh();
+    } catch (error) {
       toast.error(error.message);
-      return;
     }
-
-    toast.success("Feature request rejected");
-    onRefresh();
   };
 
   const handleRemoveFeatured = async (carId) => {
-    const { error } = await supabase
-      .from("cars")
-      .update({
-        is_featured: false,
-        feature_request_status: "none",
-      })
-      .eq("id", carId);
-
-    if (error) {
+    try {
+      await runAdminListingAction("update_feature", carId, "none");
+      toast.success("Removed from featured");
+      onRefresh();
+    } catch (error) {
       toast.error(error.message);
-      return;
     }
-
-    toast.success("Removed from featured");
-    onRefresh();
   };
 
   return (

@@ -34,6 +34,7 @@ export default function AdminDashboard() {
     const { data: cars, error: carsError } = await supabase
       .from("cars")
       .select("*, car_images(image_url)")
+      .or("status.is.null,status.neq.removed")
       .order("created_at", { ascending: false });
 
     const { data: users, error: usersError } = await supabase
