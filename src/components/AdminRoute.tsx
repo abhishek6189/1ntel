@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const normalizeRole = (role: unknown) =>
   String(role || "").trim().toLowerCase();
@@ -80,13 +81,7 @@ const AdminRoute = ({ children }: any) => {
     check();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Checking admin access...
-      </div>
-    );
-  }
+  if (loading) return <GlobalLoader className="min-h-screen" />;
 
   if (!hasUser) return <Navigate to="/auth?mode=login" replace />;
 

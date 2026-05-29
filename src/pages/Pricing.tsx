@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Building2, Car, CheckCircle, Loader2, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Building2, Car, CheckCircle, Sparkles, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { chooseBestSubscription } from "@/utils/subscriptionAccess";
 import { startListingCreditCheckout } from "@/utils/listingAccess";
 import SEO from "@/components/SEO";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const plans = [
   {
@@ -383,7 +384,7 @@ export default function Pricing() {
                         }}
                       >
                         {checkoutPlan === plan.checkoutPlan && (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <GlobalLoader className="mr-2 w-auto py-0" sizeClassName="h-7 w-7" />
                         )}
                         {buttonLabel}
                         {plan.highlighted && <ArrowRight className="ml-2 h-4 w-4" />}

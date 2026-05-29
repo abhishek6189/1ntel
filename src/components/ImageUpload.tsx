@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ImagePlus, X, Loader2 } from 'lucide-react';
+import { ImagePlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getImageUploadPath, prepareImageForUpload } from '@/utils/imageFiles';
+import GlobalLoader from '@/components/GlobalLoader';
 
 interface ImageUploadProps {
   images: string[];
@@ -84,7 +85,7 @@ const ImageUpload = ({ images, onImagesChange, maxImages = 10, userId }: ImageUp
         {images.length < maxImages && (
           <label className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary">
             {uploading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <GlobalLoader className="w-auto py-0" sizeClassName="h-12 w-12" />
             ) : (
               <>
                 <ImagePlus className="h-6 w-6" />

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 
@@ -62,7 +63,7 @@ const BuyerInspections = () => {
           </h1>
 
           {loading ? (
-            <p>Loading...</p>
+            <GlobalLoader className="py-12" />
           ) : inspections.length === 0 ? (
             <p>No inspection requests yet</p>
           ) : (

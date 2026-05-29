@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
 import { toast } from "sonner";
 import { getFunctionErrorMessage } from "@/utils/functionErrors";
+import GlobalLoader from "@/components/GlobalLoader";
 
 type CarType = {
   id: string;
@@ -252,7 +253,7 @@ const DealerDashboard = () => {
         </h2>
 
         {loading ? (
-          <p className="text-gray-500 text-sm">Loading...</p>
+          <GlobalLoader className="py-10" />
         ) : cars.length === 0 ? (
           <p className="text-gray-400 text-sm">
             No listings yet 🚀

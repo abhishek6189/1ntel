@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FullscreenGallery from "@/components/FullscreenGallery";
+import GlobalLoader from "@/components/GlobalLoader";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -198,7 +199,7 @@ const CarDetail = () => {
     toast.info("Inspection requests are coming soon.");
   };
 
-  if (!car) return <div className="p-20 text-center">Loading...</div>;
+  if (!car) return <GlobalLoader className="min-h-screen" />;
 
   const galleryImages = images.map((img: any) => img.image_url).filter(Boolean);
   const displayImages = galleryImages.length ? galleryImages : activeImage ? [activeImage] : [];

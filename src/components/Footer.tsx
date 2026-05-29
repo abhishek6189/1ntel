@@ -10,7 +10,7 @@ const Footer = () => (
             <BrandLogo className="text-4xl sm:text-5xl" />
           </Link>
           <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-            Canada's trusted verified car marketplace. Buy and sell with confidence.
+            Browse featured inventory from trusted dealers.
           </p>
         </div>
 
@@ -24,7 +24,7 @@ const Footer = () => (
             </li>
             <li>
               <Link to="/pricing" className="transition-colors hover:text-foreground">
-                Dealer Plans
+                1ne+
               </Link>
             </li>
           </ul>
@@ -40,7 +40,7 @@ const Footer = () => (
             </li>
             <li>
               <Link to="/contact" className="transition-colors hover:text-foreground">
-                Contact
+                Contact Us
               </Link>
             </li>
             <li>

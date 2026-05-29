@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Car, Users, Star, Shield, BarChart3, Building2, Mail } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
+import GlobalLoader from "@/components/GlobalLoader";
 import { toast } from "sonner";
 
 import AdminOverview from "../components/admin/AdminOverview";
@@ -108,11 +109,7 @@ export default function AdminDashboard() {
 
   /* ================= LOADING ================= */
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
+    return <GlobalLoader className="min-h-[60vh]" />;
   }
 
   return (

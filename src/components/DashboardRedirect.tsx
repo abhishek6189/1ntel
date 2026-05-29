@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const DashboardRedirect = () => {
 
@@ -34,7 +35,7 @@ const DashboardRedirect = () => {
     redirectUser();
   }, []);
 
-  return <div className="p-10 text-center">Loading dashboard...</div>;
+  return <GlobalLoader className="min-h-screen" />;
 };
 
 export default DashboardRedirect;

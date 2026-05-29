@@ -72,6 +72,8 @@ const BrowseCars = () => {
   const [priceRange, setPriceRange] = useState([0, MAX_PRICE]);
   const [sort, setSort] = useState("newest");
   const [showFilters, setShowFilters] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const pageNumbers = useMemo(() => getPageNumbers(page, totalPages), [page, totalPages]);
@@ -81,6 +83,59 @@ const BrowseCars = () => {
   useEffect(() => {
     setPage(1);
   }, [query, make, bodyType, transmission, fuelType, priceRange, sort]);
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    const cleanQuery = trimmedQuery.replace(/[,%]/g, "");
+
+    const timer = window.setTimeout(async () => {
+      const { data, error } = await (supabase as any)
+        .from("cars")
+        .select("id, title, make, model, year, location")
+        .or("status.is.null,status.eq.active")
+        .or(
+          `title.ilike.%${cleanQuery}%,make.ilike.%${cleanQuery}%,model.ilike.%${cleanQuery}%,location.ilike.%${cleanQuery}%`
+        )
+        .order("created_at", { ascending: false })
+        .limit(6);
+
+      if (cancelled) return;
+
+      if (error) {
+        setSuggestions([]);
+        return;
+      }
+
+      const seen = new Set<string>();
+      const uniqueSuggestions = (data || []).flatMap((car: any) => {
+        const label = [car.year, car.make, car.model]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || car.title;
+        const value = label || car.title || "";
+        const key = value.toLowerCase();
+
+        if (!value || seen.has(key)) return [];
+
+        seen.add(key);
+        return [{ ...car, label: value }];
+      });
+
+      setSuggestions(uniqueSuggestions);
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
 
   useEffect(() => {
     const fetchCars = async () => {
@@ -181,18 +236,54 @@ const BrowseCars = () => {
           </p>
         </motion.div>
 
-        <div className="sticky top-16 z-30 bg-white/95 backdrop-blur border-b pb-4 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] lg:grid-cols-[1fr_12rem_auto] gap-3 pt-4">
-            <div className="relative min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search make or model..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+        <div className="sticky top-16 z-30 mb-3 pt-2">
+          <div className="relative min-w-0 rounded-xl shadow-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search make or model..."
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSuggestionsOpen(true);
+              }}
+              onFocus={() => setSuggestionsOpen(true)}
+              onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
+              className="h-12 border-gray-200 bg-white pl-10 shadow-sm"
+            />
 
+            {suggestionsOpen && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-40 overflow-hidden rounded-xl border bg-white shadow-lg">
+                {suggestions.map((item) => (
+                  <button
+                    key={`${item.id}-${item.label}`}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setQuery(item.label);
+                      setSuggestionsOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-blue-50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-gray-900">
+                        {item.label}
+                      </span>
+                      {item.location && (
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {item.location}
+                        </span>
+                      )}
+                    </span>
+                    <Search className="h-4 w-4 shrink-0 text-blue-600" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-6 space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:ml-auto sm:w-auto sm:grid-cols-[12rem_auto]">
             <Select value={sort} onValueChange={setSort}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Sort by" />

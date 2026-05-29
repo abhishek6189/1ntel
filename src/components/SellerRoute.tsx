@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
 import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const SellerRoute = ({ children }: any) => {
 
@@ -53,7 +54,7 @@ const SellerRoute = ({ children }: any) => {
 
   }, []);
 
-  if (loading) return <div>Checking...</div>;
+  if (loading) return <GlobalLoader className="min-h-screen" />;
 
   if (!isSeller) return <Navigate to="/" />;
 

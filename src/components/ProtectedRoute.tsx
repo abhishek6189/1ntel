@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const [loading, setLoading] = useState(true);
@@ -49,13 +50,7 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   }, []);
 
   // ⏳ LOADING STATE
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <p className="text-gray-500">Checking authentication...</p>
-      </div>
-    );
-  }
+  if (loading) return <GlobalLoader className="min-h-screen" />;
 
   // ❌ NOT LOGGED IN → REDIRECT
   if (!user) {

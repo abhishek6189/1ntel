@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { ArrowLeft, Building2, CheckCircle2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import BrandLogo from "@/components/BrandLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
 import { auth } from "@/lib/firebase";
@@ -46,6 +49,7 @@ export default function DealerAuth() {
 
   const [license, setLicense] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [resetChannel, setResetChannel] = useState<"phone" | "email">("phone");
@@ -253,17 +257,68 @@ export default function DealerAuth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-screen bg-gray-50 px-4 py-6 sm:py-10">
+      <div className="mx-auto mb-6 flex max-w-5xl items-center justify-between">
+        <Link to="/" className="inline-flex items-center">
+          <BrandLogo className="text-4xl sm:text-5xl" />
+        </Link>
+
+        <Button variant="ghost" asChild>
+          <Link to="/auth?mode=login">
+            <ArrowLeft className="h-4 w-4" />
+            Buyer Login
+          </Link>
+        </Button>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border"
+        className="mx-auto grid w-full max-w-5xl overflow-hidden rounded-2xl border bg-white shadow-xl lg:grid-cols-[0.9fr_1fr]"
       >
-        <h2 className="text-2xl font-bold text-center mb-6">
-          {forgotMode ? "Reset Dealer Password" : "Dealer Login"}
-        </h2>
+        <aside className="bg-slate-950 p-6 text-white sm:p-8">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600">
+            <Building2 className="h-6 w-6" />
+          </div>
 
-        {forgotMode ? (
+          <h1 className="mt-6 text-2xl font-bold sm:text-3xl">
+            Dealer Portal
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            Access your approved dealership account to manage inventory, messages,
+            analytics, and featured listings.
+          </p>
+
+          <div className="mt-8 space-y-4 text-sm">
+            {[
+              "Approved dealer accounts only",
+              "Inventory and lead management",
+              "Dedicated dealer dashboard",
+            ].map((item) => (
+              <div key={item} className="flex items-center gap-3 text-slate-200">
+                <CheckCircle2 className="h-4 w-4 text-blue-400" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <div className="p-6 sm:p-8">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <h2 className="text-2xl font-bold">
+              {forgotMode ? "Reset Dealer Password" : "Dealer Login"}
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {forgotMode
+                ? "Verify your phone or email, then set a new password."
+                : "Use your dealer license number and password to continue."}
+            </p>
+          </div>
+
+          {forgotMode ? (
           <form onSubmit={handlePasswordReset} className="space-y-4">
             <div className="grid grid-cols-2 gap-2 rounded-lg border bg-gray-50 p-1">
               <Button
@@ -337,23 +392,39 @@ export default function DealerAuth() {
           </form>
         ) : (
           <form onSubmit={handleLogin} className="space-y-4">
-            <Input
-              placeholder="Dealer License Number"
-              value={license}
-              onChange={(e) => setLicense(e.target.value)}
-              required
-            />
+            <div>
+              <Label>Dealer License Number</Label>
+              <Input
+                placeholder="Enter license number"
+                value={license}
+                onChange={(e) => setLicense(e.target.value)}
+                required
+              />
+            </div>
 
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div>
+              <Label>Password</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
 
             <Button className="w-full" disabled={loading}>
-              {loading ? "Checking..." : "Login"}
+              {loading ? "Checking..." : "Login to Dealer Portal"}
             </Button>
 
             <button
@@ -370,8 +441,16 @@ export default function DealerAuth() {
             <p className="text-xs text-center text-gray-500">
               Only approved dealers can log in
             </p>
+
+            <div className="rounded-lg border bg-gray-50 p-3 text-center text-sm text-gray-600">
+              Not registered yet?{" "}
+              <Link to="/dealer-registration" className="font-semibold text-blue-600">
+                Apply as Dealer
+              </Link>
+            </div>
           </form>
         )}
+        </div>
       </motion.div>
 
       <div id="dealer-reset-recaptcha" />

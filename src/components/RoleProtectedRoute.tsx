@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const RoleProtectedRoute = ({
   children,
@@ -38,9 +39,7 @@ const RoleProtectedRoute = ({
     setLoading(false);
   };
 
-  if (loading) {
-    return <div className="p-10 text-center">Loading...</div>;
-  }
+  if (loading) return <GlobalLoader className="min-h-screen" />;
 
   if (!role || !allowedRoles.includes(role)) {
     return <Navigate to="/" replace />;

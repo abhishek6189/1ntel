@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,7 +176,7 @@ export default function ProfileSettings() {
     }
   };
 
-  if (!user) return <div className="text-center py-20">Loading...</div>;
+  if (!user) return <GlobalLoader className="min-h-screen" />;
 
   return (
     <div className="min-h-screen bg-gray-50">

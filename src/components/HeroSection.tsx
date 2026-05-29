@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Search,
   ShieldCheck,
@@ -14,6 +15,8 @@ import { useState, useEffect } from "react";
 const HeroSection = () => {
 
   const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const navigate = useNavigate();
 
   /* ================= CAROUSEL ================= */
@@ -57,8 +60,62 @@ const HeroSection = () => {
   };
 
   /* ================= SEARCH ================= */
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    let cancelled = false;
+    const cleanQuery = trimmedQuery.replace(/[,%]/g, "");
+
+    const timer = window.setTimeout(async () => {
+      const { data, error } = await (supabase as any)
+        .from("cars")
+        .select("id, title, make, model, year, location")
+        .or("status.is.null,status.eq.active")
+        .or(
+          `title.ilike.%${cleanQuery}%,make.ilike.%${cleanQuery}%,model.ilike.%${cleanQuery}%,location.ilike.%${cleanQuery}%`
+        )
+        .order("created_at", { ascending: false })
+        .limit(6);
+
+      if (cancelled) return;
+
+      if (error) {
+        setSuggestions([]);
+        return;
+      }
+
+      const seen = new Set<string>();
+      const uniqueSuggestions = (data || []).flatMap((car: any) => {
+        const label = [car.year, car.make, car.model]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || car.title;
+        const value = label || car.title || "";
+        const key = value.toLowerCase();
+
+        if (!value || seen.has(key)) return [];
+
+        seen.add(key);
+        return [{ ...car, label: value }];
+      });
+
+      setSuggestions(uniqueSuggestions);
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setSuggestionsOpen(false);
     navigate(`/browse?q=${encodeURIComponent(query)}`);
   };
 
@@ -101,9 +158,44 @@ const HeroSection = () => {
                 <Input
                   placeholder="Search Toyota, Honda, SUV..."
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setSuggestionsOpen(true);
+                  }}
+                  onFocus={() => setSuggestionsOpen(true)}
+                  onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
                   className="pl-10 border-0"
                 />
+
+                {suggestionsOpen && suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.65rem)] z-40 overflow-hidden rounded-xl border bg-white shadow-lg">
+                    {suggestions.map((item) => (
+                      <button
+                        key={`${item.id}-${item.label}`}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setQuery(item.label);
+                          setSuggestionsOpen(false);
+                          navigate(`/browse?q=${encodeURIComponent(item.label)}`);
+                        }}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-blue-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-gray-900">
+                            {item.label}
+                          </span>
+                          {item.location && (
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {item.location}
+                            </span>
+                          )}
+                        </span>
+                        <Search className="h-4 w-4 shrink-0 text-blue-600" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <Button type="submit" className="w-full lg:w-auto">

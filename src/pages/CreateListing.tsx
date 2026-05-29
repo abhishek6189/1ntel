@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import FullscreenGallery from "@/components/FullscreenGallery";
+import GlobalLoader from "@/components/GlobalLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { UploadCloud, ArrowLeft } from "lucide-react";
+import { UploadCloud, ArrowLeft, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 import { consumeListingSlot, getListingAllowance } from "@/utils/listingAccess";
@@ -25,6 +27,8 @@ export default function CreateListing() {
   const editId = searchParams.get("edit") || searchParams.get("id");
 
   const [images, setImages] = useState<string[]>([]);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [loadingListing, setLoadingListing] = useState(Boolean(editId));
 
@@ -177,6 +181,20 @@ export default function CreateListing() {
     setUploading(false);
   };
 
+  const openImage = (index: number) => {
+    setActiveImageIndex(index);
+    setGalleryOpen(true);
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => {
+      const nextImages = prev.filter((_, imageIndex) => imageIndex !== index);
+      setActiveImageIndex((current) => Math.min(current, Math.max(nextImages.length - 1, 0)));
+      if (!nextImages.length) setGalleryOpen(false);
+      return nextImages;
+    });
+  };
+
   /* ================= ROLE BASED NAV ================= */
   const goToDashboard = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -249,11 +267,11 @@ export default function CreateListing() {
       }
     }
 
-    if (images.length) {
-      if (editId) {
-        await supabase.from("car_images").delete().eq("car_id", data.id);
-      }
+    if (editId) {
+      await supabase.from("car_images").delete().eq("car_id", data.id);
+    }
 
+    if (images.length) {
       await supabase.from("car_images").insert(
         images.map((img) => ({
           car_id: data.id,
@@ -292,7 +310,7 @@ export default function CreateListing() {
   ];
 
   if (loadingListing) {
-    return <div className="p-20 text-center">Loading listing...</div>;
+    return <GlobalLoader className="min-h-screen" />;
   }
 
   return (
@@ -324,7 +342,39 @@ export default function CreateListing() {
 
             <div className="flex gap-3 mt-4 flex-wrap">
               {images.map((img, i) => (
-                <img key={i} src={img} className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg border" />
+                <div
+                  key={`${img}-${i}`}
+                  className="group relative h-20 w-20 overflow-hidden rounded-lg border bg-gray-100 sm:h-24 sm:w-24"
+                >
+                  <button
+                    type="button"
+                    onClick={() => openImage(i)}
+                    className="block h-full w-full"
+                    aria-label={`Open photo ${i + 1}`}
+                  >
+                    <img src={img} className="h-full w-full object-cover" alt={`Car photo ${i + 1}`} />
+                  </button>
+
+                  <div className="absolute inset-x-1 top-1 flex justify-between gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => openImage(i)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow backdrop-blur hover:bg-black/85"
+                      aria-label={`View photo ${i + 1}`}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white shadow hover:bg-red-700"
+                      aria-label={`Delete photo ${i + 1}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -433,6 +483,15 @@ export default function CreateListing() {
       </div>
 
       <Footer />
+
+      {galleryOpen && (
+        <FullscreenGallery
+          images={images}
+          current={activeImageIndex}
+          setCurrent={setActiveImageIndex}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </div>
   );
 }

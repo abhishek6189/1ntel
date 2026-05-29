@@ -4,6 +4,7 @@ import { Pencil, Trash2, Plus, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const DealerListings = () => {
 
@@ -260,7 +261,7 @@ const DealerListings = () => {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <GlobalLoader className="py-12" />
       ) : cars.length === 0 ? (
 
         <div className="text-center py-20">

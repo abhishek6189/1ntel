@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -43,7 +44,7 @@ const SellerProfile = () => {
     load();
   }, [id]);
 
-  if (loading) return <div className="text-center py-20">Loading...</div>;
+  if (loading) return <GlobalLoader className="min-h-screen" />;
 
   return (
     <div className="min-h-screen bg-gray-50">

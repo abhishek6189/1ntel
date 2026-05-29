@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import GlobalLoader from "@/components/GlobalLoader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -250,7 +251,7 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) return <div className="text-center py-20">Loading...</div>;
+  if (loading) return <GlobalLoader className="min-h-screen" />;
 
   return (
     <div className="min-h-screen bg-gray-50">

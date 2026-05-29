@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import GlobalLoader from "@/components/GlobalLoader";
 
 export default function ProfileSetup() {
   const navigate = useNavigate();
@@ -38,9 +38,5 @@ export default function ProfileSetup() {
     redirectAway();
   }, [navigate]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader2 className="animate-spin" />
-    </div>
-  );
+  return <GlobalLoader className="min-h-screen" />;
 }

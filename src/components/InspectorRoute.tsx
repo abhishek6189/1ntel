@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigate } from "react-router-dom";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const InspectorRoute = ({ children }: any) => {
 
@@ -43,7 +44,7 @@ const InspectorRoute = ({ children }: any) => {
 
   }, []);
 
-  if (loading) return <div>Checking...</div>;
+  if (loading) return <GlobalLoader className="min-h-screen" />;
 
   if (!isInspector) return <Navigate to="/" />;
 

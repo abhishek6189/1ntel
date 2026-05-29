@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Check, X, Eye, Building2, FileText } from 'lucide-react';
 import { toast } from "sonner";
 import moment from 'moment';
+import GlobalLoader from "@/components/GlobalLoader";
 
 export default function AdminDealers({ users = [], onRefresh }) {
 
@@ -144,11 +145,7 @@ export default function AdminDealers({ users = [], onRefresh }) {
 
   /* ================= LOADING ================= */
   if (loading) {
-    return (
-      <div className="flex justify-center py-10">
-        <div className="w-6 h-6 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
+    return <GlobalLoader className="py-10" sizeClassName="h-24 w-24" />;
   }
 
   return (

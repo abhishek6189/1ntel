@@ -3,10 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Loader2, FileText, Eye, EyeOff } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  FileText,
+  Mail,
+  Phone,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BrandLogo from "@/components/BrandLogo";
+import GlobalLoader from "@/components/GlobalLoader";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -33,6 +45,7 @@ export default function DealerSetup() {
   const [docFile, setDocFile] = useState<any>(null);
   const [docName, setDocName] = useState("");
   const [docPreview, setDocPreview] = useState("");
+  const [step, setStep] = useState(0);
 
   const [phoneOtp, setPhoneOtp] = useState("");
   const [emailOtp, setEmailOtp] = useState("");
@@ -51,7 +64,22 @@ export default function DealerSetup() {
     form.confirmPassword.length >= 6 &&
     form.password === form.confirmPassword;
 
-  const canSubmit = phoneVerified && emailVerified && passwordsMatch && !loading;
+  const detailsComplete = Boolean(
+    form.full_name.trim() &&
+      form.business_name.trim() &&
+      form.dealer_license_number.trim() &&
+      form.city.trim() &&
+      form.province
+  );
+  const canSubmit = phoneVerified && emailVerified && passwordsMatch && detailsComplete && docFile && !loading;
+
+  const steps = [
+    { label: "Phone", icon: Phone, complete: phoneVerified },
+    { label: "Email", icon: Mail, complete: emailVerified },
+    { label: "Password", icon: ShieldCheck, complete: passwordsMatch },
+    { label: "Business", icon: Building2, complete: detailsComplete },
+    { label: "Document", icon: FileText, complete: Boolean(docFile) },
+  ];
 
   const handleChange = (field: string, value: string) => {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -357,6 +385,7 @@ export default function DealerSetup() {
     if (!emailVerified) return toast.error("Verify email first");
     if (!isValidEmail(form.email)) return toast.error("Enter a valid email");
     if (!passwordsMatch) return toast.error("Passwords must match and be at least 6 characters");
+    if (!detailsComplete) return toast.error("Complete all business details");
     if (!docFile) return toast.error("Upload license document");
 
     setLoading(true);
@@ -487,51 +516,106 @@ export default function DealerSetup() {
         </div>
 
         <div className="bg-white rounded-2xl border p-6 sm:p-8 shadow-xl">
+          <Button
+            type="button"
+            variant="ghost"
+            className="mb-4 px-0 text-gray-600 hover:bg-transparent hover:text-blue-600"
+            onClick={() => navigate("/auth?mode=signup")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to signup
+          </Button>
+
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <Label>Phone</Label>
-              <div className="flex flex-col sm:flex-row gap-2">
+            <div className="grid grid-cols-2 gap-2 rounded-xl border bg-gray-50 p-1 sm:grid-cols-5">
+              {steps.map((item, index) => {
+                const StepIcon = item.icon;
+                const active = step === index;
+
+                return (
+                  <div
+                    key={item.label}
+                    className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-1.5 py-2 text-xs font-semibold transition lg:px-2 ${
+                      active
+                        ? "bg-white text-blue-600 shadow-sm"
+                        : item.complete
+                        ? "text-green-700"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {item.complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <StepIcon className="h-3.5 w-3.5" />}
+                    <span className="whitespace-nowrap">{item.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {step === 0 && (
+              <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                <div>
+                  <p className="font-semibold text-gray-900">Verify your phone</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Enter your dealership contact number and confirm the OTP.
+                  </p>
+                </div>
+
                 <Input
                   value={form.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
+                  placeholder="Phone number"
+                  inputMode="tel"
                 />
+
                 <Button
                   type="button"
+                  variant="outline"
+                  className="w-full"
                   onClick={sendPhoneOtp}
                   disabled={sendingPhoneOtp || phoneVerified || otpCooldown > 0}
                 >
                   {sendingPhoneOtp
-                    ? "Sending..."
+                    ? "Sending OTP..."
                     : otpCooldown > 0
-                      ? `${otpCooldown}s`
-                      : phoneVerified
-                        ? "Sent"
-                        : "OTP"}
+                    ? `Wait ${otpCooldown}s`
+                    : phoneVerified
+                    ? "Phone Verified"
+                    : "Send OTP"}
+                </Button>
+
+                {otpCooldown > 0 && !phoneVerified && (
+                  <p className="text-xs text-gray-500">
+                    To protect your account, please wait before requesting another OTP.
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter OTP"
+                    value={phoneOtp}
+                    onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    disabled={phoneVerified}
+                    inputMode="numeric"
+                  />
+                  <Button type="button" onClick={verifyPhone} disabled={phoneVerified}>
+                    {phoneVerified ? "Verified" : "Verify"}
+                  </Button>
+                </div>
+
+                <Button type="button" className="w-full" disabled={!phoneVerified} onClick={() => setStep(1)}>
+                  Continue
                 </Button>
               </div>
+            )}
 
-              {otpCooldown > 0 && !phoneVerified && (
-                <p className="mt-1 text-xs text-gray-500">
-                  To protect your account, please wait before requesting another OTP.
-                </p>
-              )}
+            {step === 1 && (
+              <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                <div>
+                  <p className="font-semibold text-gray-900">Verify your email</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Add an email for approvals, billing, and dealer updates.
+                  </p>
+                </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                <Input
-                  placeholder="Enter OTP"
-                  value={phoneOtp}
-                  onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  disabled={phoneVerified}
-                />
-                <Button type="button" onClick={verifyPhone} disabled={phoneVerified}>
-                  {phoneVerified ? "Verified" : "Verify"}
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <Label>Email</Label>
-              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   type="email"
                   value={form.email}
@@ -539,143 +623,208 @@ export default function DealerSetup() {
                   placeholder="Email address"
                   required
                 />
+
                 <Button
                   type="button"
+                  variant="outline"
+                  className="w-full"
                   onClick={sendEmailOtp}
                   disabled={sendingEmailOtp || emailVerified || emailOtpCooldown > 0}
                 >
                   {sendingEmailOtp
-                    ? "Sending..."
+                    ? "Sending Email OTP..."
                     : emailOtpCooldown > 0
-                      ? `${emailOtpCooldown}s`
-                      : emailVerified
-                        ? "Sent"
-                        : "OTP"}
+                    ? `Wait ${emailOtpCooldown}s`
+                    : emailVerified
+                    ? "Email Verified"
+                    : "Send Email OTP"}
                 </Button>
-              </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter email OTP"
+                    value={emailOtp}
+                    onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    disabled={emailVerified}
+                    inputMode="numeric"
+                  />
+                  <Button type="button" onClick={verifyEmail} disabled={emailVerified}>
+                    {emailVerified ? "Verified" : "Verify"}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={() => setStep(0)}>
+                    Back
+                  </Button>
+                  <Button type="button" disabled={!emailVerified} onClick={() => setStep(2)}>
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                <div>
+                  <p className="font-semibold text-gray-900">Create your password</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Use at least 6 characters and confirm it below.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Password</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) => handleChange("password", e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={form.confirmPassword}
+                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                    required
+                    className={form.confirmPassword && passwordsMatch ? "border-green-500 focus-visible:ring-green-500" : ""}
+                  />
+
+                  {form.confirmPassword && (
+                    <p className={`mt-1 text-xs ${passwordsMatch ? "text-green-600" : "text-red-500"}`}>
+                      {passwordsMatch ? "Passwords match" : "Passwords do not match"}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={() => setStep(1)}>
+                    Back
+                  </Button>
+                  <Button type="button" disabled={!passwordsMatch} onClick={() => setStep(3)}>
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                <div>
+                  <p className="font-semibold text-gray-900">Business details</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Tell us who is applying and which dealership this belongs to.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    placeholder="Full Name"
+                    value={form.full_name}
+                    onChange={(e) => handleChange("full_name", e.target.value)}
+                  />
+                  <Input
+                    placeholder="Business Name"
+                    value={form.business_name}
+                    onChange={(e) => handleChange("business_name", e.target.value)}
+                  />
+                </div>
+
                 <Input
-                  placeholder="Enter email OTP"
-                  value={emailOtp}
-                  onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  disabled={emailVerified}
+                  placeholder="License Number"
+                  value={form.dealer_license_number}
+                  onChange={(e) => handleChange("dealer_license_number", e.target.value)}
                 />
-                <Button type="button" onClick={verifyEmail} disabled={emailVerified}>
-                  {emailVerified ? "Verified" : "Verify"}
-                </Button>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    placeholder="City"
+                    value={form.city}
+                    onChange={(e) => handleChange("city", e.target.value)}
+                  />
+
+                  <select
+                    value={form.province}
+                    onChange={(e) => handleChange("province", e.target.value)}
+                    className="h-10 border rounded-md px-3"
+                  >
+                    <option value="">Province</option>
+                    {provinces.map((province) => (
+                      <option key={province} value={province}>
+                        {province}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={() => setStep(2)}>
+                    Back
+                  </Button>
+                  <Button type="button" disabled={!detailsComplete} onClick={() => setStep(4)}>
+                    Continue
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <Label>Password</Label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => handleChange("password", e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+            {step === 4 && (
+              <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                <div>
+                  <p className="font-semibold text-gray-900">Upload license document</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Add your dealer license document for admin review.
+                  </p>
+                </div>
+
+                <label className="block cursor-pointer">
+                  <div className="border-2 border-dashed rounded-xl p-5 text-center hover:border-blue-500">
+                    {docPreview === "pdf" ? (
+                      <FileText className="mx-auto h-10 w-10 text-blue-500" />
+                    ) : docPreview ? (
+                      <img src={docPreview} className="max-h-28 mx-auto" />
+                    ) : (
+                      <>
+                        <Upload className="mx-auto h-6 w-6" />
+                        <p className="text-sm mt-2">Click to upload</p>
+                      </>
+                    )}
+
+                    {docName && <p className="text-xs mt-2 text-gray-600">{docName}</p>}
+                  </div>
+
+                  <input type="file" className="hidden" onChange={handleFile} />
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={() => setStep(3)}>
+                    Back
+                  </Button>
+                  <Button
+                    className={canSubmit ? "bg-green-600 hover:bg-green-700" : ""}
+                    disabled={!canSubmit}
+                  >
+                    {loading ? (
+                      <GlobalLoader className="w-auto py-0" sizeClassName="h-8 w-8" />
+                    ) : (
+                      "Submit Application"
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <div>
-              <Label>Confirm Password</Label>
-              <Input
-                type={showPassword ? "text" : "password"}
-                value={form.confirmPassword}
-                onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                required
-                className={
-                  form.confirmPassword && passwordsMatch
-                    ? "border-green-500 focus-visible:ring-green-500"
-                    : ""
-                }
-              />
-
-              {form.confirmPassword && (
-                <p className={`mt-1 text-xs ${passwordsMatch ? "text-green-600" : "text-red-500"}`}>
-                  {passwordsMatch ? "Passwords match" : "Passwords do not match"}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                placeholder="Full Name"
-                value={form.full_name}
-                onChange={(e) => handleChange("full_name", e.target.value)}
-              />
-              <Input
-                placeholder="Business Name"
-                value={form.business_name}
-                onChange={(e) => handleChange("business_name", e.target.value)}
-              />
-            </div>
-
-            <Input
-              placeholder="License Number"
-              value={form.dealer_license_number}
-              onChange={(e) => handleChange("dealer_license_number", e.target.value)}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                placeholder="City"
-                value={form.city}
-                onChange={(e) => handleChange("city", e.target.value)}
-              />
-
-              <select
-                value={form.province}
-                onChange={(e) => handleChange("province", e.target.value)}
-                className="h-10 border rounded-md px-3"
-              >
-                <option value="">Province</option>
-                {provinces.map((province) => (
-                  <option key={province} value={province}>
-                    {province}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <label className="block cursor-pointer">
-              <div className="border-2 border-dashed rounded-xl p-5 text-center hover:border-blue-500">
-                {docPreview === "pdf" ? (
-                  <FileText className="mx-auto h-10 w-10 text-blue-500" />
-                ) : docPreview ? (
-                  <img src={docPreview} className="max-h-28 mx-auto" />
-                ) : (
-                  <>
-                    <Upload className="mx-auto h-6 w-6" />
-                    <p className="text-sm mt-2">Click to upload</p>
-                  </>
-                )}
-
-                {docName && <p className="text-xs mt-2 text-gray-600">{docName}</p>}
-              </div>
-
-              <input type="file" className="hidden" onChange={handleFile} />
-            </label>
-
-            <Button
-              className={`w-full h-12 ${
-                canSubmit
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-gray-400 hover:bg-gray-400"
-              }`}
-              disabled={!canSubmit}
-            >
-              {loading ? <Loader2 className="animate-spin" /> : "Submit Application"}
-            </Button>
+            )}
           </form>
 
           <div id="recaptcha-container"></div>

@@ -17,10 +17,8 @@ import BrandLogo from "@/components/BrandLogo";
 const navLinks = [
   { label: "Home", href: "/" },
   { label: "Browse Cars", href: "/browse" },
-  // { label: "Sell Your Car", href: "/sell" },
+  { label: "Sell Your Car", href: "/sell", requiresAuth: true },
   { label: "How It Works", href: "/how-it-works" },
-  { label: "FAQ", href: "/faq" },
-  { label: "Contact", href: "/contact" },
   { label: "1ne+", href: "/pricing" },
 ];
 
@@ -46,6 +44,7 @@ const OnePlusLabel = () => (
 
 const Navbar = () => {
   const { user, profile } = useProfile();
+  const visibleNavLinks = navLinks.filter((link) => !link.requiresAuth || user);
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -150,7 +149,7 @@ const Navbar = () => {
 
         {/* NAV LINKS */}
         <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
+          {visibleNavLinks.map((link) => (
             <button
               key={link.label}
               onClick={() => handleNavigation(link.href)}
@@ -294,7 +293,7 @@ const Navbar = () => {
           <SheetContent side="right" className="w-72">
             <div className="flex flex-col gap-4 mt-8">
 
-              {navLinks.map((link) => (
+              {visibleNavLinks.map((link) => (
                 <button
                   key={link.label}
                   onClick={() => {

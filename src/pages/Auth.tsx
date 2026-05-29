@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import { Eye, EyeOff, Phone } from "lucide-react";
+import { ArrowRight, Building2, CheckCircle2, Eye, EyeOff, Mail, Phone, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
@@ -157,9 +157,19 @@ const Auth = () => {
   const [resetOtpSent, setResetOtpSent] = useState(false);
   const [resetPhoneVerified, setResetPhoneVerified] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [signupStep, setSignupStep] = useState(0);
 
   const mode = searchParams.get("mode");
   const isForgot = mode === "forgot";
+  const signupSteps = [
+    { label: "Phone", icon: Phone },
+    { label: "Email", icon: Mail },
+    { label: "Password", icon: ShieldCheck },
+  ];
+
+  useEffect(() => {
+    if (!isLogin && !isForgot) setSignupStep(0);
+  }, [isLogin, isForgot]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -722,7 +732,7 @@ const Auth = () => {
                     required
                   />
                 </>
-              ) : (
+              ) : isLogin ? (
                 <>
                   <Input
                     value={phone}
@@ -735,158 +745,303 @@ const Auth = () => {
                     required
                   />
 
-                  {!isLogin && (
+                  <div className="relative">
                     <Input
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        resetEmailVerification();
-                      }}
-                      placeholder="Email address"
-                      inputMode="email"
-                      type="email"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      type={showPassword ? "text" : "password"}
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2 rounded-xl border bg-gray-50 p-1">
+                    {signupSteps.map((step, index) => {
+                      const StepIcon = step.icon;
+                      const complete =
+                        (index === 0 && phoneVerified) ||
+                        (index === 1 && emailVerified) ||
+                        (index === 2 && password.length >= 6);
+                      const active = signupStep === index;
+
+                      return (
+                        <div
+                          key={step.label}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition ${
+                            active
+                              ? "bg-white text-blue-600 shadow-sm"
+                              : complete
+                              ? "text-green-700"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {complete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <StepIcon className="h-3.5 w-3.5" />}
+                          <span>{step.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {signupStep === 0 && (
+                    <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                      <div>
+                        <p className="font-semibold text-gray-900">Verify your phone</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Enter your phone number and confirm the OTP.
+                        </p>
+                      </div>
+
+                      <Input
+                        value={phone}
+                        onChange={(e) => {
+                          setPhone(e.target.value);
+                          resetVerification();
+                        }}
+                        placeholder="Phone number"
+                        inputMode="tel"
+                        required
+                      />
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={sendOtp}
+                        disabled={sendingOtp || phoneVerified || otpCooldown > 0}
+                      >
+                        {phoneVerified
+                          ? "Phone Verified"
+                          : sendingOtp
+                          ? "Sending OTP..."
+                          : otpCooldown > 0
+                          ? `Wait ${otpCooldown}s`
+                          : otpSent
+                          ? "Resend OTP"
+                          : "Send OTP"}
+                      </Button>
+
+                      {otpCooldown > 0 && !phoneVerified && (
+                        <p className="text-xs text-muted-foreground">
+                          To protect your account, please wait before requesting another OTP.
+                        </p>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="Enter OTP"
+                          inputMode="numeric"
+                          disabled={phoneVerified}
+                        />
+                        <Button type="button" onClick={verifyOtp} disabled={phoneVerified}>
+                          Verify
+                        </Button>
+                      </div>
+
+                      <Button
+                        type="button"
+                        className="w-full"
+                        disabled={!phoneVerified}
+                        onClick={() => setSignupStep(1)}
+                      >
+                        Continue
+                      </Button>
+                    </div>
+                  )}
+
+                  {signupStep === 1 && (
+                    <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                      <div>
+                        <p className="font-semibold text-gray-900">Verify your email</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Add an email address for account recovery and updates.
+                        </p>
+                      </div>
+
+                      <Input
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          resetEmailVerification();
+                        }}
+                        placeholder="Email address"
+                        inputMode="email"
+                        type="email"
+                        required
+                      />
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => sendEmailOtp()}
+                        disabled={sendingEmailOtp || emailVerified || emailOtpCooldown > 0}
+                      >
+                        {emailVerified
+                          ? "Email Verified"
+                          : sendingEmailOtp
+                          ? "Sending Email OTP..."
+                          : emailOtpCooldown > 0
+                          ? `Wait ${emailOtpCooldown}s`
+                          : emailOtpSent
+                          ? "Resend Email OTP"
+                          : "Send Email OTP"}
+                      </Button>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={emailOtp}
+                          onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="Enter email OTP"
+                          inputMode="numeric"
+                          disabled={emailVerified}
+                        />
+                        <Button type="button" onClick={verifyEmailOtp} disabled={emailVerified}>
+                          Verify
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button type="button" variant="outline" onClick={() => setSignupStep(0)}>
+                          Back
+                        </Button>
+                        <Button type="button" disabled={!emailVerified} onClick={() => setSignupStep(2)}>
+                          Continue
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {signupStep === 2 && (
+                    <div className="space-y-4 rounded-xl border bg-white/80 p-4">
+                      <div>
+                        <p className="font-semibold text-gray-900">Create your password</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Choose a password with at least 6 characters.
+                        </p>
+                      </div>
+
+                      <div className="relative">
+                        <Input
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Password"
+                          type={showPassword ? "text" : "password"}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((value) => !value)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button type="button" variant="outline" onClick={() => setSignupStep(1)}>
+                          Back
+                        </Button>
+                        <Button disabled={loading || password.length < 6}>
+                          {loading ? "Please wait..." : "Create Account"}
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </>
               )}
 
-              {!isLogin && !isForgot && (
-                <div className="space-y-2 rounded-lg border bg-white/70 p-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={sendOtp}
-                    disabled={sendingOtp || phoneVerified || otpCooldown > 0}
-                  >
-                    {phoneVerified
-                      ? "Phone Verified"
-                      : sendingOtp
-                      ? "Sending OTP..."
-                      : otpCooldown > 0
-                      ? `Wait ${otpCooldown}s`
-                      : otpSent
-                      ? "Resend OTP"
-                      : "Send OTP"}
-                  </Button>
-
-                  {otpCooldown > 0 && !phoneVerified && (
-                    <p className="text-xs text-muted-foreground">
-                      To protect your account, please wait before requesting another OTP.
-                    </p>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Input
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder="Enter OTP"
-                      inputMode="numeric"
-                      disabled={phoneVerified}
-                    />
-                    <Button
-                      type="button"
-                      onClick={verifyOtp}
-                      disabled={phoneVerified}
-                    >
-                      Verify
-                    </Button>
-                  </div>
-                </div>
+              {(isForgot || isLogin) && (
+                <Button className="w-full" disabled={loading}>
+                  {loading ? "Please wait..." : isForgot ? "Update Password" : "Login"}
+                </Button>
               )}
-
-              {!isLogin && !isForgot && (
-                <div className="space-y-2 rounded-lg border bg-white/70 p-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => sendEmailOtp()}
-                    disabled={sendingEmailOtp || emailVerified || emailOtpCooldown > 0}
-                  >
-                    {emailVerified
-                      ? "Email Verified"
-                      : sendingEmailOtp
-                      ? "Sending Email OTP..."
-                      : emailOtpCooldown > 0
-                      ? `Wait ${emailOtpCooldown}s`
-                      : emailOtpSent
-                      ? "Resend Email OTP"
-                      : "Send Email OTP"}
-                  </Button>
-
-                  <div className="flex gap-2">
-                    <Input
-                      value={emailOtp}
-                      onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder="Enter email OTP"
-                      inputMode="numeric"
-                      disabled={emailVerified}
-                    />
-                    <Button
-                      type="button"
-                      onClick={verifyEmailOtp}
-                      disabled={emailVerified}
-                    >
-                      Verify
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {!isForgot && (
-                <div className="relative">
-                <Input
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              )}
-
-              <Button className="w-full" disabled={loading}>
-                {loading ? "Please wait..." : isForgot ? "Update Password" : isLogin ? "Login" : "Sign Up"}
-              </Button>
             </form>
 
-            <div className="mt-5 space-y-2 text-center text-sm">
-              {isLogin && !isForgot && (
-                <div>
+            <div className="mt-5 text-center text-sm">
+              {isLogin && !isForgot ? (
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
                   <Link to="/auth?mode=forgot" className="font-semibold text-blue-600">
                     Forgot password?
                   </Link>
+
+                  <Link to="/auth?mode=signup" className="font-semibold text-blue-600">
+                    Create Account
+                  </Link>
+                </div>
+              ) : (
+                <Link to="/auth?mode=login" className="font-semibold text-blue-600">
+                  Already have an account? Login
+                </Link>
+              )}
+
+              {isLogin && !isForgot && (
+                <div className="mt-4 rounded-lg border bg-blue-50/70 p-3 text-left">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
+                      <Building2 className="h-4 w-4" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-900">Dealer access</p>
+                      <p className="mt-0.5 text-xs text-gray-600">
+                        Sign in to manage inventory, leads, and dealership tools.
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <Link
+                          to="/dealer-auth"
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600"
+                        >
+                          Dealer Login
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+
+                        <Link to="/dealer-registration" className="text-sm font-medium text-gray-600">
+                          Apply as Dealer
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              <Link
-                to={isLogin && !isForgot ? "/auth?mode=signup" : "/auth?mode=login"}
-                className="font-semibold text-blue-600"
-              >
-                {isLogin && !isForgot ? "Create a buyer account" : "Already have an account? Login"}
-              </Link>
+              {!isLogin && !isForgot && (
+                <div className="mt-4 rounded-lg border bg-blue-50/70 p-3 text-left">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
+                      <Building2 className="h-4 w-4" />
+                    </div>
 
-              <div>
-                <Link to="/dealer-auth" className="text-blue-600 font-semibold">
-                  Dealer Login
-                </Link>
-              </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-900">Want to signup as a Dealer?</p>
+                      <p className="mt-0.5 text-xs text-gray-600">
+                        Apply for dealer access and manage listings from the dealer portal.
+                      </p>
 
-              <div>
-                <Link to="/dealer-registration" className="text-gray-500">
-                  Want to signup as Dealer?
-                </Link>
-              </div>
+                      <Link
+                        to="/dealer-registration"
+                        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600"
+                      >
+                        Apply as Dealer
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>

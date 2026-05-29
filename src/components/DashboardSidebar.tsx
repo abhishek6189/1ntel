@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import GlobalLoader from "@/components/GlobalLoader";
 
 const DashboardSidebar = () => {
 
@@ -92,7 +93,7 @@ const DashboardSidebar = () => {
   if (loading) {
     return (
       <div className="w-full bg-white border rounded-xl p-5 shadow-sm lg:w-64 lg:shrink-0">
-        <p className="text-sm text-gray-500">Loading...</p>
+        <GlobalLoader className="py-4" sizeClassName="h-20 w-20" />
       </div>
     );
   }

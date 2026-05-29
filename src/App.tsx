@@ -53,6 +53,7 @@ import AdminRoute from "@/components/AdminRoute";
 import InspectorRoute from "@/components/InspectorRoute";
 import SellerRoute from "@/components/SellerRoute";
 import AccountStatusGuard from "@/components/AccountStatusGuard";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
 
       <ProfileProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <AccountStatusGuard />
           <Routes>
             {/* ================= PUBLIC ================= */}
@@ -72,7 +74,14 @@ const App = () => (
             <Route path="/car/:id" element={<CarDetail />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/sell" element={<Pricing />} />
+            <Route
+              path="/sell"
+              element={
+                <ProtectedRoute>
+                  <CreateListing />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
 

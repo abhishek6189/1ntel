@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 
@@ -72,11 +73,7 @@ const BuyerDashboard = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading dashboard...</p>
-      </div>
-    );
+    return <GlobalLoader className="min-h-screen" />;
   }
 
   return (

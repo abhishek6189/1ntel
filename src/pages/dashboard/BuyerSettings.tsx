@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import DashboardSidebar from "@/components/DashboardSidebar";
+import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
@@ -120,11 +121,7 @@ const BuyerSettings = () => {
 
   /* ================= UI ================= */
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading...
-      </div>
-    );
+    return <GlobalLoader className="min-h-screen" />;
   }
 
   return (
