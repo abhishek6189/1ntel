@@ -1,24 +1,21 @@
-// ✅ FINAL 11/10 PRODUCTION CHAT (ZERO ERROR VERSION)
-
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
+import { FALLBACK_AVATAR_URL } from "@/utils/imageFiles";
 import {
   ArrowLeft,
   Check,
   CheckCheck,
-  Mic,
-  Paperclip,
+  MessageCircle,
   MoreVertical,
-  Trash2,
   Pencil,
   Send,
-  X
+  Trash2,
+  X,
 } from "lucide-react";
 
 const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
-
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -26,24 +23,13 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
   const [input, setInput] = useState("");
   const [user, setUser] = useState<any>(null);
   const [otherUser, setOtherUser] = useState<any>(null);
-
   const [online, setOnline] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
-
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editingMsg, setEditingMsg] = useState<any>(null);
 
-  const [recording, setRecording] = useState(false);
-  const mediaRecorderRef = useRef<any>(null);
-
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  /* ================= LOAD ================= */
   useEffect(() => {
     let channel: any;
 
@@ -61,9 +47,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
         .single();
 
       const otherUserId =
-        convo.buyer_id === currentUser.id
-          ? convo.seller_id
-          : convo.buyer_id;
+        convo.buyer_id === currentUser.id ? convo.seller_id : convo.buyer_id;
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -81,8 +65,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
       setMessages(msgs || []);
 
-      // ✅ MARK ALL AS READ WHEN OPEN CHAT
-         await supabase
+      await supabase
         .from("chat_messages")
         .update({ is_read: true })
         .eq("conversation_id", id)
@@ -96,7 +79,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
             event: "INSERT",
             schema: "public",
             table: "chat_messages",
-            filter: `conversation_id=eq.${id}`
+            filter: `conversation_id=eq.${id}`,
           },
           async (payload: any) => {
             setMessages((prev) => {
@@ -120,10 +103,8 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-
   }, [id]);
 
-  /* ================= LAST SEEN ================= */
   useEffect(() => {
     if (!user) return;
 
@@ -140,7 +121,6 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
     return () => clearInterval(interval);
   }, [user]);
 
-  /* ================= TYPING ================= */
   useEffect(() => {
     if (!user) return;
 
@@ -148,7 +128,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
       supabase.from("chat_presence").upsert({
         user_id: user.id,
         typing_in: id,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       });
     };
 
@@ -161,12 +141,8 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
     if (input) updateTyping();
     else stopTyping();
-
-    return () => {}; // ✅ no async cleanup
-
   }, [input, user, id]);
 
-  /* ================= LISTEN TYPING ================= */
   useEffect(() => {
     if (!otherUser?.id) return;
 
@@ -177,7 +153,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
         {
           event: "*",
           schema: "public",
-          table: "chat_presence"
+          table: "chat_presence",
         },
         (payload: any) => {
           if (payload.new?.user_id === otherUser.id) {
@@ -190,10 +166,8 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-
   }, [otherUser, id]);
 
-  /* ================= ONLINE ================= */
   useEffect(() => {
     if (!otherUser?.last_seen) return;
 
@@ -205,41 +179,42 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
     return () => clearInterval(interval);
   }, [otherUser]);
 
-  const formatLastSeen = (time: string) =>
-    `Last seen ${new Date(time).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    })}`;
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const formatTime = (time: string) =>
     new Date(time).toLocaleTimeString([], {
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     });
 
-  /* ================= SEND ================= */
   const sendMessage = async () => {
     if (!input.trim() || !user) return;
 
     if (editingMsg) {
       await supabase
         .from("chat_messages")
-        .update({ message: input })
+        .update({ message: input.trim() })
         .eq("id", editingMsg.id);
 
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === editingMsg.id ? { ...msg, message: input.trim() } : msg
+        )
+      );
       setEditingMsg(null);
       setInput("");
       return;
     }
 
     const tempId = Date.now();
-
     const tempMsg = {
       id: tempId,
-      message: input,
+      message: input.trim(),
       sender_id: user.id,
       created_at: new Date().toISOString(),
-      is_read: false
+      is_read: false,
     };
 
     setMessages((prev) => [...prev, tempMsg]);
@@ -250,7 +225,7 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
       .insert({
         conversation_id: id,
         sender_id: user.id,
-        message: tempMsg.message
+        message: tempMsg.message,
       })
       .select()
       .single();
@@ -260,261 +235,198 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
     );
   };
 
-  /* ================= DELETE ================= */
   const deleteMessage = async (msgId: string) => {
     await supabase
       .from("chat_messages")
       .update({
         is_deleted: true,
-        message: "🚫 This message was deleted"
+        message: "This message was deleted",
       })
       .eq("id", msgId);
 
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === msgId
+          ? { ...msg, is_deleted: true, message: "This message was deleted" }
+          : msg
+      )
+    );
     setMenuOpen(null);
   };
 
-  /* ================= EDIT ================= */
   const startEdit = (msg: any) => {
     setEditingMsg(msg);
-    setInput(msg.message || "");
+    setInput(msg.message || msg.content || "");
     setMenuOpen(null);
   };
 
-  /* ================= FILE ================= */
-  const sendFile = async () => {
-    if (!previewFile || !user) return;
-
-    setSending(true);
-    setUploadProgress(10);
-
-    const path = `${user.id}/${Date.now()}-${previewFile.name}`;
-
-    await supabase.storage.from("chat-files").upload(path, previewFile);
-    setUploadProgress(70);
-
-    const { data } = supabase.storage
-      .from("chat-files")
-      .getPublicUrl(path);
-
-    await supabase.from("chat_messages").insert({
-      conversation_id: id,
-      sender_id: user.id,
-      file_url: data.publicUrl,
-      file_type: previewFile.type
-    });
-
-    setUploadProgress(100);
-
-    setTimeout(() => {
-      setPreviewFile(null);
-      setPreviewUrl(null);
-      setSending(false);
-      setUploadProgress(0);
-    }, 500);
-  };
-
-  /* ================= VOICE ================= */
-  const startRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    mediaRecorderRef.current = recorder;
-
-    const chunks: any[] = [];
-
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-
-    recorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: "audio/webm" });
-
-      const path = `${user.id}/${Date.now()}.webm`;
-
-      await supabase.storage.from("chat-files").upload(path, blob);
-
-      const { data } = supabase.storage.from("chat-files").getPublicUrl(path);
-
-      await supabase.from("chat_messages").insert({
-        conversation_id: id,
-        sender_id: user.id,
-        file_url: data.publicUrl,
-        file_type: "audio"
-      });
-    };
-
-    recorder.start();
-    setRecording(true);
-  };
-
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    setRecording(false);
-  };
-
-  /* ================= SCROLL ================= */
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
   return (
-    <div className="min-h-screen overflow-x-hidden flex flex-col bg-[#efeae2]">
+    <div className={`${hideNavbar ? "h-full" : "min-h-screen"} flex flex-col overflow-x-hidden bg-slate-100`}>
       {!hideNavbar && <Navbar />}
 
-      <div className="flex-1 flex min-h-0 flex-col max-w-4xl mx-auto w-full overflow-x-hidden">
+      <div className={`${hideNavbar ? "h-full" : "flex-1 px-3 py-4 sm:px-5 sm:py-6"} flex min-h-0 w-full overflow-x-hidden`}>
+        <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-col overflow-hidden border bg-white shadow-none sm:rounded-2xl sm:shadow-xl">
+          <div
+            onClick={() => otherUser?.id && navigate(`/seller/${otherUser.id}`)}
+            className="sticky top-0 z-20 flex cursor-pointer items-center gap-3 border-b bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5"
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(-1);
+              }}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
 
-        {/* HEADER */}
-        <div
-          onClick={() => navigate(`/seller/${otherUser?.id}`)}
-          className="sticky top-0 z-10 bg-white border-b px-3 sm:px-4 py-3 flex items-center gap-3 cursor-pointer shadow-sm"
-        >
-          <ArrowLeft className="h-5 w-5 shrink-0" onClick={(e) => { e.stopPropagation(); navigate(-1); }} />
+            <div className="relative shrink-0">
+              <img
+                src={otherUser?.avatar_url || FALLBACK_AVATAR_URL}
+                className="h-11 w-11 rounded-full border border-slate-200 object-cover"
+              />
+              <span
+                className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                  online ? "bg-emerald-500" : "bg-slate-300"
+                }`}
+              />
+            </div>
 
-          <img
-            src={otherUser?.avatar_url || "https://i.pravatar.cc/100"}
-            className="h-10 w-10 shrink-0 rounded-full object-cover"
-          />
-
-          <div className="min-w-0">
-            <p className="truncate font-semibold">{otherUser?.full_name}</p>
-            <p className="truncate text-xs text-gray-500">
-              {otherTyping
-                ? "Typing..."
-                : online
-                ? "Online"
-                : otherUser?.last_seen
-                ? formatLastSeen(otherUser.last_seen)
-                : "Offline"}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-semibold text-slate-950">
+                {otherUser?.full_name || otherUser?.username || "User"}
+              </p>
+              <p className="truncate text-xs font-medium text-slate-500">
+                {otherTyping ? "Typing..." : online ? "Online" : "Offline"}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* MESSAGES */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3">
-          {messages.map((msg) => {
-            const isMe = msg.sender_id === user?.id;
-
-            return (
-              <div key={msg.id} className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}>
-                <div className={`relative max-w-[min(86vw,36rem)] sm:max-w-[75%] px-3 sm:px-4 py-2 rounded-2xl shadow ${
-                  isMe ? "bg-blue-600 text-white" : "bg-white"
-                }`}>
-
-                  {msg.file_url ? (
-                    msg.file_type?.startsWith("image") ? (
-                      <img
-                        src={msg.file_url}
-                        onClick={() => setPreviewUrl(msg.file_url)}
-                        className="rounded-lg max-w-[180px] cursor-pointer sm:max-w-[220px]"
-                      />
-                    ) : msg.file_type?.startsWith("audio") ? (
-                      <audio controls src={msg.file_url} />
-                    ) : null
-                  ) : (
-                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.message}</p>
-                  )}
-
-                  {isMe && (
-                    <div className="absolute top-1 right-1">
-                      <MoreVertical
-                        size={16}
-                        onClick={() =>
-                          setMenuOpen(menuOpen === msg.id ? null : msg.id)
-                        }
-                        className="cursor-pointer opacity-70"
-                      />
-
-                      {menuOpen === msg.id && (
-                        <div className="absolute right-0 mt-2 bg-white border rounded-xl shadow-lg text-sm z-20">
-                          <button
-                            onClick={() => startEdit(msg)}
-                            className="flex gap-2 px-3 py-2 hover:bg-gray-100 text-gray-700 w-full"
-                          >
-                            <Pencil size={14}/> Edit
-                          </button>
-                          <button
-                            onClick={() => deleteMessage(msg.id)}
-                            className="flex gap-2 px-3 py-2 hover:bg-red-50 text-red-500 w-full"
-                          >
-                            <Trash2 size={14}/> Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="text-xs mt-1 flex justify-end gap-1 opacity-70">
-                    {formatTime(msg.created_at)}
-                    {isMe && (msg.is_read ? <CheckCheck size={14}/> : <Check size={14}/>)}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(0,53,122,0.08),transparent_26rem),linear-gradient(180deg,#f8fafc,#eef2f7)] p-3 sm:p-5">
+            {messages.length === 0 ? (
+              <div className="flex h-full min-h-[24rem] items-center justify-center">
+                <div className="max-w-xs text-center">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#00357a] shadow-sm">
+                    <MessageCircle className="h-7 w-7" />
                   </div>
-
+                  <p className="font-semibold text-slate-950">Start the conversation</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Send a clear message about the vehicle, availability, or next steps.
+                  </p>
                 </div>
               </div>
-            );
-          })}
-          <div ref={bottomRef} />
-        </div>
+            ) : (
+              <div className="space-y-3">
+                {messages.map((msg) => {
+                  const isMe = msg.sender_id === user?.id;
 
-        {/* PREVIEW */}
-        {previewUrl && (
-          <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
-            <img src={previewUrl} className="max-h-[80%] max-w-[90%]" />
+                  return (
+                    <div key={msg.id} className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`group relative max-w-[min(84vw,34rem)] px-3.5 py-2.5 shadow-sm ring-1 sm:max-w-[72%] sm:px-4 ${
+                          isMe
+                            ? "rounded-2xl rounded-br-md bg-blue-600 text-white ring-blue-500/20"
+                            : "rounded-2xl rounded-bl-md bg-white text-slate-900 ring-slate-200"
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap break-words pr-4 text-sm leading-relaxed [overflow-wrap:anywhere] sm:text-base">
+                          {msg.message || msg.content || "Attachment removed"}
+                        </p>
 
-            {sending && (
-              <p className="text-white mt-4 text-lg">
-                Uploading... {uploadProgress}%
-              </p>
+                        {isMe && (
+                          <div className="absolute right-1.5 top-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setMenuOpen(menuOpen === msg.id ? null : msg.id)
+                              }
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-white/70 opacity-0 transition hover:bg-white/10 hover:text-white group-hover:opacity-100 data-[open=true]:opacity-100"
+                              data-open={menuOpen === msg.id}
+                              aria-label="Message options"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+
+                            {menuOpen === msg.id && (
+                              <div className="absolute right-0 z-30 mt-2 w-36 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-sm shadow-xl">
+                                <button
+                                  onClick={() => startEdit(msg)}
+                                  className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Pencil size={14} /> Edit
+                                </button>
+                                <button
+                                  onClick={() => deleteMessage(msg.id)}
+                                  className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-red-500 hover:bg-red-50"
+                                >
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className={`mt-1.5 flex items-center justify-end gap-1 text-[11px] ${
+                          isMe ? "text-white/75" : "text-slate-400"
+                        }`}>
+                          {formatTime(msg.created_at)}
+                          {isMe && (msg.is_read ? <CheckCheck size={14} /> : <Check size={14} />)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-
-            {previewFile && (
-              <button
-                onClick={sendFile}
-                className="mt-4 bg-blue-600 text-white px-6 py-3 rounded-full"
-              >
-                {sending ? "Sending..." : "Send"}
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                setPreviewFile(null);
-                setPreviewUrl(null);
-              }}
-              className="absolute top-5 right-5 bg-white p-2 rounded-full"
-            >
-              <X />
-            </button>
+            <div ref={bottomRef} />
           </div>
-        )}
 
-        {/* INPUT */}
-        <div className="p-2 sm:p-3 bg-white border-t flex gap-1.5 sm:gap-2 items-center">
-          <label className="shrink-0 p-2 rounded-full hover:bg-gray-100 cursor-pointer">
-            <Paperclip />
-            <input type="file" hidden onChange={(e)=>{
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setPreviewFile(file);
-              setPreviewUrl(URL.createObjectURL(file));
-            }}/>
-          </label>
+          <div className="border-t bg-white p-3 sm:p-4">
+            {editingMsg && (
+              <div className="mb-2 flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                <span className="truncate">Editing message</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMsg(null);
+                    setInput("");
+                  }}
+                  className="ml-3 rounded-full p-1 hover:bg-blue-100"
+                  aria-label="Cancel edit"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
 
-          <input
-            value={input || ""}
-            onChange={(e)=>setInput(e.target.value)}
-            className="min-w-0 flex-1 bg-gray-100 rounded-full px-4 py-2 text-base"
-          />
+            <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-inner focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
+              <textarea
+                value={input || ""}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                rows={1}
+                placeholder="Type your message..."
+                className="max-h-32 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-3 py-2 text-base text-slate-950 outline-none placeholder:text-slate-400"
+              />
 
-          <button
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            className={`shrink-0 p-2 rounded-full ${recording ? "bg-red-500 text-white" : "hover:bg-gray-100"}`}
-          >
-            <Mic />
-          </button>
-
-          <button onClick={sendMessage} className="shrink-0 bg-blue-600 text-white p-2 rounded-full">
-            <Send />
-          </button>
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim()}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                aria-label="Send message"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
         </div>
-
       </div>
     </div>
   );

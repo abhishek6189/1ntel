@@ -6,6 +6,7 @@ import FullscreenGallery from "@/components/FullscreenGallery";
 import GlobalLoader from "@/components/GlobalLoader";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { FALLBACK_AVATAR_URL } from "@/utils/imageFiles";
 import { toast } from "sonner";
 import { filterVisibleCarsForPublic } from "@/utils/subscriptionAccess";
 import SEO, { SITE_URL } from "@/components/SEO";
@@ -21,7 +22,23 @@ import {
   Images,
   Info,
   ShieldCheck,
+  Crown,
 } from "lucide-react";
+
+const formatPlanName = (plan?: string) => {
+  const normalized = String(plan || "free").toLowerCase();
+
+  if (normalized === "free") return "Free Plan";
+  if (normalized === "individual") return "Individual Plan";
+  if (normalized === "garage") return "Garage Plan";
+  if (normalized === "dealer") return "Dealer Plan";
+
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} Plan`;
+};
+
+const isDealerProfile = (seller: any) =>
+  String(seller?.role || "").toLowerCase() === "dealer" ||
+  String(seller?.plan || "").toLowerCase() === "dealer";
 
 const CarDetail = () => {
   const { id } = useParams();
@@ -79,7 +96,8 @@ const CarDetail = () => {
       const { data: imgs } = await supabase
         .from("car_images")
         .select("*")
-        .eq("car_id", id);
+        .eq("car_id", id)
+        .order("sort_order", { ascending: true });
 
       if (imgs?.length) {
         setImages(imgs);
@@ -363,7 +381,7 @@ const CarDetail = () => {
             {/* QUICK SPECS */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white border rounded-xl p-4">
               <Spec icon={<Fuel />} label="Fuel" value={car.fuel_type} />
-              <Spec icon={<Settings />} label="Gear" value={car.transmission} />
+              <Spec icon={<Settings />} label="Transmission" value={car.transmission} />
               <Spec icon={<Gauge />} label="Mileage" value={`${Number(car.mileage || 0).toLocaleString()} km`} />
               <Spec icon={<MapPin />} label="Location" value={car.location} />
             </div>
@@ -422,7 +440,7 @@ const CarDetail = () => {
 
                 <div className="flex items-center gap-3">
                   <img
-                    src={seller?.avatar_url || "https://i.pravatar.cc/100"}
+                    src={seller?.avatar_url || FALLBACK_AVATAR_URL}
                     className="w-10 h-10 rounded-full"
                   />
 
@@ -431,9 +449,16 @@ const CarDetail = () => {
                       {seller?.full_name || "User"}
                     </p>
 
-                    <p className="text-xs text-gray-500">
-                      {seller?.is_verified ? "Verified Seller" : "Not Verified"}
-                    </p>
+                    {isDealerProfile(seller) ? (
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#00357a]/20 bg-[#00357a]/10 px-2 py-0.5 text-xs font-semibold text-[#00357a]">
+                        <Crown className="h-3 w-3 fill-current" />
+                        Dealer
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        {formatPlanName(seller?.plan)}
+                      </p>
+                    )}
                   </div>
                 </div>
 

@@ -21,15 +21,26 @@ import { toast } from "sonner";
 import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 import { consumeListingSlot, getListingAllowance } from "@/utils/listingAccess";
 
+const PHOTO_SLOTS = [
+  { key: "front", label: "Front" },
+  { key: "back", label: "Back" },
+  { key: "right", label: "Right Side" },
+  { key: "left", label: "Left Side" },
+  { key: "cluster", label: "Cluster" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "interior", label: "Interior" },
+];
+
 export default function CreateListing() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit") || searchParams.get("id");
 
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<string[]>(Array(PHOTO_SLOTS.length).fill(""));
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
   const [loadingListing, setLoadingListing] = useState(Boolean(editId));
 
   const [customFields, setCustomFields] = useState<any>({
@@ -80,7 +91,7 @@ export default function CreateListing() {
 
       const { data: car, error } = await supabase
         .from("cars")
-        .select("*, car_images(image_url)")
+        .select("*, car_images(image_url, angle, sort_order)")
         .eq("id", editId)
         .eq("seller_id", user.id)
         .maybeSingle();
@@ -110,7 +121,25 @@ export default function CreateListing() {
         description: car.description || "",
         seller_phone: car.seller_phone || "",
       });
-      setImages((car.car_images || []).map((image: any) => image.image_url).filter(Boolean));
+      const slotImages = Array(PHOTO_SLOTS.length).fill("");
+      const sortedImages = [...(car.car_images || [])].sort((a: any, b: any) => {
+        const aOrder = typeof a.sort_order === "number" ? a.sort_order : 999;
+        const bOrder = typeof b.sort_order === "number" ? b.sort_order : 999;
+        return aOrder - bOrder;
+      });
+
+      sortedImages.forEach((image: any, index: number) => {
+        const slotIndex = typeof image.sort_order === "number"
+          ? image.sort_order
+          : PHOTO_SLOTS.findIndex((slot) => slot.key === image.angle);
+        const targetIndex = slotIndex >= 0 && slotIndex < PHOTO_SLOTS.length ? slotIndex : index;
+
+        if (targetIndex < PHOTO_SLOTS.length) {
+          slotImages[targetIndex] = image.image_url || "";
+        }
+      });
+
+      setImages(slotImages);
       setLoadingListing(false);
     };
 
@@ -153,14 +182,16 @@ export default function CreateListing() {
   }, []);
 
   /* ================= IMAGE UPLOAD ================= */
-  const uploadImages = async (files: FileList) => {
+  const uploadImageForSlot = async (file: File, slotIndex: number) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return toast.error("Login required");
 
     setUploading(true);
+    setUploadProgress((prev) => ({ ...prev, [slotIndex]: 8 }));
 
-    for (const file of Array.from(files)) {
+    try {
       const uploadFile = await prepareImageForUpload(file);
+      setUploadProgress((prev) => ({ ...prev, [slotIndex]: 35 }));
       const path = getImageUploadPath(user.id, uploadFile);
 
       const { error } = await supabase.storage
@@ -171,28 +202,38 @@ export default function CreateListing() {
 
       if (error) {
         toast.error(error.message);
-        continue;
+        return;
       }
 
       const { data } = supabase.storage.from("vehicles").getPublicUrl(path);
-      setImages((prev) => [...prev, data.publicUrl]);
+      setUploadProgress((prev) => ({ ...prev, [slotIndex]: 92 }));
+      setImages((prev) => prev.map((image, index) => index === slotIndex ? data.publicUrl : image));
+      setUploadProgress((prev) => ({ ...prev, [slotIndex]: 100 }));
+    } finally {
+      setTimeout(() => {
+        setUploadProgress((prev) => {
+          const next = { ...prev };
+          delete next[slotIndex];
+          return next;
+        });
+        setUploading(false);
+      }, 350);
     }
-
-    setUploading(false);
   };
 
   const openImage = (index: number) => {
-    setActiveImageIndex(index);
+    const galleryImages = images.filter(Boolean);
+    const selectedImage = images[index];
+    const galleryIndex = Math.max(galleryImages.findIndex((image) => image === selectedImage), 0);
+
+    setActiveImageIndex(galleryIndex);
     setGalleryOpen(true);
   };
 
   const removeImage = (index: number) => {
-    setImages((prev) => {
-      const nextImages = prev.filter((_, imageIndex) => imageIndex !== index);
-      setActiveImageIndex((current) => Math.min(current, Math.max(nextImages.length - 1, 0)));
-      if (!nextImages.length) setGalleryOpen(false);
-      return nextImages;
-    });
+    setImages((prev) => prev.map((image, imageIndex) => imageIndex === index ? "" : image));
+    setActiveImageIndex((current) => Math.max(current - 1, 0));
+    if (images.filter(Boolean).length <= 1) setGalleryOpen(false);
   };
 
   /* ================= ROLE BASED NAV ================= */
@@ -271,11 +312,17 @@ export default function CreateListing() {
       await supabase.from("car_images").delete().eq("car_id", data.id);
     }
 
-    if (images.length) {
+    const filledImages = images
+      .map((image, index) => ({ image, index }))
+      .filter((item) => Boolean(item.image));
+
+    if (filledImages.length) {
       await supabase.from("car_images").insert(
-        images.map((img) => ({
+        filledImages.map(({ image, index }) => ({
           car_id: data.id,
-          image_url: img,
+          image_url: image,
+          angle: PHOTO_SLOTS[index].key,
+          sort_order: index,
         }))
       );
     }
@@ -313,6 +360,8 @@ export default function CreateListing() {
     return <GlobalLoader className="min-h-screen" />;
   }
 
+  const galleryImages = images.filter(Boolean);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -333,49 +382,107 @@ export default function CreateListing() {
 
           {/* IMAGES */}
           <div>
-            <Label>Photos</Label>
-            <label className="border-2 border-dashed p-6 sm:p-8 flex flex-col items-center cursor-pointer rounded-lg">
-              <UploadCloud className="h-8 w-8 text-gray-400" />
-              <span className="text-sm text-gray-500">Click to upload</span>
-              <input type="file" accept="image/*,.heic,.heif" multiple hidden onChange={(e:any)=>uploadImages(e.target.files)} />
-            </label>
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <Label>Photos</Label>
+                <p className="text-sm text-gray-500">
+                  Upload each required angle in this order.
+                </p>
+              </div>
+              <p className="text-xs font-medium text-gray-500">
+                {galleryImages.length}/{PHOTO_SLOTS.length} uploaded
+              </p>
+            </div>
 
-            <div className="flex gap-3 mt-4 flex-wrap">
-              {images.map((img, i) => (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+              {PHOTO_SLOTS.map((slot, i) => {
+                const img = images[i];
+                const progress = uploadProgress[i];
+                const isSlotUploading = typeof progress === "number";
+
+                return (
                 <div
-                  key={`${img}-${i}`}
-                  className="group relative h-20 w-20 overflow-hidden rounded-lg border bg-gray-100 sm:h-24 sm:w-24"
+                  key={slot.key}
+                  className="group relative overflow-hidden rounded-xl border bg-gray-50"
                 >
-                  <button
-                    type="button"
-                    onClick={() => openImage(i)}
-                    className="block h-full w-full"
-                    aria-label={`Open photo ${i + 1}`}
-                  >
-                    <img src={img} className="h-full w-full object-cover" alt={`Car photo ${i + 1}`} />
-                  </button>
-
-                  <div className="absolute inset-x-1 top-1 flex justify-between gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                  {img ? (
                     <button
                       type="button"
                       onClick={() => openImage(i)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white shadow backdrop-blur hover:bg-black/85"
-                      aria-label={`View photo ${i + 1}`}
+                      className="block aspect-[5/3] w-full"
+                      aria-label={`Open ${slot.label} photo`}
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <img src={img} className="h-full w-full object-cover" alt={`${slot.label} car photo`} />
                     </button>
+                  ) : (
+                    <label className={`flex aspect-[5/3] w-full flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 text-center transition ${
+                      isSlotUploading
+                        ? "cursor-wait bg-blue-50/50"
+                        : "cursor-pointer hover:border-blue-300 hover:bg-blue-50/40"
+                    }`}>
+                      {isSlotUploading ? (
+                        <>
+                          <div className="h-10 w-10 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin" />
+                          <span className="text-sm font-semibold text-blue-700">
+                            Uploading {progress}%
+                          </span>
+                          <div className="h-1.5 w-28 overflow-hidden rounded-full bg-blue-100">
+                            <div
+                              className="h-full rounded-full bg-blue-600 transition-all"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud className="h-6 w-6 text-gray-400" />
+                          <span className="text-sm font-medium text-gray-700">Upload {slot.label}</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*,.heic,.heif"
+                        hidden
+                        disabled={isSlotUploading}
+                        onChange={(e: any) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadImageForSlot(file, i);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
 
+                  <div className="flex items-center justify-between gap-2 border-t bg-white px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{i + 1}. {slot.label}</p>
+                      <p className="text-xs text-gray-500">{img ? "Photo added" : "Required angle"}</p>
+                    </div>
+
+                    {img && (
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openImage(i)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          aria-label={`View ${slot.label} photo`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
                     <button
                       type="button"
                       onClick={() => removeImage(i)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white shadow hover:bg-red-700"
-                      aria-label={`Delete photo ${i + 1}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-600 hover:bg-red-100"
+                          aria-label={`Delete ${slot.label} photo`}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
+                    )}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -486,7 +593,7 @@ export default function CreateListing() {
 
       {galleryOpen && (
         <FullscreenGallery
-          images={images}
+          images={galleryImages}
           current={activeImageIndex}
           setCurrent={setActiveImageIndex}
           onClose={() => setGalleryOpen(false)}

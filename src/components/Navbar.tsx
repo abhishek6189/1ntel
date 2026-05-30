@@ -23,22 +23,9 @@ const navLinks = [
 ];
 
 const OnePlusLabel = () => (
-  <span className="inline-flex items-center gap-1.5 font-bold text-black">
+  <span className="inline-flex items-baseline font-bold text-black">
     <span>1ne</span>
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5 drop-shadow-[0_0_4px_rgba(37,99,235,0.45)]"
-      aria-hidden="true"
-    >
-      <path
-        d="M12 2.8C13.5 7.6 16.4 10.5 21.2 12C16.4 13.5 13.5 16.4 12 21.2C10.5 16.4 7.6 13.5 2.8 12C7.6 10.5 10.5 7.6 12 2.8Z"
-        fill="none"
-        stroke="#2563eb"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.4"
-      />
-    </svg>
+    <span className="text-blue-600">+</span>
   </span>
 );
 
@@ -102,6 +89,29 @@ const Navbar = () => {
   }, [user]);
 
   useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`navbar-unread-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_messages",
+        },
+        () => {
+          fetchUnreadChats(user);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  useEffect(() => {
     const handleClickOutside = (e: any) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdown(false);
@@ -144,7 +154,7 @@ const Navbar = () => {
           to="/"
           className="flex items-center gap-2 cursor-pointer"
         >
-          <BrandLogo className="text-5xl" />
+          <BrandLogo className="text-[3.25rem]" />
         </Link>
 
         {/* NAV LINKS */}
@@ -170,14 +180,14 @@ const Navbar = () => {
           {/* MESSAGES */}
           {user && (
             <div
-              className="relative cursor-pointer"
+              className="relative cursor-pointer rounded-full p-2 transition hover:bg-slate-100"
               onClick={() => navigate("/messages")}
             >
               <MessageCircle className="h-5 w-5" />
 
               {unreadCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] px-2 rounded-full">
-                  {unreadCount}
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </div>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MessageCircle, Search } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
+import { FALLBACK_AVATAR_URL } from "@/utils/imageFiles";
 
 const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
-
   const [conversations, setConversations] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
@@ -13,266 +15,240 @@ const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-
-    const load = async () => {
-
-      const client: any = supabase;
-
-      const { data } = await supabase.auth.getUser();
-      const currentUser = data.user;
-      setUser(currentUser);
-
-      if (!currentUser) return;
-
-      const { data: convos } = await client
-        .from("chat_conversations")
-        .select("*")
-        .or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`)
-        .order("updated_at", { ascending: false });
-
-      if (!convos) return;
-
-      const enriched = await Promise.all(
-        convos.map(async (c: any) => {
-
-          const { data: car } = await supabase
-            .from("cars")
-            .select("title, image_url")
-            .eq("id", c.car_id)
-            .single();
-
-          const { data: lastMsg } = await client
-            .from("chat_messages")
-            .select("*")
-            .eq("conversation_id", c.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const otherUserId =
-            c.buyer_id === currentUser.id ? c.seller_id : c.buyer_id;
-
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("username, full_name, avatar_url, last_seen")
-            .eq("id", otherUserId)
-            .single();
-
-          const { count } = await client
-            .from("chat_messages")
-            .select("*", { count: "exact", head: true })
-            .eq("conversation_id", c.id)
-            .eq("is_read", false)
-            .neq("sender_id", currentUser.id);
-
-          return {
-            ...c,
-            car,
-            lastMsg,
-            profile,
-            unread: count || 0
-          };
-        })
-      );
-
-      setConversations(enriched);
-      setFiltered(enriched);
+  const loadConversations = async (currentUser = user) => {
+    if (!currentUser) {
       setLoading(false);
+      return;
+    }
+
+    const client: any = supabase;
+
+    const { data: convos } = await client
+      .from("chat_conversations")
+      .select("*")
+      .or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`)
+      .order("updated_at", { ascending: false });
+
+    if (!convos) {
+      setConversations([]);
+      setFiltered([]);
+      setLoading(false);
+      return;
+    }
+
+    const enriched = await Promise.all(
+      convos.map(async (c: any) => {
+        const { data: car } = await supabase
+          .from("cars")
+          .select("title, image_url")
+          .eq("id", c.car_id)
+          .single();
+
+        const { data: lastMsg } = await client
+          .from("chat_messages")
+          .select("*")
+          .eq("conversation_id", c.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const otherUserId =
+          c.buyer_id === currentUser.id ? c.seller_id : c.buyer_id;
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("username, full_name, avatar_url")
+          .eq("id", otherUserId)
+          .single();
+
+        const { count } = await client
+          .from("chat_messages")
+          .select("*", { count: "exact", head: true })
+          .eq("conversation_id", c.id)
+          .eq("is_read", false)
+          .neq("sender_id", currentUser.id);
+
+        return {
+          ...c,
+          car,
+          lastMsg,
+          profile,
+          unread: count || 0,
+        };
+      })
+    );
+
+    setConversations(enriched);
+    setFiltered(enriched);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+      await loadConversations(data.user);
     };
 
     load();
-
   }, []);
 
-  /* SEARCH */
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`messages-inbox-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_messages",
+        },
+        () => {
+          loadConversations(user);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   useEffect(() => {
     if (!search) {
       setFiltered(conversations);
-    } else {
-      const s = search.toLowerCase();
-
-      setFiltered(
-        conversations.filter((c) =>
-          (c.profile?.username || "")
-            .toLowerCase()
-            .includes(s) ||
-          (c.profile?.full_name || "")
-            .toLowerCase()
-            .includes(s) ||
-          (c.car?.title || "")
-            .toLowerCase()
-            .includes(s)
-        )
-      );
+      return;
     }
+
+    const s = search.toLowerCase();
+
+    setFiltered(
+      conversations.filter((c) =>
+        (c.profile?.username || "").toLowerCase().includes(s) ||
+        (c.profile?.full_name || "").toLowerCase().includes(s) ||
+        (c.car?.title || "").toLowerCase().includes(s) ||
+        (c.lastMsg?.message || c.lastMsg?.content || "").toLowerCase().includes(s)
+      )
+    );
   }, [search, conversations]);
 
-  /* FORMAT TIME */
   const formatTime = (date: string) => {
     if (!date) return "";
-    const d = new Date(date);
-    return d.toLocaleTimeString([], {
+    return new Date(date).toLocaleTimeString([], {
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     });
   };
 
-  /* 🔥 FIXED ONLINE LOGIC */
-  const isOnline = (lastSeen: string) => {
-    if (!lastSeen) return false;
-    return Date.now() - new Date(lastSeen).getTime() < 60000; // 1 min window
-  };
+  const getName = (profile: any) =>
+    profile?.full_name || profile?.username || "User";
 
-  const formatLastSeen = (lastSeen: string) => {
-    if (!lastSeen) return "";
-    const d = new Date(lastSeen);
-    return `Last seen ${d.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    })}`;
-  };
-
-  /* NAME FIX */
-  const getName = (profile: any) => {
-    return (
-      profile?.username ||
-      profile?.full_name ||
-      "User"
-    );
-  };
-
-  /* MESSAGE PREVIEW */
   const getPreview = (msg: any) => {
     if (!msg) return "Start conversation";
-
-    if (msg.file_url) {
-      if (msg.file_type?.startsWith("image")) return "📷 Photo";
-      if (msg.file_type?.startsWith("audio")) return "🎤 Voice message";
-      return "📎 File";
-    }
-
-    return msg.message;
+    if (msg.file_url) return "Attachment removed";
+    return msg.message || msg.content || "Message";
   };
 
   return (
-    <div className={`${hideNavbar ? "h-full" : "min-h-screen bg-gray-100"}`}>
-
-      {/* ✅ CONDITIONAL NAVBAR */}
+    <div className={`${hideNavbar ? "h-full" : "min-h-screen bg-slate-100"}`}>
       {!hideNavbar && <Navbar />}
 
-      <div className={`${hideNavbar ? "p-0" : "max-w-4xl mx-auto px-3 sm:px-4 py-3"}`}>
+      <div className={`${hideNavbar ? "p-0" : "mx-auto max-w-5xl px-3 py-5 sm:px-5 sm:py-7"}`}>
+        <div className={`${hideNavbar ? "" : "sticky top-16 z-10 -mx-3 bg-slate-100/95 px-3 pb-4 backdrop-blur sm:-mx-5 sm:px-5"}`}>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">Messages</h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Keep track of buyer and seller conversations.
+              </p>
+            </div>
+            <div className="hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#00357a] shadow-sm sm:block">
+              {conversations.length} chats
+            </div>
+          </div>
 
-        {/* HEADER */}
-        <div className={`${hideNavbar ? "" : "sticky top-16 bg-gray-100 z-10 pb-3"}`}>
-          <h1 className="text-xl sm:text-2xl font-bold mb-3">
-            Messages
-          </h1>
-
-          <input
-            placeholder="Search chats..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-4 py-2 rounded-full bg-white border outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-          />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <input
+              placeholder="Search chats, cars, or messages..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-14 w-full rounded-2xl border border-slate-200 bg-white py-3 pl-12 pr-4 text-base outline-none shadow-sm transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
+            />
+          </div>
         </div>
 
-        {/* LOADING */}
         {loading ? (
-          <p className="text-center text-gray-500 mt-10">
-            Loading chats...
-          </p>
+          <GlobalLoader className="min-h-[24rem]" />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-400 text-lg">
-              No conversations yet 🚀
+          <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-[#00357a]">
+              <MessageCircle className="h-7 w-7" />
+            </div>
+            <p className="font-semibold text-slate-950">No conversations found</p>
+            <p className="mt-1 text-sm text-slate-500">
+              New buyer or seller chats will appear here.
             </p>
           </div>
         ) : (
-          <div className="space-y-2 mt-3">
-
+          <div className="mt-4 space-y-3">
             {filtered.map((c) => {
-
               const isUnread = c.unread > 0;
-              const online = isOnline(c.profile?.last_seen);
+              const preview = getPreview(c.lastMsg);
 
               return (
-                <div
+                <button
                   key={c.id}
+                  type="button"
                   onClick={() => navigate(`/chat/${c.id}`)}
-                  className={`bg-white p-3 sm:p-4 rounded-xl flex items-center gap-3 cursor-pointer transition hover:shadow-md active:scale-[0.99] ${
-                    isUnread ? "border-l-4 border-blue-500" : ""
+                  className={`group flex w-full items-center gap-3 rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md active:translate-y-0 ${
+                    isUnread ? "border-blue-200 ring-1 ring-blue-100" : "border-transparent"
                   }`}
                 >
-
-                  {/* AVATAR */}
-                  <div className="relative flex-shrink-0">
-                    {c.profile?.avatar_url ? (
-                      <img
-                        src={c.profile.avatar_url}
-                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white flex items-center justify-center rounded-full font-semibold">
-                        {getName(c.profile)[0].toUpperCase()}
-                      </div>
-                    )}
-
-                    {online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                  <div className="relative shrink-0">
+                    <img
+                      src={c.profile?.avatar_url || FALLBACK_AVATAR_URL}
+                      className="h-14 w-14 rounded-full border border-slate-200 object-cover sm:h-16 sm:w-16"
+                    />
+                    {isUnread && (
+                      <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white ring-2 ring-white">
+                        {c.unread > 9 ? "9+" : c.unread}
+                      </span>
                     )}
                   </div>
 
-                  {/* CONTENT */}
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`truncate text-base ${
+                          isUnread ? "font-bold text-slate-950" : "font-semibold text-slate-900"
+                        }`}>
+                          {getName(c.profile)}
+                        </p>
+                        <p className="truncate text-sm text-slate-500">
+                          {c.car?.title || "Vehicle conversation"}
+                        </p>
+                      </div>
 
-                    <div className="flex min-w-0 justify-between items-center">
-
-                      <p className={`truncate text-sm sm:text-base ${
-                        isUnread ? "font-bold" : "font-semibold"
-                      }`}>
-                        {getName(c.profile)}
-                      </p>
-
-                      <p className="text-[10px] sm:text-xs text-gray-400 ml-2 whitespace-nowrap">
+                      <p className="shrink-0 text-xs font-medium text-slate-400">
                         {formatTime(c.lastMsg?.created_at)}
                       </p>
-
                     </div>
 
-                    {/* 🔥 LAST SEEN FIX */}
-                    <p className="text-[10px] text-gray-400">
-                      {online ? "Online" : formatLastSeen(c.profile?.last_seen)}
-                    </p>
-
-                    <p className="text-xs text-gray-500 truncate">
-                      {c.car?.title || "Car"}
-                    </p>
-
-                    <p className={`text-xs sm:text-sm truncate mt-1 ${
-                      isUnread ? "font-semibold text-black" : "text-gray-600"
+                    <p className={`mt-2 truncate text-sm ${
+                      isUnread ? "font-semibold text-slate-950" : "text-slate-500"
                     }`}>
-                      {getPreview(c.lastMsg)}
+                      {preview}
                     </p>
-
                   </div>
-
-                  {/* UNREAD */}
-                  {isUnread && (
-                    <div className="shrink-0 bg-blue-600 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full font-semibold">
-                      {c.unread}
-                    </div>
-                  )}
-
-                </div>
+                </button>
               );
             })}
-
           </div>
         )}
-
       </div>
-
     </div>
   );
 };

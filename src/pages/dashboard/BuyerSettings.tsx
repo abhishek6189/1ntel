@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import DashboardSidebar from "@/components/DashboardSidebar";
 import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
+import { FALLBACK_AVATAR_URL } from "@/utils/imageFiles";
 import { Button } from "@/components/ui/button";
 import { getImageUploadPath, prepareImageForUpload } from "@/utils/imageFiles";
 
@@ -147,7 +148,7 @@ const BuyerSettings = () => {
               <img
                 src={
                   profile.avatar_url ||
-                  `https://ui-avatars.com/api/?name=${profile.username || user?.email}`
+                  FALLBACK_AVATAR_URL
                 }
                 className="w-16 h-16 rounded-full object-cover"
               />

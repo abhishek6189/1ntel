@@ -135,14 +135,14 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="inline-flex max-w-full items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm mb-5 sm:mb-6">
+          <div className="inline-flex max-w-full items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-blue-600/10 text-blue-600 text-xs sm:text-sm mb-5 sm:mb-6">
             <ShieldCheck className="h-4 w-4" />
             <span className="truncate">Canada Used Car Marketplace</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-5 sm:mb-6 leading-tight">
             Buy Used Cars in Canada <br />
-            <span className="text-blue-600">With More Confidence</span>
+            <span className="text-[#00357a]">With More Confidence</span>
           </h1>
 
           <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8 max-w-xl">

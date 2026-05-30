@@ -9,7 +9,7 @@ const isHeicFile = (file: File) => {
 const withJpegName = (name: string) => name.replace(/\.[^.]+$/, "") + ".jpg";
 
 export const FALLBACK_AVATAR_URL =
-  "https://ui-avatars.com/api/?name=User&background=2563eb&color=ffffff";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Crect width='160' height='160' rx='80' fill='%23e5e7eb'/%3E%3Ccircle cx='80' cy='58' r='30' fill='%23f8fafc'/%3E%3Cpath d='M25 150c8-34 29-53 55-53s47 19 55 53' fill='%23f8fafc'/%3E%3C/svg%3E";
 
 export const prepareImageForUpload = async (file: File) => {
   let uploadFile = file;

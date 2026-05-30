@@ -6,6 +6,7 @@ import DashboardSidebar from "@/components/DashboardSidebar";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import GlobalLoader from "@/components/GlobalLoader";
 import { supabase } from "@/integrations/supabase/client";
+import { FALLBACK_AVATAR_URL } from "@/utils/imageFiles";
 import { Badge } from "@/components/ui/badge";
 
 import { Car, ClipboardCheck, Heart } from "lucide-react";
@@ -112,7 +113,7 @@ const BuyerDashboard = () => {
                   <img
                     src={
                       profile.avatar_url ||
-                      `https://ui-avatars.com/api/?name=${profile.full_name || "User"}`
+                      FALLBACK_AVATAR_URL
                     }
                     className="w-14 h-14 md:w-16 md:h-16 rounded-full"
                   />

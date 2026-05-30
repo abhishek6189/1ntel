@@ -158,6 +158,8 @@ export default function Dashboard() {
 
   /* PLAN */
   const plan = subscriptionAccess?.plan || profile?.plan || "free";
+  const normalizedPlan = String(plan || "free").toLowerCase();
+  const showRevenueStat = !["free", "garage"].includes(normalizedPlan);
   const LIMIT = listingAllowance?.displayLimit || subscriptionAccess?.limit || 2;
   const displayedListingUsage = listingAllowance?.displayUsed ?? cars.length;
   const isLimitReached = listingAllowance ? !listingAllowance.canCreate : cars.length >= LIMIT;
@@ -374,11 +376,13 @@ export default function Dashboard() {
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${showRevenueStat ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3 sm:gap-4 mb-6`}>
           <Stat icon={<Car />} label="Active" value={active} color="bg-blue-100 text-blue-600" />
           <Stat icon={<CheckCircle />} label="Verified" value={verified} color="bg-green-100 text-green-600" />
           <Stat icon={<Eye />} label="Sold" value={sold} color="bg-purple-100 text-purple-600" />
-          <Stat icon={<DollarSign />} label="Revenue" value={formatMoney(totalValue)} color="bg-yellow-100 text-yellow-600" />
+          {showRevenueStat && (
+            <Stat icon={<DollarSign />} label="Revenue" value={formatMoney(totalValue)} color="bg-yellow-100 text-yellow-600" />
+          )}
         </div>
 
         {/* TABS */}
