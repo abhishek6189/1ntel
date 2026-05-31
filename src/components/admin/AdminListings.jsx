@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eye, Trash2, Search, ShieldCheck, ShieldX, User } from "lucide-react";
+import { Eye, Trash2, Search, User } from "lucide-react";
 import { toast } from "sonner";
 import { runAdminListingAction } from "@/utils/adminListingActions";
 
@@ -131,30 +131,6 @@ export default function AdminListings({ cars = [], onRefresh }) {
     onRefresh?.();
   };
 
-  const toggleInspection = async (car) => {
-    const newStatus =
-      car.inspection_status === "passed" ? "not_inspected" : "passed";
-
-    try {
-      await runAdminListingAction("update_inspection", car.id, newStatus);
-      toast.success(
-        newStatus === "passed" ? "Marked as Verified" : "Marked as Unverified"
-      );
-
-      setLocalCars((prev) =>
-        prev.map((item) =>
-          item.id === car.id ? { ...item, inspection_status: newStatus } : item
-        )
-      );
-      onRefresh?.();
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-
-  const isVerified = (car) =>
-    car.inspection_status === "passed" || car.inspection_status === "verified";
-
   return (
     <div className="min-w-0">
       <div className="mb-6 flex flex-col gap-3 md:flex-row">
@@ -267,33 +243,9 @@ export default function AdminListings({ cars = [], onRefresh }) {
                 <Badge className="max-w-full px-2 py-0.5 text-[11px] capitalize">
                   <span className="truncate">{car.status || "unknown"}</span>
                 </Badge>
-
-                <Badge
-                  className={`max-w-full px-2 py-0.5 text-[11px] ${
-                    isVerified(car)
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {isVerified(car) ? "Verified" : "Unverified"}
-                </Badge>
               </div>
 
               <div className="flex shrink-0 items-center justify-end gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  title={isVerified(car) ? "Mark unverified" : "Mark verified"}
-                  onClick={() => toggleInspection(car)}
-                >
-                  {isVerified(car) ? (
-                    <ShieldX className="h-3.5 w-3.5" />
-                  ) : (
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-
                 <Button asChild variant="outline" size="icon" className="h-8 w-8" title="View listing">
                   <Link to={`/car/${car.id}`}>
                     <Eye className="h-3.5 w-3.5" />

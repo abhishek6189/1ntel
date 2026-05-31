@@ -133,7 +133,7 @@ export default function ProfileSettings() {
       return toast.error(error.message);
     }
 
-    toast.success("Profile updated 🚀");
+    toast.success("Profile updated");
 
     await loadUser(); // 🔥 refresh state
     setLoading(false);

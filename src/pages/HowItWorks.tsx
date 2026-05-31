@@ -18,11 +18,11 @@ const steps = [
   {
     icon: Search,
     title: "Find Your Car",
-    desc: "Browse verified listings from sellers across Canada. Use filters to narrow down by make, model, year, price, location, and more.",
+    desc: "Browse listings from sellers across Canada. Use filters to narrow down by make, model, year, price, location, and more.",
     details: [
-      "Search thousands of verified listings",
+      "Search listings across Canada",
       "Filter by price, year, body type",
-      "See inspection status at a glance",
+      "Compare key vehicle details at a glance",
     ],
   },
   {
@@ -37,7 +37,7 @@ const steps = [
   },
   {
     icon: FileCheck,
-    title: "Get Verified Report",
+    title: "Review Inspection Details",
     desc: "A certified inspector visits the vehicle and submits a detailed condition report covering mechanical, exterior, and interior condition.",
     details: [
       "200+ point inspection checklist",
@@ -74,8 +74,7 @@ export default function HowItWorks() {
             How 1ntel Works
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
-            Our verification process protects both buyers and sellers from fraud.
-            Every step is designed to give you peace of mind.
+            1ntel helps buyers and sellers connect, compare listings, and use inspection support for better decisions.
           </p>
         </div>
       </section>
@@ -137,7 +136,7 @@ export default function HowItWorks() {
               {
                 icon: ShieldCheck,
                 title: "Trust & Safety",
-                desc: "Every listing goes through verification. No hidden surprises.",
+                desc: "Clear listing details help buyers make informed decisions.",
               },
               {
                 icon: Shield,
@@ -174,7 +173,7 @@ export default function HowItWorks() {
           </h2>
 
           <p className="text-sm sm:text-base text-white/85 mt-3">
-            Browse verified cars or list your own today.
+            Browse cars or list your own today.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">

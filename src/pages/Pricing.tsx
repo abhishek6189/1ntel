@@ -46,7 +46,7 @@ const plans = [
     cta: "Buy Listing Credit",
     link: "/dashboard",
     checkoutPlan: "individual_listing",
-    highlighted: false,
+    highlighted: true,
   },
   {
     name: "Garage",
@@ -65,7 +65,7 @@ const plans = [
     cta: "Upgrade to Garage",
     link: "/dashboard",
     checkoutPlan: "garage",
-    highlighted: true,
+    highlighted: false,
   },
   {
     name: "Dealer",
@@ -283,7 +283,11 @@ export default function Pricing() {
               </div>
             </div>
 
-            <div className="mx-auto mt-10 grid max-w-6xl gap-5 md:grid-cols-2 lg:grid-cols-3 lg:items-center">
+            <div className={`mx-auto mt-10 grid gap-5 lg:items-center ${
+              isApprovedDealer
+                ? "max-w-md justify-center"
+                : "max-w-6xl md:grid-cols-2 lg:grid-cols-3"
+            }`}>
               {visiblePlans.map((plan) => {
                 const checkoutPlanName = plan.checkoutPlan || "";
                 const isDealerCheckout = plan.name === "Dealer";

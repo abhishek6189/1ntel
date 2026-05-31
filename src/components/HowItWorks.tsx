@@ -5,7 +5,7 @@ const steps = [
   {
     icon: Search,
     title: 'Find Your Car',
-    description: 'Browse verified listings from sellers across Canada with detailed filters.',
+    description: 'Browse listings from sellers across Canada with detailed filters.',
   },
   {
     icon: CreditCard,
@@ -14,7 +14,7 @@ const steps = [
   },
   {
     icon: ClipboardCheck,
-    title: 'Get Verified Report',
+    title: 'Review Inspection Details',
     description: 'A certified inspector visits the vehicle and submits a detailed condition report.',
   },
   {
@@ -35,7 +35,7 @@ const HowItWorks = () => (
       >
         <h2 className="font-heading text-3xl md:text-4xl font-bold mb-4">How It Works</h2>
         <p className="text-muted-foreground max-w-lg mx-auto">
-          Our verification process protects both buyers and sellers from fraud.
+          1ntel helps buyers and sellers connect with more confidence.
         </p>
       </motion.div>
 

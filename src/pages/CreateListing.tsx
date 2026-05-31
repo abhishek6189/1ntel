@@ -327,7 +327,7 @@ export default function CreateListing() {
       );
     }
 
-    toast.success("Car Listed Successfully 🚀");
+    toast.success("Car Listed Successfully");
 
     /* ✅ FIXED REDIRECT */
     await goToDashboard();

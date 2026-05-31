@@ -134,7 +134,8 @@ const DealerDashboard = () => {
       currency: "CAD",
       maximumFractionDigits: 0,
     }).format(Number(value || 0));
-  const listingBlocked = !subscriptionAccess || subscriptionAccess.allowed === false;
+  const planChecking = subscriptionAccess === null;
+  const listingBlocked = subscriptionAccess?.allowed === false;
   const nextPaymentText = subscriptionAccess?.currentPeriodEnd
     ? subscriptionAccess.currentPeriodEnd.toLocaleDateString("en-CA", {
         year: "numeric",
@@ -161,19 +162,29 @@ const DealerDashboard = () => {
         {/* BUTTON */}
         <button
           onClick={() => {
+            if (planChecking) {
+              return;
+            }
             if (listingBlocked) {
               startDealerCheckout();
               return;
             }
             navigate("/dashboard/create-listing");
           }}
-          disabled={checkoutLoading}
+          disabled={checkoutLoading || planChecking}
           className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm"
         >
-          {checkoutLoading ? "Opening checkout..." : listingBlocked ? "Activate Plan" : "+ Add Car"}
+          {checkoutLoading
+            ? "Opening checkout..."
+            : planChecking
+              ? "Checking plan..."
+              : listingBlocked
+                ? "Activate Plan"
+                : "+ Add Car"}
         </button>
       </div>
 
+      {!planChecking && (
       <div
         className={`rounded-xl border p-4 text-sm ${
           subscriptionAccess?.allowed
@@ -217,6 +228,7 @@ const DealerDashboard = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* ================= STATS ================= */}
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -256,7 +268,7 @@ const DealerDashboard = () => {
           <GlobalLoader className="py-10" />
         ) : cars.length === 0 ? (
           <p className="text-gray-400 text-sm">
-            No listings yet 🚀
+            No listings yet
           </p>
         ) : (
           <div className="space-y-3 sm:space-y-4">

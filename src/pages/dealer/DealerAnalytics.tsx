@@ -5,13 +5,24 @@ import {
   Car,
   CheckCircle,
   Clock,
+  Download,
   DollarSign,
+  Info,
   TrendingUp
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { downloadMonthlyAnalyticsPdf } from "@/utils/monthlyAnalyticsPdf";
 
 const DealerAnalytics = () => {
 
   const [cars, setCars] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,11 +35,21 @@ const DealerAnalytics = () => {
 
     if (!user) return;
 
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("full_name, business_name, email, phone")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const { data: carsData } = await supabase
       .from("cars")
       .select("*")
       .eq("seller_id", user.id);
 
+    setProfile({
+      ...(profileData || {}),
+      email: profileData?.email || user.email,
+    });
     setCars(carsData || []);
     setLoading(false);
   };
@@ -80,11 +101,37 @@ const DealerAnalytics = () => {
 
     monthlyMap[key].entries.push({
       time: d.toLocaleString(),
+      title: car.title,
+      status: car.status || "active",
       price: car.price
     });
   });
 
   const monthly = Object.entries(monthlyMap);
+
+  const downloadReport = (month: string, data: any) => {
+    const monthEntries = data.entries || [];
+    const monthActive = monthEntries.filter((entry: any) => entry.status === "active").length;
+    const monthPending = monthEntries.filter((entry: any) => entry.status === "pending").length;
+    const avgMonthPrice = data.count > 0 ? Math.round(data.totalValue / data.count) : 0;
+    const successRate = data.count > 0 ? Math.round((monthActive / data.count) * 100) : 0;
+
+    downloadMonthlyAnalyticsPdf({
+      month,
+      dealerName: profile?.business_name || profile?.full_name || "Dealer",
+      email: profile?.email,
+      phone: profile?.phone,
+      generatedAt: new Date(),
+      totalListings: data.count,
+      activeListings: monthActive,
+      pendingListings: monthPending,
+      totalValue: data.totalValue,
+      soldValue: data.soldValue,
+      avgPrice: avgMonthPrice,
+      successRate,
+      entries: monthEntries,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -95,29 +142,55 @@ const DealerAnalytics = () => {
           Analytics
         </h1>
         <p className="text-gray-500 text-sm">
-          Smart insights of your dealership 🚀
+          Smart insights of your dealership
         </p>
       </div>
 
       {/* ================= STATS ================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
-        <Card icon={<Car />} label="Total Cars" value={totalCars} />
-        <Card icon={<CheckCircle />} label="Active" value={activeCars} />
-        <Card icon={<Clock />} label="Pending" value={pendingCars} />
-        <Card icon={<DollarSign />} label="Value" value={formatPrice(totalValue)} />
+        <Card
+          icon={<Car />}
+          label="Total Cars"
+          value={totalCars}
+          info="Total number of listings currently in your dealer account."
+        />
+        <Card
+          icon={<CheckCircle />}
+          label="Active"
+          value={activeCars}
+          info="Listings that are live and visible to buyers."
+        />
+        <Card
+          icon={<Clock />}
+          label="Pending"
+          value={pendingCars}
+          info="Listings waiting for approval, review, or completion before going live."
+        />
+        <Card
+          icon={<DollarSign />}
+          label="Value"
+          value={formatPrice(totalValue)}
+          info="Combined asking price of all listings in your account."
+        />
 
       </div>
 
       {/* ================= EXTRA INSIGHTS ================= */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
 
-        <Card icon={<TrendingUp />} label="Avg Price" value={formatPrice(avgPrice)} />
+        <Card
+          icon={<TrendingUp />}
+          label="Avg Price"
+          value={formatPrice(avgPrice)}
+          info="Average listing price, calculated as total value divided by total cars."
+        />
 
         <Card
           icon={<CheckCircle />}
           label="Success Rate"
           value={`${activePercent}%`}
+          info="Percentage of your listings that are currently active."
         />
 
       </div>
@@ -138,11 +211,24 @@ const DealerAnalytics = () => {
               <div key={month} className="border rounded-lg p-3 space-y-2">
 
                 {/* HEADER */}
-                <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center">
-                  <p className="font-semibold">{month}</p>
-                  <p className="text-sm text-gray-500">
-                    Listings: {data.count}
-                  </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+                  <div>
+                    <p className="font-semibold">{month}</p>
+                    <p className="text-sm text-gray-500">
+                      Listings: {data.count}
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => downloadReport(month, data)}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
                 </div>
 
                 {/* VALUES */}
@@ -216,11 +302,31 @@ const DealerAnalytics = () => {
 export default DealerAnalytics;
 
 /* ================= CARD ================= */
-const Card = ({ icon, label, value }: any) => (
+const Card = ({ icon, label, value, info }: any) => (
   <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3 min-w-0">
     <div className="text-blue-600">{icon}</div>
     <div className="min-w-0">
-      <p className="text-sm text-gray-500">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <p className="text-sm text-gray-500">{label}</p>
+        {info && (
+          <TooltipProvider delayDuration={120}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-300 text-slate-500 transition hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  aria-label={`${label} information`}
+                >
+                  <Info className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64 text-xs leading-relaxed">
+                {info}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
       <p className="break-words text-lg font-bold sm:text-xl">{value}</p>
     </div>
   </div>

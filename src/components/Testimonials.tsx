@@ -10,7 +10,7 @@ const testimonials = [
   {
     name: 'Priya S.',
     location: 'Vancouver, BC',
-    text: 'Sold my car in a week. The verification badge gave buyers real confidence to reach out.',
+    text: 'Sold my car in a week. The clean listing page helped serious buyers reach out quickly.',
   },
   {
     name: 'Marc L.',

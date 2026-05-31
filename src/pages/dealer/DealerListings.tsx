@@ -101,7 +101,7 @@ const DealerListings = () => {
       })
       .eq("id", id);
 
-    toast.success("Car featured for 7 days 🚀");
+    toast.success("Car featured for 7 days");
     load();
   };
 
@@ -130,7 +130,7 @@ const DealerListings = () => {
       setTimeout(() => setCelebrate(false), 3000);
       toast.success("🎉 Congrats! Sold via platform!");
     } else {
-      toast("Keep pushing! More buyers coming 🚀");
+      toast("Keep pushing! More buyers coming");
     }
 
     load();
@@ -167,7 +167,8 @@ const DealerListings = () => {
       currency: "CAD",
       maximumFractionDigits: 0,
     }).format(Number(value || 0));
-  const listingBlocked = !subscriptionAccess || subscriptionAccess.allowed === false;
+  const planChecking = subscriptionAccess === null;
+  const listingBlocked = subscriptionAccess?.allowed === false;
   const nextPaymentText = subscriptionAccess?.currentPeriodEnd
     ? subscriptionAccess.currentPeriodEnd.toLocaleDateString("en-CA", {
         year: "numeric",
@@ -200,22 +201,32 @@ const DealerListings = () => {
 
         <button
           onClick={() => {
+            if (planChecking) {
+              return;
+            }
             if (listingBlocked) {
               startDealerCheckout();
               return;
             }
             navigate("/dashboard/create-listing");
           }}
-          disabled={checkoutLoading}
+          disabled={checkoutLoading || planChecking}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 md:w-auto"
         >
           <Plus size={16} />
-          {checkoutLoading ? "Opening checkout..." : listingBlocked ? "Activate Plan" : "Add Car"}
+          {checkoutLoading
+            ? "Opening checkout..."
+            : planChecking
+              ? "Checking plan..."
+              : listingBlocked
+                ? "Activate Plan"
+                : "Add Car"}
         </button>
 
       </div>
 
       {/* ================= LOADING ================= */}
+      {!planChecking && (
       <div
         className={`rounded-xl border p-4 text-sm ${
           subscriptionAccess?.allowed
@@ -259,6 +270,7 @@ const DealerListings = () => {
           </button>
         </div>
       </div>
+      )}
 
       {loading ? (
         <GlobalLoader className="py-12" />
@@ -266,19 +278,29 @@ const DealerListings = () => {
 
         <div className="text-center py-20">
           <p className="text-gray-400 text-lg">
-            No cars yet 🚀
+            No cars yet
           </p>
           <button
             onClick={() => {
+              if (planChecking) {
+                return;
+              }
               if (listingBlocked) {
                 startDealerCheckout();
                 return;
               }
               navigate("/dashboard/create-listing");
             }}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg"
+            disabled={checkoutLoading || planChecking}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {checkoutLoading ? "Opening checkout..." : listingBlocked ? "Activate Dealer Plan" : "Add your first car"}
+            {checkoutLoading
+              ? "Opening checkout..."
+              : planChecking
+                ? "Checking plan..."
+                : listingBlocked
+                  ? "Activate Dealer Plan"
+                  : "Add your first car"}
           </button>
         </div>
 

@@ -5,6 +5,13 @@ import Footer from "@/components/Footer";
 import FullscreenGallery from "@/components/FullscreenGallery";
 import GlobalLoader from "@/components/GlobalLoader";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { FALLBACK_AVATAR_URL } from "@/utils/imageFiles";
 import { toast } from "sonner";
@@ -57,6 +64,7 @@ const CarDetail = () => {
 
   const [chatLoading, setChatLoading] = useState(false);
   const [inspectionRequested, setInspectionRequested] = useState(false);
+  const [inspectionSoonOpen, setInspectionSoonOpen] = useState(false);
 
   useEffect(() => {
     const inspectionStatus = searchParams.get("inspection");
@@ -213,8 +221,8 @@ const CarDetail = () => {
     setChatLoading(false);
   };
 
-  const requestInspection = async () => {
-    toast.info("Inspection requests are coming soon.");
+  const requestInspection = () => {
+    setInspectionSoonOpen(true);
   };
 
   if (!car) return <GlobalLoader className="min-h-screen" />;
@@ -359,12 +367,6 @@ const CarDetail = () => {
               </h1>
 
               <div className="flex gap-2 mt-2 flex-wrap">
-                {car.is_verified && (
-                  <span className="bg-green-100 text-green-700 px-2 py-1 text-xs rounded">
-                    Verified
-                  </span>
-                )}
-
                 {car.mileage < 20000 && (
                   <span className="bg-blue-100 text-blue-700 px-2 py-1 text-xs rounded">
                     Low Mileage
@@ -425,7 +427,7 @@ const CarDetail = () => {
                 onClick={requestInspection}
               >
                 <ShieldCheck className="mr-2 h-4 w-4" />
-                Coming Soon
+                Request Inspection
               </Button>
 
               <div className="flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
@@ -501,11 +503,28 @@ const CarDetail = () => {
           variant="outline"
           onClick={requestInspection}
         >
-          Soon
+          Inspect
         </Button>
       </div>
 
       <Footer />
+
+      <Dialog open={inspectionSoonOpen} onOpenChange={setInspectionSoonOpen}>
+        <DialogContent className="max-w-[92vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-blue-600" />
+              Inspection coming soon
+            </DialogTitle>
+            <DialogDescription>
+              This feature is coming soon.
+            </DialogDescription>
+          </DialogHeader>
+          <Button onClick={() => setInspectionSoonOpen(false)}>
+            Got it
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       {galleryOpen && (
         <FullscreenGallery

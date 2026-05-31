@@ -171,8 +171,8 @@ const NotFound = () => {
             {[
               {
                 icon: BadgeCheck,
-                title: "Verified Dealers",
-                copy: "Only verified and trusted dealers, across Canada.",
+                title: "Trusted Dealers",
+                copy: "Connect with trusted dealers across Canada.",
               },
               {
                 icon: FileText,

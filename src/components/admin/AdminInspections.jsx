@@ -28,17 +28,6 @@ export default function AdminInspections({ inspections = [], onRefresh }) {
       return;
     }
 
-    if (newStatus === "completed") {
-      const insp = inspections.find((item) => item.id === id);
-
-      if (insp?.car_id) {
-        await supabase
-          .from("cars")
-          .update({ inspection_status: "passed" })
-          .eq("id", insp.car_id);
-      }
-    }
-
     toast.success("Inspection status updated");
     onRefresh();
   };

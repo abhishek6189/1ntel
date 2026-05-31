@@ -8,7 +8,7 @@ const planConfig: any = {
   free: { label: "Private Seller", className: "bg-white text-gray-900 border-white" },
 };
 
-const CarCard = ({ car, index = 0 }: any) => {
+const CarCard = ({ car, index = 0, compact = false }: any) => {
   const sellerPlan = String(car?.seller_plan || "free").toLowerCase();
   const plan = planConfig[sellerPlan] || planConfig.free;
   const sellerLabel = car?.seller_plan_label || plan.label;
@@ -30,7 +30,7 @@ const CarCard = ({ car, index = 0 }: any) => {
 
           {/* IMAGE */}
 
-          <div className="relative aspect-[16/10] overflow-hidden">
+          <div className={`relative overflow-hidden ${compact ? "aspect-[4/3] sm:aspect-[16/10]" : "aspect-[16/10]"}`}>
 
             <img
               src={image}
@@ -40,11 +40,11 @@ const CarCard = ({ car, index = 0 }: any) => {
 
             {/* SELLER TYPE BADGE */}
 
-            <div className="absolute top-3 left-3">
+            <div className={compact ? "absolute left-2 top-2 sm:left-3 sm:top-3" : "absolute top-3 left-3"}>
 
               <Badge
                 variant="outline"
-                className={plan.className}
+                className={`${plan.className} ${compact ? "px-1.5 py-0 text-[10px] sm:px-2.5 sm:py-0.5 sm:text-xs" : ""}`}
               >
                 {sellerLabel}
               </Badge>
@@ -54,32 +54,32 @@ const CarCard = ({ car, index = 0 }: any) => {
             {/* FAVORITE BUTTON (future feature) */}
 
             <button
-              className="absolute top-3 right-3 bg-white/90 backdrop-blur rounded-full p-2 shadow hover:bg-white transition"
+              className={`${compact ? "absolute right-2 top-2 rounded-full bg-white/90 p-1.5 shadow backdrop-blur transition hover:bg-white sm:right-3 sm:top-3 sm:p-2" : "absolute top-3 right-3 bg-white/90 backdrop-blur rounded-full p-2 shadow hover:bg-white transition"}`}
             >
-              <Heart className="h-4 w-4 text-muted-foreground" />
+              <Heart className={`${compact ? "h-3.5 w-3.5 sm:h-4 sm:w-4" : "h-4 w-4"} text-muted-foreground`} />
             </button>
 
           </div>
 
           {/* CARD CONTENT */}
 
-          <div className="p-4">
+          <div className={compact ? "p-2.5 sm:p-4" : "p-4"}>
 
             {/* TITLE */}
 
-            <h3 className="font-heading font-semibold text-base group-hover:text-primary transition-colors line-clamp-1 mb-1">
+            <h3 className={`${compact ? "mb-1 line-clamp-2 min-h-[2.25rem] text-sm leading-tight sm:min-h-0 sm:text-base" : "text-base line-clamp-1 mb-1"} font-heading font-semibold group-hover:text-primary transition-colors`}>
               {car?.title || "Vehicle"}
             </h3>
 
             {/* PRICE */}
 
-            <p className="text-2xl font-bold text-primary mb-3">
+            <p className={`${compact ? "mb-2 text-lg sm:mb-3 sm:text-2xl" : "text-2xl mb-3"} font-bold text-primary`}>
               ${Number(car?.price || 0).toLocaleString()}
             </p>
 
             {/* SPECS */}
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs font-medium text-slate-600">
+            <div className={`${compact ? "grid grid-cols-1 gap-y-1 text-[11px] sm:grid-cols-2 sm:gap-x-3 sm:gap-y-2 sm:text-xs" : "grid grid-cols-2 gap-x-3 gap-y-2 text-xs"} font-medium text-slate-600`}>
 
               <span className="flex min-w-0 items-center gap-1.5">
                 <Gauge className="h-3.5 w-3.5 shrink-0 text-slate-500" />

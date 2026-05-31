@@ -171,11 +171,6 @@ const SellerProfile = () => {
               </p>
             )}
 
-            <p className="hidden">
-              {seller?.is_verified
-                ? "✅ Verified Seller"
-                : "⚠️ Not Verified"}
-            </p>
           </div>
 
           {isDealerProfile(seller) ? (
@@ -333,12 +328,6 @@ const SellerProfile = () => {
                     <p className="font-bold mt-2">
                       ${Number(car.price).toLocaleString()}
                     </p>
-
-                    {car.is_verified && (
-                      <span className="text-green-600 text-xs">
-                        Verified
-                      </span>
-                    )}
 
                   </div>
 

@@ -13,7 +13,6 @@ import {
   Plus,
   DollarSign,
   Eye,
-  CheckCircle,
   Pencil,
   Trash2,
   User,
@@ -168,7 +167,6 @@ export default function Dashboard() {
 
   /* STATS */
   const active = cars.filter((c) => c.status !== "sold").length;
-  const verified = cars.filter((c) => c.is_verified).length;
   const sold = cars.filter((c) => c.status === "sold").length;
 
   const formatMoney = (value: any) => `$${Number(value || 0).toLocaleString()}`;
@@ -378,7 +376,6 @@ export default function Dashboard() {
         {/* STATS */}
         <div className={`grid grid-cols-1 sm:grid-cols-2 ${showRevenueStat ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3 sm:gap-4 mb-6`}>
           <Stat icon={<Car />} label="Active" value={active} color="bg-blue-100 text-blue-600" />
-          <Stat icon={<CheckCircle />} label="Verified" value={verified} color="bg-green-100 text-green-600" />
           <Stat icon={<Eye />} label="Sold" value={sold} color="bg-purple-100 text-purple-600" />
           {showRevenueStat && (
             <Stat icon={<DollarSign />} label="Revenue" value={formatMoney(totalValue)} color="bg-yellow-100 text-yellow-600" />

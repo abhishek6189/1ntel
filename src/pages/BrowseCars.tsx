@@ -74,6 +74,7 @@ const BrowseCars = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [showFloatingSearch, setShowFloatingSearch] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const pageNumbers = useMemo(() => getPageNumbers(page, totalPages), [page, totalPages]);
@@ -83,6 +84,17 @@ const BrowseCars = () => {
   useEffect(() => {
     setPage(1);
   }, [query, make, bodyType, transmission, fuelType, priceRange, sort]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowFloatingSearch(window.scrollY > 260);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const trimmedQuery = query.trim();
@@ -214,6 +226,52 @@ const BrowseCars = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const renderSearchBox = () => (
+    <div className="relative min-w-0 rounded-xl shadow-sm">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input
+        placeholder="Search make or model..."
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setSuggestionsOpen(true);
+        }}
+        onFocus={() => setSuggestionsOpen(true)}
+        onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
+        className="h-12 border-gray-200 bg-white pl-10 shadow-sm"
+      />
+
+      {suggestionsOpen && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-50 overflow-hidden rounded-xl border bg-white shadow-lg">
+          {suggestions.map((item) => (
+            <button
+              key={`${item.id}-${item.label}`}
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setQuery(item.label);
+                setSuggestionsOpen(false);
+              }}
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-blue-50"
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-gray-900">
+                  {item.label}
+                </span>
+                {item.location && (
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {item.location}
+                  </span>
+                )}
+              </span>
+              <Search className="h-4 w-4 shrink-0 text-blue-600" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen">
       <SEO
@@ -222,6 +280,14 @@ const BrowseCars = () => {
         path="/browse"
       />
       <Navbar />
+
+      {showFloatingSearch && (
+        <div className="fixed left-0 right-0 top-0 z-[70] border-b border-gray-200 bg-[#f3f4f6]/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            {renderSearchBox()}
+          </div>
+        </div>
+      )}
 
       <main className="container px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <BackButton />
@@ -236,50 +302,8 @@ const BrowseCars = () => {
           </p>
         </motion.div>
 
-        <div className="sticky top-16 z-30 mb-3 pt-2">
-          <div className="relative min-w-0 rounded-xl shadow-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search make or model..."
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setSuggestionsOpen(true);
-              }}
-              onFocus={() => setSuggestionsOpen(true)}
-              onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
-              className="h-12 border-gray-200 bg-white pl-10 shadow-sm"
-            />
-
-            {suggestionsOpen && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-40 overflow-hidden rounded-xl border bg-white shadow-lg">
-                {suggestions.map((item) => (
-                  <button
-                    key={`${item.id}-${item.label}`}
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setQuery(item.label);
-                      setSuggestionsOpen(false);
-                    }}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-blue-50"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-gray-900">
-                        {item.label}
-                      </span>
-                      {item.location && (
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {item.location}
-                        </span>
-                      )}
-                    </span>
-                    <Search className="h-4 w-4 shrink-0 text-blue-600" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="mb-4">
+          {renderSearchBox()}
         </div>
 
         <div className="mb-6 space-y-3">
@@ -406,7 +430,7 @@ const BrowseCars = () => {
           <GlobalLoader />
         ) : cars.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
               {cars.map((car, i) => (
                 <CarCard
                   key={car.id}
@@ -415,6 +439,7 @@ const BrowseCars = () => {
                     image_url: car.car_images?.[0]?.image_url || car.image_url,
                   }}
                   index={i}
+                  compact
                 />
               ))}
             </div>
