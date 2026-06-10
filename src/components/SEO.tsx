@@ -11,6 +11,7 @@ type SEOProps = {
   path?: string;
   image?: string;
   type?: "website" | "article" | "product";
+  noIndex?: boolean;
   structuredData?: Record<string, unknown> | Record<string, unknown>[];
 };
 
@@ -46,6 +47,7 @@ const SEO = ({
   path,
   image = DEFAULT_IMAGE,
   type = "website",
+  noIndex = false,
   structuredData,
 }: SEOProps) => {
   const location = useLocation();
@@ -58,6 +60,7 @@ const SEO = ({
 
     setMeta('meta[name="description"]', "content", description);
     setMeta('meta[name="author"]', "content", SITE_NAME);
+    setMeta('meta[name="robots"]', "content", noIndex ? "noindex, nofollow" : "index, follow");
     setMeta('link[rel="canonical"]', "href", canonicalUrl);
 
     setMeta('meta[property="og:site_name"]', "content", SITE_NAME);
@@ -84,7 +87,7 @@ const SEO = ({
         document.head.appendChild(script);
       });
     }
-  }, [canonicalUrl, description, fullTitle, image, structuredData, type]);
+  }, [canonicalUrl, description, fullTitle, image, noIndex, structuredData, type]);
 
   return null;
 };

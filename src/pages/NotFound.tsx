@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/BrandLogo";
 import Footer from "@/components/Footer";
+import SEO from "@/components/SEO";
 
 const NotFound = () => {
   const location = useLocation();
@@ -22,6 +23,12 @@ const NotFound = () => {
 
   return (
     <div className="min-h-screen bg-white text-slate-950">
+      <SEO
+        title="Page Not Found"
+        description="The page you requested could not be found on 1ntel."
+        path={location.pathname}
+        noIndex
+      />
       <header className="border-b bg-white">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <a href="/" className="inline-flex items-center">

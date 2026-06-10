@@ -2,12 +2,19 @@ import { useNavigate } from "react-router-dom";
 import { Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import SEO from "@/components/SEO";
 
 export default function DealerPending() {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <SEO
+        title="Dealer Application Pending"
+        description="Your 1ntel dealer application is pending review."
+        path="/dealer-pending"
+        noIndex
+      />
       <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-md">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
           <Clock className="h-7 w-7" />

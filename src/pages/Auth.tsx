@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 import Navbar from "@/components/Navbar";
+import SEO from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -639,6 +640,12 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen">
+      <SEO
+        title={isForgot ? "Reset Password" : isLogin ? "Login" : "Create Account"}
+        description="Access your 1ntel account to manage saved cars, messages, listings, and marketplace settings."
+        path="/auth"
+        noIndex
+      />
       <Navbar />
 
       <div className="container flex justify-center py-16 px-4">

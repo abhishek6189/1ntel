@@ -60,6 +60,8 @@ const FullscreenGallery = ({ images, current, setCurrent, onClose }: Props) => {
       <img
         src={images[current]}
         alt={`Vehicle photo ${current + 1}`}
+        loading="eager"
+        decoding="async"
         className="h-full w-full object-contain px-0 py-20 sm:px-16"
       />
 
@@ -84,7 +86,13 @@ const FullscreenGallery = ({ images, current, setCurrent, onClose }: Props) => {
               }`}
               aria-label={`Show photo ${index + 1}`}
             >
-              <img src={image} alt="" className="h-full w-full object-cover" />
+              <img
+                src={image}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>

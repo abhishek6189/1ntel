@@ -308,6 +308,9 @@ const CarDetail = () => {
                 <img
                   src={activeImage}
                   alt={car.title}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
                   className="h-[280px] w-full object-cover transition duration-500 group-hover:scale-[1.02] sm:h-[360px] lg:h-[460px]"
                 />
               </button>
@@ -352,6 +355,8 @@ const CarDetail = () => {
                       <img
                         src={image}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover"
                       />
                     </button>
@@ -444,6 +449,8 @@ const CarDetail = () => {
                   <img
                     src={seller?.avatar_url || FALLBACK_AVATAR_URL}
                     className="w-10 h-10 rounded-full"
+                    loading="lazy"
+                    decoding="async"
                   />
 
                   <div>

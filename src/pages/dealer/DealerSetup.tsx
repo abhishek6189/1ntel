@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BrandLogo from "@/components/BrandLogo";
 import GlobalLoader from "@/components/GlobalLoader";
+import SEO from "@/components/SEO";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -509,6 +510,11 @@ export default function DealerSetup() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-gray-100 flex items-center justify-center p-4">
+      <SEO
+        title="Dealer Registration"
+        description="Apply for a 1ntel dealer account to list vehicles, manage inventory, receive leads, and use dealership tools in Canada."
+        path="/dealer-registration"
+      />
       <div className="w-full max-w-xl">
         <div className="flex flex-col items-center mb-6">
           <BrandLogo className="text-5xl mb-2" />

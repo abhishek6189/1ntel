@@ -30,6 +30,7 @@ const Index = () => (
           "@context": "https://schema.org",
           "@type": "AutoDealer",
           name: "1ntel",
+          alternateName: ["1ntel Canada", "1ntel Cars", "1ntel Marketplace"],
           url: SITE_URL,
           image: `${SITE_URL}/logo.png`,
           telephone: "+1-437-860-7157",

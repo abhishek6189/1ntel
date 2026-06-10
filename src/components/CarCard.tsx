@@ -35,6 +35,9 @@ const CarCard = ({ car, index = 0, compact = false }: any) => {
             <img
               src={image}
               alt={car?.title || "Vehicle"}
+              loading={index === 0 ? "eager" : "lazy"}
+              decoding="async"
+              fetchPriority={index === 0 ? "high" : "auto"}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             />
 

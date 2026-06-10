@@ -13,9 +13,17 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/car/:id", "destination": "/api/car-page?id=:id" },
+    { "source": "/seller/:id", "destination": "/index.html" },
+    { "source": "/chat/:id", "destination": "/index.html" },
+    { "source": "/dashboard", "destination": "/index.html" },
+    { "source": "/dashboard/:path*", "destination": "/index.html" },
+    { "source": "/dealer-dashboard", "destination": "/index.html" },
+    { "source": "/dealer-dashboard/:path*", "destination": "/index.html" },
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/messages", "destination": "/index.html" },
+    { "source": "/profile-settings", "destination": "/index.html" },
+    { "source": "/profile-setup", "destination": "/index.html" },
+    { "source": "/dealer-profile-setup", "destination": "/index.html" }
   ]
 }

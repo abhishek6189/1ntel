@@ -27,6 +27,11 @@ const Footer = () => (
                 1ne+
               </Link>
             </li>
+            <li>
+              <Link to="/blog" className="transition-colors hover:text-foreground">
+                1ntel Blog
+              </Link>
+            </li>
           </ul>
         </div>
 

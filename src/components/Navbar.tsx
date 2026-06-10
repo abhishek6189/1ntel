@@ -19,6 +19,7 @@ const navLinks = [
   { label: "Browse Cars", href: "/browse" },
   { label: "Sell Your Car", href: "/sell", requiresAuth: true },
   { label: "How It Works", href: "/how-it-works" },
+  { label: "Blog", href: "/blog" },
   { label: "1ne+", href: "/pricing" },
 ];
 
@@ -29,9 +30,17 @@ const OnePlusLabel = () => (
   </span>
 );
 
+const isInternalAuthEmail = (value?: string | null) =>
+  String(value || "").includes("@phone.1ntel.local");
+
 const Navbar = () => {
   const { user, profile } = useProfile();
   const visibleNavLinks = navLinks.filter((link) => !link.requiresAuth || user);
+  const displayName = profile?.full_name || "User";
+  const displayContact =
+    profile?.email && !isInternalAuthEmail(profile.email)
+      ? profile.email
+      : profile?.phone || "1ntel account";
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -208,12 +217,12 @@ const Navbar = () => {
                   />
                 ) : (
                   <div className="w-8 h-8 bg-black text-white flex items-center justify-center rounded-full text-sm">
-                    {(profile?.full_name || user?.email?.[0] || "U")[0].toUpperCase()}
+                    {displayName[0].toUpperCase()}
                   </div>
                 )}
 
                 <span className="text-sm">
-                  {profile?.full_name || user?.email?.split("@")[0]}
+                  {displayName}
                 </span>
               </div>
 
@@ -222,11 +231,11 @@ const Navbar = () => {
                 <div className="absolute right-0 mt-2 w-56 bg-white border rounded-xl shadow-lg p-3 z-50">
 
                   <p className="font-semibold">
-                    {profile?.full_name || "User"}
+                    {displayName}
                   </p>
 
                   <p className="text-xs text-gray-500 mb-2">
-                    {user?.email}
+                    {displayContact}
                   </p>
 
                   <hr className="my-2" />
@@ -333,16 +342,16 @@ const Navbar = () => {
                         />
                       ) : (
                         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-base font-semibold text-white">
-                          {(profile?.full_name || user?.email?.[0] || "U")[0].toUpperCase()}
+                          {displayName[0].toUpperCase()}
                         </div>
                       )}
 
                       <div className="min-w-0">
                         <p className="truncate font-semibold">
-                          {profile?.full_name || "User"}
+                          {displayName}
                         </p>
                         <p className="truncate text-xs text-gray-500">
-                          {user?.email}
+                          {displayContact}
                         </p>
                       </div>
                     </div>

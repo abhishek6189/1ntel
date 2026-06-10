@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import BrandLogo from "@/components/BrandLogo";
+import SEO from "@/components/SEO";
 import { supabase } from "@/integrations/supabase/client";
 import { isAccountBanned, showBannedAccountMessage } from "@/utils/accountBan";
 import { auth } from "@/lib/firebase";
@@ -258,6 +259,12 @@ export default function DealerAuth() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6 sm:py-10">
+      <SEO
+        title="Dealer Login"
+        description="Dealer account login for managing 1ntel inventory, leads, messages, and analytics."
+        path="/dealer-auth"
+        noIndex
+      />
       <div className="mx-auto mb-6 flex max-w-5xl items-center justify-between">
         <Link to="/" className="inline-flex items-center">
           <BrandLogo className="text-4xl sm:text-5xl" />
