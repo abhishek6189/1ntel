@@ -327,11 +327,11 @@ export default function AdminOverview({ stats }) {
       </div>
 
       <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-        <DialogContent className="max-w-[94vw] sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[88vh] max-w-[94vw] flex-col overflow-hidden sm:max-w-2xl">
+          <DialogHeader className="shrink-0 pr-6">
             <DialogTitle>New joining activity</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {metrics.recentJoiners.map((user) => (
               <div key={user.id} className="rounded-xl border bg-white p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -357,12 +357,12 @@ export default function AdminOverview({ stats }) {
       </Dialog>
 
       <Dialog open={!!userSection} onOpenChange={(open) => !open && setUserSection(null)}>
-        <DialogContent className="max-h-[88vh] max-w-[96vw] overflow-hidden sm:max-w-5xl">
-          <DialogHeader>
+        <DialogContent className="flex h-[88vh] max-h-[88vh] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-4 sm:max-w-5xl sm:p-6">
+          <DialogHeader className="shrink-0 pr-6">
             <DialogTitle>{userSection?.title || "Users"}</DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">
               {userSection?.users?.length || 0} user{userSection?.users?.length === 1 ? "" : "s"}
             </p>
@@ -386,7 +386,7 @@ export default function AdminOverview({ stats }) {
             </div>
           </div>
 
-          <div className="max-h-[62vh] overflow-auto rounded-xl border">
+          <div className="min-h-0 flex-1 overflow-auto rounded-xl border">
             <table className="w-full min-w-[860px] text-sm">
               <thead className="sticky top-0 bg-slate-50">
                 <tr>
