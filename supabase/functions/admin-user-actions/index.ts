@@ -41,6 +41,121 @@ const updateProfileWithFallback = async (
   }
 };
 
+const updateByIdWithFallback = async (
+  supabase: any,
+  table: string,
+  id: string,
+  payload: Record<string, unknown>
+) => {
+  const currentPayload = { ...payload };
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const { error } = await supabase.from(table).update(currentPayload).eq("id", id);
+    if (!error) return;
+
+    const missingColumn = getMissingSchemaColumn(error);
+    if (missingColumn && missingColumn in currentPayload) {
+      delete currentPayload[missingColumn];
+      continue;
+    }
+
+    throw error;
+  }
+};
+
+const hasAdminAccess = async (adminClient: any, user: any) => {
+  const profileChecks = await Promise.all([
+    adminClient.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    adminClient.from("profiles").select("role").eq("user_id", user.id).maybeSingle(),
+    adminClient.from("profiles").select("role").eq("email", user.email).maybeSingle(),
+  ]);
+
+  if (profileChecks.some((result) => !result.error && String(result.data?.role || "").toLowerCase() === "admin")) {
+    return true;
+  }
+
+  const { data: roleRows, error: roleError } = await adminClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id);
+
+  if (!roleError && roleRows?.some((row: any) => String(row.role || "").toLowerCase() === "admin")) {
+    return true;
+  }
+
+  const { data: hasRole, error: rpcError } = await adminClient.rpc("has_role", {
+    _user_id: user.id,
+    _role: "admin",
+  });
+
+  return !rpcError && hasRole === true;
+};
+
+const syncUserRole = async (adminClient: any, userId: string, role: string) => {
+  const roleForEnum = role === "dealer" ? "seller" : role === "user" ? "buyer" : role;
+  const allowedRoles = new Set(["buyer", "seller", "inspector", "admin"]);
+
+  if (!allowedRoles.has(roleForEnum)) return;
+
+  await adminClient.from("user_roles").delete().eq("user_id", userId);
+  const { error } = await adminClient.from("user_roles").insert({
+    user_id: userId,
+    role: roleForEnum,
+  });
+
+  if (error) throw error;
+};
+
+const maxListingsForPlan = (plan: string) => {
+  if (plan === "dealer") return 35;
+  if (plan === "garage") return 10;
+  return 2;
+};
+
+const syncPlanAccess = async (adminClient: any, userId: string, plan: string) => {
+  const normalizedPlan = String(plan || "").toLowerCase();
+  const allowedPlans = new Set(["free", "individual", "garage", "dealer"]);
+  if (!allowedPlans.has(normalizedPlan)) throw new Error("Invalid plan.");
+
+  await updateProfileWithFallback(adminClient, userId, { plan: normalizedPlan });
+
+  if (normalizedPlan === "free" || normalizedPlan === "individual") {
+    const { error } = await adminClient
+      .from("subscriptions")
+      .update({ status: "cancelled" })
+      .eq("user_id", userId)
+      .in("status", ["active", "trialing", "past_due"]);
+
+    if (error) throw error;
+    return;
+  }
+
+  const payload = {
+    user_id: userId,
+    plan: normalizedPlan,
+    status: "active",
+    max_listings: maxListingsForPlan(normalizedPlan),
+    current_period_start: new Date().toISOString(),
+    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+
+  const { data: existingSubscription, error: findError } = await adminClient
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (findError) throw findError;
+
+  const { error } = existingSubscription?.id
+    ? await adminClient.from("subscriptions").update(payload).eq("id", existingSubscription.id)
+    : await adminClient.from("subscriptions").insert(payload);
+
+  if (error) throw error;
+};
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -65,17 +180,11 @@ serve(async (req: Request) => {
       return json({ error: "Login required." }, 401);
     }
 
-    const { data: adminProfile, error: adminError } = await adminClient
-      .from("profiles")
-      .select("role")
-      .eq("id", userData.user.id)
-      .maybeSingle();
-
-    if (adminError || String(adminProfile?.role || "").toLowerCase() !== "admin") {
+    if (!(await hasAdminAccess(adminClient, userData.user))) {
       return json({ error: "Admin access required." }, 403);
     }
 
-    const { action, userId, value } = await req.json();
+    const { action, userId, value, requestId, rejectionReason } = await req.json();
     if (!userId || typeof userId !== "string") {
       return json({ error: "User id is required." }, 400);
     }
@@ -85,12 +194,50 @@ serve(async (req: Request) => {
     }
 
     if (action === "update_role") {
+      const normalizedRole = String(value || "").toLowerCase();
+      const allowedRoles = new Set(["buyer", "seller", "dealer", "inspector", "admin"]);
+      if (!allowedRoles.has(normalizedRole)) {
+        return json({ error: "Invalid role." }, 400);
+      }
+
       await updateProfileWithFallback(adminClient, userId, { role: value });
+      await syncUserRole(adminClient, userId, normalizedRole);
       return json({ ok: true });
     }
 
     if (action === "update_plan") {
-      await updateProfileWithFallback(adminClient, userId, { plan: value });
+      await syncPlanAccess(adminClient, userId, String(value || "").toLowerCase());
+      return json({ ok: true });
+    }
+
+    if (action === "approve_dealer") {
+      await updateProfileWithFallback(adminClient, userId, {
+        role: "dealer",
+        dealer_status: "approved",
+      });
+      await syncUserRole(adminClient, userId, "dealer");
+
+      if (requestId && !String(requestId).startsWith("profile-")) {
+        await updateByIdWithFallback(adminClient, "dealer_requests", String(requestId), {
+          status: "approved",
+        });
+      }
+
+      return json({ ok: true });
+    }
+
+    if (action === "reject_dealer") {
+      await updateProfileWithFallback(adminClient, userId, {
+        dealer_status: "rejected",
+      });
+
+      if (requestId && !String(requestId).startsWith("profile-")) {
+        await updateByIdWithFallback(adminClient, "dealer_requests", String(requestId), {
+          status: "rejected",
+          rejection_reason: String(rejectionReason || ""),
+        });
+      }
+
       return json({ ok: true });
     }
 

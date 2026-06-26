@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
 import GlobalLoader from "@/components/GlobalLoader";
 import { toast } from "sonner";
+import { getFunctionErrorMessage } from "@/utils/functionErrors";
 
 import AdminOverview from "../components/admin/AdminOverview";
 import AdminListings from "../components/admin/AdminListings";
@@ -19,6 +20,8 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     cars: [],
     users: [],
+    subscriptions: [],
+    listingCreditPayments: [],
     inspections: [],
     contactMessages: []
   });
@@ -70,10 +73,58 @@ export default function AdminDashboard() {
       contactMessages = contactRows || [];
     }
 
+    let subscriptions: any[] = [];
+    let listingCreditPayments: any[] = [];
+    const { data: metricsData, error: metricsError } = await supabase.functions.invoke("admin-metrics");
+
+    if (!metricsError && !metricsData?.error) {
+      subscriptions = metricsData?.subscriptions || [];
+      listingCreditPayments = metricsData?.listingCreditPayments || [];
+    } else if (metricsError) {
+      toast.error(await getFunctionErrorMessage(metricsError, "Could not load billing metrics"));
+    } else if (metricsData?.error) {
+      toast.error(metricsData.error);
+    }
+
     if (carsError) toast.error("Could not load listings");
     if (usersError) toast.error("Could not load users");
 
-    const userMap = new Map((users || []).map((user: any) => [user.id, user]));
+    const subscriptionsByUserId = new Map<string, any[]>();
+    for (const subscription of subscriptions || []) {
+      const rows = subscriptionsByUserId.get(subscription.user_id) || [];
+      rows.push(subscription);
+      subscriptionsByUserId.set(subscription.user_id, rows);
+    }
+
+    const getSubscriptionRank = (subscription: any) => {
+      const status = String(subscription?.status || "").toLowerCase();
+      if (status === "active" || status === "trialing") return 3;
+      if (status === "past_due") return 2;
+      return 1;
+    };
+
+    const getSubscriptionTime = (subscription: any) =>
+      new Date(subscription?.current_period_end || subscription?.created_at || 0).getTime() || 0;
+
+    const usersWithBilling = (users || []).map((user: any) => {
+      const userSubscriptions = subscriptionsByUserId.get(user.id) || [];
+      const latestSubscription = [...userSubscriptions].sort((a, b) => {
+        const rankDiff = getSubscriptionRank(b) - getSubscriptionRank(a);
+        if (rankDiff) return rankDiff;
+        return getSubscriptionTime(b) - getSubscriptionTime(a);
+      })[0];
+
+      return {
+        ...user,
+        subscriptions: userSubscriptions,
+        subscription: latestSubscription || null,
+        subscription_status: latestSubscription?.status || null,
+        subscription_plan: latestSubscription?.plan || null,
+        current_period_end: latestSubscription?.current_period_end || null,
+      };
+    });
+
+    const userMap = new Map(usersWithBilling.map((user: any) => [user.id, user]));
     const enrichedCars = (cars || []).map((car: any) => ({
       ...car,
       seller: userMap.get(car.seller_id),
@@ -99,7 +150,9 @@ export default function AdminDashboard() {
 
     setStats({
       cars: enrichedCars,
-      users: users || [],
+      users: usersWithBilling,
+      subscriptions,
+      listingCreditPayments,
       inspections: enrichedInspections,
       contactMessages
     });
@@ -114,22 +167,22 @@ export default function AdminDashboard() {
 
   return (
 
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
 
       {/* 🔥 HEADER */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+      <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
 
         {/* CENTER LOGO */}
-        <div className="flex justify-center mb-4">
-          <BrandLogo className="text-5xl drop-shadow-sm" />
+        <div className="mb-3 flex justify-center">
+          <BrandLogo className="text-3xl drop-shadow-sm sm:text-4xl" />
         </div>
 
         {/* TITLE */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+        <div className="mb-5 text-center">
+          <h1 className="text-xl font-bold text-slate-950 sm:text-2xl">
             Admin Dashboard
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="mt-1 text-sm text-slate-500">
             Manage your marketplace
           </p>
         </div>
@@ -140,7 +193,7 @@ export default function AdminDashboard() {
             await supabase.auth.signOut();
             window.location.href = "/auth";
           }}
-          className="static mx-auto mt-4 block rounded-lg bg-red-500 px-4 py-2 text-sm text-white shadow hover:bg-red-600 sm:absolute sm:right-6 sm:top-6 sm:mt-0"
+          className="static mx-auto mt-4 block rounded-lg bg-red-500 px-4 py-2 text-sm text-white shadow-sm transition hover:bg-red-600 sm:absolute sm:right-6 sm:top-5 sm:mt-0"
         >
           Logout
         </button>
@@ -148,40 +201,40 @@ export default function AdminDashboard() {
       </div>
 
       {/* 🔥 MAIN CONTENT */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+      <div className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
 
-        <div className="bg-white rounded-xl shadow-sm border p-3 sm:p-4">
+        <div className="rounded-xl border bg-white p-3 shadow-sm sm:p-4">
 
           <Tabs defaultValue="overview">
 
             {/* TABS */}
-            <TabsList className="flex h-auto w-full justify-start gap-2 overflow-x-auto rounded-xl bg-gray-100 p-2">
+            <TabsList className="flex h-auto w-full justify-start gap-2 overflow-x-auto rounded-xl bg-slate-100 p-2">
 
-              <TabsTrigger value="overview" className="gap-2">
+              <TabsTrigger value="overview" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <BarChart3 className="h-4 w-4" /> Overview
               </TabsTrigger>
 
-              <TabsTrigger value="listings" className="gap-2">
+              <TabsTrigger value="listings" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <Car className="h-4 w-4" /> Listings
               </TabsTrigger>
 
-              <TabsTrigger value="users" className="gap-2">
+              <TabsTrigger value="users" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <Users className="h-4 w-4" /> Users
               </TabsTrigger>
 
-              <TabsTrigger value="dealers" className="gap-2">
+              <TabsTrigger value="dealers" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <Building2 className="h-4 w-4" /> Dealers
               </TabsTrigger>
 
-              <TabsTrigger value="featured" className="gap-2">
+              <TabsTrigger value="featured" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <Star className="h-4 w-4" /> Featured
               </TabsTrigger>
 
-              <TabsTrigger value="inspections" className="gap-2">
+              <TabsTrigger value="inspections" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <Shield className="h-4 w-4" /> Inspections
               </TabsTrigger>
 
-              <TabsTrigger value="contact" className="gap-2">
+              <TabsTrigger value="contact" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <Mail className="h-4 w-4" /> Contact
               </TabsTrigger>
 
