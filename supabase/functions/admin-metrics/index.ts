@@ -17,13 +17,29 @@ const json = (body: Record<string, unknown>, status = 200) =>
 const isAdminRole = (role: unknown) => String(role || "").trim().toLowerCase() === "admin";
 
 const hasAdminAccess = async (adminClient: any, user: any) => {
-  const profileChecks = await Promise.all([
+  const metadataRoles = [
+    user?.app_metadata?.role,
+    user?.app_metadata?.user_role,
+    user?.user_metadata?.role,
+    user?.user_metadata?.user_role,
+    ...(Array.isArray(user?.app_metadata?.roles) ? user.app_metadata.roles : []),
+  ];
+
+  if (metadataRoles.some(isAdminRole)) return true;
+
+  const email = String(user.email || "").trim();
+  const profileChecks = [
     adminClient.from("profiles").select("role").eq("id", user.id).maybeSingle(),
     adminClient.from("profiles").select("role").eq("user_id", user.id).maybeSingle(),
-    adminClient.from("profiles").select("role").eq("email", user.email).maybeSingle(),
-  ]);
+  ];
 
-  if (profileChecks.some((result) => !result.error && isAdminRole(result.data?.role))) {
+  if (email) {
+    profileChecks.push(adminClient.from("profiles").select("role").ilike("email", email).maybeSingle());
+  }
+
+  const profileResults = await Promise.all(profileChecks);
+
+  if (profileResults.some((result) => !result.error && isAdminRole(result.data?.role))) {
     return true;
   }
 
@@ -41,7 +57,14 @@ const hasAdminAccess = async (adminClient: any, user: any) => {
     _role: "admin",
   });
 
-  return !rpcError && hasRole === true;
+  if (!rpcError && hasRole === true) return true;
+
+  const adminEmails = String(Deno.env.get("ADMIN_EMAILS") || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Boolean(email && adminEmails.includes(email.toLowerCase()));
 };
 
 serve(async (req: Request) => {

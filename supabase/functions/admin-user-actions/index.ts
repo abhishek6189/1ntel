@@ -63,14 +63,62 @@ const updateByIdWithFallback = async (
   }
 };
 
-const hasAdminAccess = async (adminClient: any, user: any) => {
-  const profileChecks = await Promise.all([
-    adminClient.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-    adminClient.from("profiles").select("role").eq("user_id", user.id).maybeSingle(),
-    adminClient.from("profiles").select("role").eq("email", user.email).maybeSingle(),
-  ]);
+const isAdminValue = (value: unknown) => String(value || "").trim().toLowerCase() === "admin";
 
-  if (profileChecks.some((result) => !result.error && String(result.data?.role || "").toLowerCase() === "admin")) {
+const resolveTargetUser = async (adminClient: any, userId: string) => {
+  const byId = await adminClient
+    .from("profiles")
+    .select("id, user_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!byId.error && byId.data) {
+    return {
+      profileId: byId.data.id,
+      authId: byId.data.user_id || byId.data.id,
+    };
+  }
+
+  const byUserId = await adminClient
+    .from("profiles")
+    .select("id, user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!byUserId.error && byUserId.data) {
+    return {
+      profileId: byUserId.data.id,
+      authId: byUserId.data.user_id || byUserId.data.id,
+    };
+  }
+
+  return { profileId: userId, authId: userId };
+};
+
+const hasAdminAccess = async (adminClient: any, user: any) => {
+  const metadataRoles = [
+    user?.app_metadata?.role,
+    user?.app_metadata?.user_role,
+    user?.user_metadata?.role,
+    user?.user_metadata?.user_role,
+    ...(Array.isArray(user?.app_metadata?.roles) ? user.app_metadata.roles : []),
+  ];
+
+  if (metadataRoles.some(isAdminValue)) return true;
+
+  const profileChecks = [
+    await adminClient.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    await adminClient.from("profiles").select("role").eq("user_id", user.id).maybeSingle(),
+  ];
+
+  const email = String(user.email || "").trim();
+  if (email) {
+    profileChecks.push(
+      await adminClient.from("profiles").select("role").ilike("email", email).maybeSingle()
+    );
+  }
+
+  if (profileChecks.some((result) => !result.error && isAdminValue(result.data?.role))) {
     return true;
   }
 
@@ -79,7 +127,7 @@ const hasAdminAccess = async (adminClient: any, user: any) => {
     .select("role")
     .eq("user_id", user.id);
 
-  if (!roleError && roleRows?.some((row: any) => String(row.role || "").toLowerCase() === "admin")) {
+  if (!roleError && roleRows?.some((row: any) => isAdminValue(row.role))) {
     return true;
   }
 
@@ -88,7 +136,14 @@ const hasAdminAccess = async (adminClient: any, user: any) => {
     _role: "admin",
   });
 
-  return !rpcError && hasRole === true;
+  if (!rpcError && hasRole === true) return true;
+
+  const adminEmails = String(Deno.env.get("ADMIN_EMAILS") || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Boolean(email && adminEmails.includes(email.toLowerCase()));
 };
 
 const syncUserRole = async (adminClient: any, userId: string, role: string) => {
@@ -112,18 +167,23 @@ const maxListingsForPlan = (plan: string) => {
   return 2;
 };
 
-const syncPlanAccess = async (adminClient: any, userId: string, plan: string) => {
+const syncPlanAccess = async (
+  adminClient: any,
+  profileId: string,
+  authId: string,
+  plan: string
+) => {
   const normalizedPlan = String(plan || "").toLowerCase();
   const allowedPlans = new Set(["free", "individual", "garage", "dealer"]);
   if (!allowedPlans.has(normalizedPlan)) throw new Error("Invalid plan.");
 
-  await updateProfileWithFallback(adminClient, userId, { plan: normalizedPlan });
+  await updateProfileWithFallback(adminClient, profileId, { plan: normalizedPlan });
 
   if (normalizedPlan === "free" || normalizedPlan === "individual") {
     const { error } = await adminClient
       .from("subscriptions")
       .update({ status: "cancelled" })
-      .eq("user_id", userId)
+      .eq("user_id", authId)
       .in("status", ["active", "trialing", "past_due"]);
 
     if (error) throw error;
@@ -131,7 +191,7 @@ const syncPlanAccess = async (adminClient: any, userId: string, plan: string) =>
   }
 
   const payload = {
-    user_id: userId,
+    user_id: authId,
     plan: normalizedPlan,
     status: "active",
     max_listings: maxListingsForPlan(normalizedPlan),
@@ -142,7 +202,7 @@ const syncPlanAccess = async (adminClient: any, userId: string, plan: string) =>
   const { data: existingSubscription, error: findError } = await adminClient
     .from("subscriptions")
     .select("id")
-    .eq("user_id", userId)
+    .eq("user_id", authId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -189,7 +249,9 @@ serve(async (req: Request) => {
       return json({ error: "User id is required." }, 400);
     }
 
-    if (userId === userData.user.id) {
+    const targetUser = await resolveTargetUser(adminClient, userId);
+
+    if (userId === userData.user.id || targetUser.authId === userData.user.id) {
       return json({ error: "You cannot change your own admin account here." }, 400);
     }
 
@@ -200,22 +262,27 @@ serve(async (req: Request) => {
         return json({ error: "Invalid role." }, 400);
       }
 
-      await updateProfileWithFallback(adminClient, userId, { role: value });
-      await syncUserRole(adminClient, userId, normalizedRole);
+      await updateProfileWithFallback(adminClient, targetUser.profileId, { role: value });
+      await syncUserRole(adminClient, targetUser.authId, normalizedRole);
       return json({ ok: true });
     }
 
     if (action === "update_plan") {
-      await syncPlanAccess(adminClient, userId, String(value || "").toLowerCase());
+      await syncPlanAccess(
+        adminClient,
+        targetUser.profileId,
+        targetUser.authId,
+        String(value || "").toLowerCase()
+      );
       return json({ ok: true });
     }
 
     if (action === "approve_dealer") {
-      await updateProfileWithFallback(adminClient, userId, {
+      await updateProfileWithFallback(adminClient, targetUser.profileId, {
         role: "dealer",
         dealer_status: "approved",
       });
-      await syncUserRole(adminClient, userId, "dealer");
+      await syncUserRole(adminClient, targetUser.authId, "dealer");
 
       if (requestId && !String(requestId).startsWith("profile-")) {
         await updateByIdWithFallback(adminClient, "dealer_requests", String(requestId), {
@@ -227,7 +294,7 @@ serve(async (req: Request) => {
     }
 
     if (action === "reject_dealer") {
-      await updateProfileWithFallback(adminClient, userId, {
+      await updateProfileWithFallback(adminClient, targetUser.profileId, {
         dealer_status: "rejected",
       });
 
@@ -243,7 +310,7 @@ serve(async (req: Request) => {
 
     if (action === "toggle_ban") {
       const shouldBan = Boolean(value);
-      await updateProfileWithFallback(adminClient, userId, {
+      await updateProfileWithFallback(adminClient, targetUser.profileId, {
         is_banned: shouldBan,
         banned_at: shouldBan ? new Date().toISOString() : null,
       });
@@ -251,12 +318,12 @@ serve(async (req: Request) => {
     }
 
     if (action === "delete_user") {
-      await updateProfileWithFallback(adminClient, userId, {
+      await updateProfileWithFallback(adminClient, targetUser.profileId, {
         is_banned: true,
         deleted_at: new Date().toISOString(),
       });
 
-      const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
+      const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(targetUser.authId);
       if (authDeleteError) {
         return json({
           ok: true,
@@ -267,7 +334,7 @@ serve(async (req: Request) => {
       const { error: profileDeleteError } = await adminClient
         .from("profiles")
         .delete()
-        .eq("id", userId);
+        .eq("id", targetUser.profileId);
 
       if (profileDeleteError) {
         return json({

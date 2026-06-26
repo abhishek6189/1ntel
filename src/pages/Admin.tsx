@@ -90,10 +90,15 @@ export default function AdminDashboard() {
     if (usersError) toast.error("Could not load users");
 
     const subscriptionsByUserId = new Map<string, any[]>();
-    for (const subscription of subscriptions || []) {
-      const rows = subscriptionsByUserId.get(subscription.user_id) || [];
+    const addSubscriptionForKey = (key: string | null | undefined, subscription: any) => {
+      if (!key) return;
+      const rows = subscriptionsByUserId.get(key) || [];
       rows.push(subscription);
-      subscriptionsByUserId.set(subscription.user_id, rows);
+      subscriptionsByUserId.set(key, rows);
+    };
+
+    for (const subscription of subscriptions || []) {
+      addSubscriptionForKey(subscription.user_id, subscription);
     }
 
     const getSubscriptionRank = (subscription: any) => {
@@ -107,7 +112,17 @@ export default function AdminDashboard() {
       new Date(subscription?.current_period_end || subscription?.created_at || 0).getTime() || 0;
 
     const usersWithBilling = (users || []).map((user: any) => {
-      const userSubscriptions = subscriptionsByUserId.get(user.id) || [];
+      const subscriptionIds = new Set<string>();
+      const userSubscriptions = [user.id, user.user_id]
+        .filter(Boolean)
+        .flatMap((key) => subscriptionsByUserId.get(key) || [])
+        .filter((subscription) => {
+          if (!subscription?.id) return true;
+          if (subscriptionIds.has(subscription.id)) return false;
+          subscriptionIds.add(subscription.id);
+          return true;
+        });
+
       const latestSubscription = [...userSubscriptions].sort((a, b) => {
         const rankDiff = getSubscriptionRank(b) - getSubscriptionRank(a);
         if (rankDiff) return rankDiff;
@@ -124,7 +139,11 @@ export default function AdminDashboard() {
       };
     });
 
-    const userMap = new Map(usersWithBilling.map((user: any) => [user.id, user]));
+    const userMap = new Map<string, any>();
+    usersWithBilling.forEach((user: any) => {
+      if (user.id) userMap.set(user.id, user);
+      if (user.user_id) userMap.set(user.user_id, user);
+    });
     const enrichedCars = (cars || []).map((car: any) => ({
       ...car,
       seller: userMap.get(car.seller_id),

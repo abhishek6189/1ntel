@@ -20,10 +20,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Ban, CheckCircle2, Search, Shield, Trash2, UserCog } from "lucide-react";
+import { Ban, CheckCircle2, FileSpreadsheet, FileText, Search, Shield, Trash2, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import moment from "moment";
 import { getFunctionErrorMessage } from "@/utils/functionErrors";
+import { downloadUsersExcel, downloadUsersPdf } from "@/utils/adminExport";
 
 const PLAN_OPTIONS = [
   { value: "free", label: "Free" },
@@ -78,6 +79,7 @@ export default function AdminUsers({ users = [], onRefresh }) {
   const [roleFilter, setRoleFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [banFilter, setBanFilter] = useState("all");
   const [busyUserId, setBusyUserId] = useState("");
   const [pendingDelete, setPendingDelete] = useState(null);
 
@@ -91,6 +93,8 @@ export default function AdminUsers({ users = [], onRefresh }) {
     if (roleFilter !== "all" && role !== roleFilter) return false;
     if (planFilter !== "all" && plan !== planFilter) return false;
     if (statusFilter !== "all" && status !== statusFilter) return false;
+    if (banFilter === "allowed" && user.is_banned) return false;
+    if (banFilter === "banned" && !user.is_banned) return false;
 
     if (!search) return true;
 
@@ -102,11 +106,48 @@ export default function AdminUsers({ users = [], onRefresh }) {
     );
   });
 
+  const resetFilters = () => {
+    setSearch("");
+    setRoleFilter("all");
+    setPlanFilter("all");
+    setStatusFilter("all");
+    setBanFilter("all");
+  };
+
   const quickStats = [
-    { label: "Total", value: visibleUsers.length, icon: UserCog },
-    { label: "Active", value: visibleUsers.filter((user) => !user.is_banned).length, icon: CheckCircle2 },
-    { label: "Banned", value: visibleUsers.filter((user) => user.is_banned).length, icon: Ban },
-    { label: "Admins", value: visibleUsers.filter((user) => getRole(user) === "admin").length, icon: Shield },
+    {
+      label: "Total",
+      value: visibleUsers.length,
+      icon: UserCog,
+      onClick: resetFilters,
+    },
+    {
+      label: "Active",
+      value: visibleUsers.filter((user) => !user.is_banned).length,
+      icon: CheckCircle2,
+      onClick: () => {
+        resetFilters();
+        setBanFilter("allowed");
+      },
+    },
+    {
+      label: "Banned",
+      value: visibleUsers.filter((user) => user.is_banned).length,
+      icon: Ban,
+      onClick: () => {
+        resetFilters();
+        setBanFilter("banned");
+      },
+    },
+    {
+      label: "Admins",
+      value: visibleUsers.filter((user) => getRole(user) === "admin").length,
+      icon: Shield,
+      onClick: () => {
+        resetFilters();
+        setRoleFilter("admin");
+      },
+    },
   ];
 
   const runAdminAction = async ({ action, userId, value, successMessage }) => {
@@ -181,17 +222,22 @@ export default function AdminUsers({ users = [], onRefresh }) {
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {quickStats.map((stat) => (
-          <div key={stat.label} className="rounded-xl border bg-white p-4 shadow-sm">
+          <button
+            key={stat.label}
+            type="button"
+            onClick={stat.onClick}
+            className="rounded-xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+          >
             <div className="mb-2 flex items-center gap-2 text-slate-600">
               <stat.icon className="h-4 w-4" />
               <span className="text-xs font-medium">{stat.label}</span>
             </div>
             <p className="text-xl font-bold text-slate-950">{stat.value}</p>
-          </div>
+          </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_150px_150px_160px]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_140px_140px_150px_150px]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -239,11 +285,42 @@ export default function AdminUsers({ users = [], onRefresh }) {
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select value={banFilter} onValueChange={setBanFilter}>
+          <SelectTrigger className="h-10 rounded-xl">
+            <SelectValue placeholder="Access" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All access</SelectItem>
+            <SelectItem value="allowed">Allowed</SelectItem>
+            <SelectItem value="banned">Banned</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{filtered.length} users found</p>
-        <p className="text-xs text-muted-foreground">Role, plan, ban, and delete actions update live data.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">{filtered.length} users found</p>
+          <p className="text-xs text-muted-foreground">Role, plan, ban, and delete actions update live data.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => downloadUsersExcel("Filtered users", filtered)}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => downloadUsersPdf("Filtered users", filtered)}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
