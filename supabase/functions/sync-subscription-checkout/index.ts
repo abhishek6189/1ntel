@@ -184,11 +184,11 @@ serve(async (req: Request) => {
 
     const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
     const subscriptionStatus = String(subscription.status || "").toLowerCase();
-    const paymentOk = ["active", "trialing", "past_due"].includes(subscriptionStatus);
+    const paymentOk = ["active", "trialing"].includes(subscriptionStatus);
 
     if (!paymentOk) {
       return json({
-        error: `This Stripe subscription is ${subscriptionStatus || "not active"}. Please use the checkout session for the active dealer subscription.`,
+        error: `This Stripe subscription is ${subscriptionStatus || "not active"}. Please complete payment before syncing this plan.`,
       }, 402);
     }
 

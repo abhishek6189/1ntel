@@ -33,7 +33,9 @@ const maxListingsByPlan: Record<string, number> = {
   dealer: 35,
 };
 
-const activeStatuses = new Set(["active", "trialing", "past_due"]);
+const dbActiveStatuses = new Set(["active", "trialing"]);
+const dbRecoverableStatuses = new Set(["past_due"]);
+const stripeRecoverableStatuses = new Set(["past_due", "unpaid", "incomplete"]);
 const stripeBlockingStatuses = ["active", "trialing", "past_due", "unpaid", "incomplete"];
 const cleanEmail = (value: unknown) => {
   const email = String(value || "").trim().toLowerCase();
@@ -139,6 +141,39 @@ const findBlockingStripeSubscription = async (customerId: string) => {
   return null;
 };
 
+const getSubscriptionPaymentUrl = async (
+  subscription: Stripe.Subscription,
+  origin: string,
+  plan: string
+) => {
+  const expandedSubscription = await stripe.subscriptions.retrieve(subscription.id, {
+    expand: ["latest_invoice"],
+  });
+  const latestInvoice =
+    typeof expandedSubscription.latest_invoice === "object"
+      ? expandedSubscription.latest_invoice
+      : null;
+
+  const hostedInvoiceUrl = (latestInvoice as any)?.hosted_invoice_url;
+  if (hostedInvoiceUrl) {
+    return hostedInvoiceUrl;
+  }
+
+  if (expandedSubscription.customer) {
+    return getCustomerPortalUrl(String(expandedSubscription.customer), origin, plan);
+  }
+
+  return null;
+};
+
+const getCustomerPortalUrl = async (customerId: string, origin: string, plan: string) => {
+  const portal = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: `${origin}/${plan === "dealer" ? "dealer-dashboard" : "dashboard"}`,
+  });
+  return portal.url;
+};
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -178,18 +213,43 @@ serve(async (req: Request) => {
       return json({ error: "Dealer accounts must use the dealer subscription." }, 403);
     }
 
+    const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
+
     const { data: existingSubscription } = await adminSupabase
       .from("subscriptions")
-      .select("plan, status")
+      .select("plan, status, stripe_customer_id, stripe_subscription_id")
       .eq("user_id", userData.user.id)
-      .in("status", Array.from(activeStatuses))
+      .in("status", [...Array.from(dbActiveStatuses), ...Array.from(dbRecoverableStatuses)])
       .order("current_period_end", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     const existingStatus = String(existingSubscription?.status || "").toLowerCase();
-    if (existingSubscription && activeStatuses.has(existingStatus)) {
+    if (existingSubscription && (dbActiveStatuses.has(existingStatus) || dbRecoverableStatuses.has(existingStatus))) {
       const existingPlan = String(existingSubscription.plan || "").toLowerCase();
+      if (existingPlan === normalizedPlan && dbRecoverableStatuses.has(existingStatus)) {
+        const stripeSubscriptionId = String(existingSubscription.stripe_subscription_id || "");
+        if (stripeSubscriptionId) {
+          const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+          const url = await getSubscriptionPaymentUrl(stripeSubscription, origin, normalizedPlan);
+          if (url) {
+            return json({ url, recovery: true });
+          }
+        }
+
+        const stripeCustomerId = String(existingSubscription.stripe_customer_id || "");
+        if (stripeCustomerId) {
+          return json({
+            url: await getCustomerPortalUrl(stripeCustomerId, origin, normalizedPlan),
+            recovery: true,
+          });
+        }
+
+        return json({
+          error: "Your subscription payment is overdue. Please contact support to restore billing for this plan.",
+        }, 409);
+      }
+
       if (existingPlan === normalizedPlan) {
         return json({ error: "You already have this plan active." }, 409);
       }
@@ -199,7 +259,6 @@ serve(async (req: Request) => {
       }, 409);
     }
 
-    const origin = req.headers.get("Origin") || "https://www.1ntel.ca";
     const customerEmail = cleanEmail(profile?.email) || cleanEmail(userData.user.email);
     const customer = await ensureStripeCustomer(
       userData.user.id,
@@ -210,6 +269,19 @@ serve(async (req: Request) => {
     const blockingSubscription = await findBlockingStripeSubscription(customer.id);
 
     if (blockingSubscription) {
+      const blockingStatus = String(blockingSubscription.status || "").toLowerCase();
+      const blockingPlan = String(blockingSubscription.metadata?.plan || "").toLowerCase();
+
+      if (
+        stripeRecoverableStatuses.has(blockingStatus) &&
+        (!blockingPlan || blockingPlan === normalizedPlan)
+      ) {
+        const url = await getSubscriptionPaymentUrl(blockingSubscription, origin, normalizedPlan);
+        if (url) {
+          return json({ url, recovery: true });
+        }
+      }
+
       return json({
         error: "A Stripe subscription already exists for this account. Please wait a minute and refresh your dashboard, or contact support if it still does not activate.",
         stripe_subscription_id: blockingSubscription.id,

@@ -23,6 +23,12 @@ import { FALLBACK_AVATAR_URL, getImageUploadPath, prepareImageForUpload } from "
 import type { SubscriptionAccess } from "@/utils/subscriptionAccess";
 import { getFunctionErrorMessage } from "@/utils/functionErrors";
 import {
+  isPaymentActionStatus,
+  isSubscriptionPlan,
+  openBillingPortal,
+  startSubscriptionCheckout,
+} from "@/utils/billing";
+import {
   getListingAllowance,
   startListingCreditCheckout,
   type ListingAllowance,
@@ -39,6 +45,7 @@ export default function Dashboard() {
   const [listingAllowance, setListingAllowance] = useState<ListingAllowance | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [creditCheckoutLoading, setCreditCheckoutLoading] = useState(false);
+  const [planCheckoutLoading, setPlanCheckoutLoading] = useState(false);
   const syncedSessionRef = useRef<string | null>(null);
   const [profileDraft, setProfileDraft] = useState({
     full_name: "",
@@ -164,6 +171,14 @@ export default function Dashboard() {
   const isLimitReached = listingAllowance ? !listingAllowance.canCreate : cars.length >= LIMIT;
   const needsListingCredit = Boolean(listingAllowance?.needsCredit);
   const listingAccessAllowed = subscriptionAccess?.allowed !== false;
+  const subscriptionBillingPlan = isSubscriptionPlan(normalizedPlan);
+  const planNeedsPayment = isPaymentActionStatus(subscriptionAccess?.status);
+  const billingNoticeClass =
+    subscriptionAccess?.noticeTone === "danger"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : subscriptionAccess?.noticeTone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-blue-200 bg-blue-50 text-blue-800";
 
   /* STATS */
   const active = cars.filter((c) => c.status !== "sold").length;
@@ -248,6 +263,30 @@ export default function Dashboard() {
       toast.error(err?.message || "Could not upload this photo");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handlePlanBillingAction = async () => {
+    const billingPlan = String(subscriptionAccess?.plan || profile?.plan || "free").toLowerCase();
+
+    if (!isSubscriptionPlan(billingPlan)) {
+      navigate("/pricing");
+      return;
+    }
+
+    try {
+      setPlanCheckoutLoading(true);
+      if (subscriptionAccess?.paymentActionRequired || subscriptionAccess?.allowed === false) {
+        await startSubscriptionCheckout(billingPlan);
+        return;
+      }
+
+      await openBillingPortal("/dashboard");
+    } catch (err: any) {
+      console.error("Plan billing action error:", err);
+      toast.error(err?.message || "Could not open billing.");
+    } finally {
+      setPlanCheckoutLoading(false);
     }
   };
 
@@ -360,18 +399,60 @@ export default function Dashboard() {
             <Button
               className="w-full sm:w-auto"
               variant="outline"
-              onClick={() => navigate(needsListingCredit ? "/pricing?plan=individual" : "/pricing")}
+              disabled={planCheckoutLoading}
+              onClick={() => {
+                if (needsListingCredit) {
+                  navigate("/pricing?plan=individual");
+                  return;
+                }
+
+                if (subscriptionBillingPlan) {
+                  handlePlanBillingAction();
+                  return;
+                }
+
+                navigate("/pricing");
+              }}
             >
-              {!listingAccessAllowed
-                ? "Renew plan"
+              {planCheckoutLoading
+                ? "Opening billing..."
+                : !listingAccessAllowed
+                ? planNeedsPayment
+                  ? "Renew plan"
+                  : "Activate plan"
                 : needsListingCredit
                   ? "Buy Listing Credit"
-                  : plan === "free" || plan === "individual"
+                  : subscriptionBillingPlan
+                    ? "Manage billing"
+                    : plan === "free" || plan === "individual"
                     ? "Upgrade"
                     : "Current plan"}
             </Button>
           </div>
         </div>
+
+        {subscriptionAccess?.noticeTitle && (
+          <div className={`mb-6 rounded-xl border p-4 text-sm ${billingNoticeClass}`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold">{subscriptionAccess.noticeTitle}</p>
+                {subscriptionAccess.noticeBody && (
+                  <p className="mt-1">{subscriptionAccess.noticeBody}</p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                className="w-full border-current bg-white/60 sm:w-auto"
+                disabled={planCheckoutLoading}
+                onClick={handlePlanBillingAction}
+              >
+                {planCheckoutLoading
+                  ? "Opening billing..."
+                  : subscriptionAccess.noticeActionLabel || "Manage billing"}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* STATS */}
         <div className={`grid grid-cols-1 sm:grid-cols-2 ${showRevenueStat ? "md:grid-cols-4" : "md:grid-cols-3"} gap-3 sm:gap-4 mb-6`}>
@@ -406,8 +487,12 @@ export default function Dashboard() {
                 <p className="mt-1">
                   {subscriptionAccess?.reason || "Please renew your subscription to restore your listings."}
                 </p>
-                <Button className="mt-3" onClick={() => navigate("/pricing")}>
-                  Renew Plan
+                <Button
+                  className="mt-3"
+                  disabled={planCheckoutLoading}
+                  onClick={handlePlanBillingAction}
+                >
+                  {planCheckoutLoading ? "Opening billing..." : "Renew Plan"}
                 </Button>
               </div>
             )}
@@ -416,8 +501,12 @@ export default function Dashboard() {
               <h3 className="font-semibold">Your Listings</h3>
 
               {!listingAccessAllowed ? (
-                <Button className="w-full bg-red-500 md:w-auto" onClick={() => navigate("/pricing")}>
-                  Renew your plan
+                <Button
+                  className="w-full bg-red-500 md:w-auto"
+                  disabled={planCheckoutLoading}
+                  onClick={handlePlanBillingAction}
+                >
+                  {planCheckoutLoading ? "Opening billing..." : "Renew your plan"}
                 </Button>
               ) : isLimitReached ? (
                 <Button

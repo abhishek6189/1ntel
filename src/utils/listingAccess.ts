@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getFunctionErrorMessage } from "@/utils/functionErrors";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
 
 export type ListingAllowance = {
@@ -81,10 +82,11 @@ export const consumeListingSlot = async (userId: string) => {
 export const startListingCreditCheckout = async () => {
   const { data, error } = await supabase.functions.invoke("create-listing-credit-checkout");
 
-  if (error || data?.error) {
-    throw new Error(data?.error || error?.message || "Could not start checkout.");
+  if (error) {
+    throw new Error(await getFunctionErrorMessage(error, "Could not start checkout."));
   }
 
+  if (data?.error) throw new Error(data.error);
   if (!data?.url) throw new Error("Could not start checkout.");
   window.location.href = data.url;
 };

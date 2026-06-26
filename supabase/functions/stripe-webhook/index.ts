@@ -31,6 +31,12 @@ const normalizeSubscriptionStatus = (status: string) => {
   return "past_due";
 };
 
+const maxListingsForPlan = (plan: string) => {
+  if (plan === "dealer") return 35;
+  if (plan === "garage") return 10;
+  return 2;
+};
+
 const updateProfilePlan = async (userId: string, plan: string) => {
   const byId = await supabase
     .from("profiles")
@@ -142,8 +148,12 @@ const upsertSubscription = async (
   session?: Stripe.Checkout.Session
 ) => {
   const userId = subscription.metadata?.user_id || session?.metadata?.user_id;
-  const plan = subscription.metadata?.plan || session?.metadata?.plan;
-  const maxListings = Number(subscription.metadata?.max_listings || session?.metadata?.max_listings || 2);
+  const plan = String(subscription.metadata?.plan || session?.metadata?.plan || "").toLowerCase();
+  const maxListings = Number(
+    subscription.metadata?.max_listings ||
+      session?.metadata?.max_listings ||
+      maxListingsForPlan(plan)
+  );
 
   if (!userId || !plan) return;
 
@@ -242,6 +252,23 @@ serve(async (req: Request) => {
       event.type === "customer.subscription.deleted"
     ) {
       await upsertSubscription(event.data.object as Stripe.Subscription);
+    }
+
+    if (
+      event.type === "invoice.paid" ||
+      event.type === "invoice.payment_succeeded" ||
+      event.type === "invoice.payment_failed"
+    ) {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId =
+        typeof invoice.subscription === "string"
+          ? invoice.subscription
+          : invoice.subscription?.id;
+
+      if (subscriptionId) {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await upsertSubscription(subscription);
+      }
     }
 
     return new Response(JSON.stringify({ received: true }), {

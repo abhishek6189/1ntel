@@ -9,7 +9,9 @@ const PLAN_LIMITS: Record<string, number> = {
 
 const PAID_PLANS = new Set(["garage", "dealer"]);
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
-const GRACE_STATUSES = new Set(["past_due", "unpaid", "incomplete"]);
+const PAYMENT_ACTION_STATUSES = new Set(["past_due", "unpaid", "incomplete"]);
+const RENEWAL_NOTICE_DAYS = 7;
+const PAYMENT_GRACE_DAYS = 7;
 
 const getSellerPlan = (profile: any, subscription: any) => {
   const role = String(profile?.role || "").toLowerCase();
@@ -30,7 +32,15 @@ export type SubscriptionAccess = {
   limit: number;
   status: string;
   graceUntil: Date | null;
+  currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
+  daysUntilPeriodEnd: number | null;
+  renewalDueSoon: boolean;
+  paymentActionRequired: boolean;
+  noticeTone: "info" | "warning" | "danger" | null;
+  noticeTitle?: string;
+  noticeBody?: string;
+  noticeActionLabel?: string;
   reason?: string;
 };
 
@@ -42,10 +52,111 @@ const addDays = (date: string | null | undefined, days: number) => {
   return value;
 };
 
+const getDaysUntil = (date: Date | null) => {
+  if (!date) return null;
+  return Math.ceil((date.getTime() - Date.now()) / 86400000);
+};
+
+const getPlanLabel = (plan: string) => {
+  if (plan === "dealer") return "Dealer";
+  if (plan === "garage") return "Garage";
+  return "Plan";
+};
+
+const formatBillingDate = (date: Date | null) =>
+  date
+    ? date.toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "the billing date";
+
+const getPaymentGraceUntil = (subscription: any) => {
+  return (
+    addDays(subscription?.current_period_start, PAYMENT_GRACE_DAYS) ||
+    addDays(subscription?.current_period_end, PAYMENT_GRACE_DAYS)
+  );
+};
+
+const buildSubscriptionAccess = ({
+  allowed,
+  plan,
+  limit,
+  status,
+  subscription,
+  graceUntil = null,
+  reason,
+}: {
+  allowed: boolean;
+  plan: string;
+  limit: number;
+  status: string;
+  subscription?: any;
+  graceUntil?: Date | null;
+  reason?: string;
+}): SubscriptionAccess => {
+  const currentPeriodStart = addDays(subscription?.current_period_start, 0);
+  const currentPeriodEnd = addDays(subscription?.current_period_end, 0);
+  const daysUntilPeriodEnd = getDaysUntil(currentPeriodEnd);
+  const isPaidPlan = PAID_PLANS.has(plan);
+  const isActive = ACTIVE_STATUSES.has(status);
+  const paymentActionRequired = isPaidPlan && PAYMENT_ACTION_STATUSES.has(status);
+  const renewalDueSoon = Boolean(
+    isPaidPlan &&
+      isActive &&
+      daysUntilPeriodEnd !== null &&
+      daysUntilPeriodEnd >= 0 &&
+      daysUntilPeriodEnd <= RENEWAL_NOTICE_DAYS
+  );
+  const planLabel = getPlanLabel(plan);
+
+  let noticeTone: SubscriptionAccess["noticeTone"] = null;
+  let noticeTitle: string | undefined;
+  let noticeBody: string | undefined;
+  let noticeActionLabel: string | undefined;
+
+  if (paymentActionRequired) {
+    noticeTone = allowed ? "warning" : "danger";
+    noticeTitle = allowed ? `${planLabel} payment needs attention` : `${planLabel} renewal required`;
+    noticeBody = allowed
+      ? `Your payment did not go through. Pay before ${formatBillingDate(graceUntil)} to keep listings live.`
+      : reason || "Payment is overdue. Renew your plan to restore listings.";
+    noticeActionLabel = allowed ? "Pay now" : "Renew now";
+  } else if (renewalDueSoon) {
+    noticeTone = "warning";
+    noticeTitle =
+      status === "trialing" ? `${planLabel} trial ends soon` : `${planLabel} plan renews soon`;
+    noticeBody =
+      status === "trialing"
+        ? `Your trial ends on ${formatBillingDate(currentPeriodEnd)}. Add a valid payment method before then.`
+        : `Your next automatic payment is on ${formatBillingDate(currentPeriodEnd)}. Make sure your payment method is up to date.`;
+    noticeActionLabel = "Manage billing";
+  }
+
+  return {
+    allowed,
+    plan,
+    limit,
+    status,
+    graceUntil,
+    currentPeriodStart,
+    currentPeriodEnd,
+    daysUntilPeriodEnd,
+    renewalDueSoon,
+    paymentActionRequired,
+    noticeTone,
+    noticeTitle,
+    noticeBody,
+    noticeActionLabel,
+    reason,
+  };
+};
+
 const getSubscriptionRank = (subscription: any) => {
   const status = String(subscription?.status || "").toLowerCase();
   if (ACTIVE_STATUSES.has(status)) return 3;
-  if (GRACE_STATUSES.has(status)) return 2;
+  if (PAYMENT_ACTION_STATUSES.has(status)) return 2;
   return 1;
 };
 
@@ -69,8 +180,8 @@ export const hasPaidListingAccess = (subscription: any, fallbackPlan = "free") =
   if (!PAID_PLANS.has(plan)) return true;
   if (ACTIVE_STATUSES.has(status)) return true;
 
-  const graceUntil = addDays(subscription?.current_period_end, 7);
-  return Boolean(GRACE_STATUSES.has(status) && graceUntil && graceUntil > new Date());
+  const graceUntil = getPaymentGraceUntil(subscription);
+  return Boolean(PAYMENT_ACTION_STATUSES.has(status) && graceUntil && graceUntil > new Date());
 };
 
 export const filterVisibleCarsForPublic = async <T extends { seller_id?: string | null }>(
@@ -154,52 +265,50 @@ export const getSubscriptionAccess = async (
   const status = String(subscription?.status || (PAID_PLANS.has(plan) ? "missing" : "active")).toLowerCase();
 
   if (!PAID_PLANS.has(plan)) {
-    return {
+    return buildSubscriptionAccess({
       allowed: true,
       plan,
       limit,
       status,
-      graceUntil: null,
-      currentPeriodEnd: addDays(subscription?.current_period_end, 0),
-    };
+      subscription,
+    });
   }
 
   if (ACTIVE_STATUSES.has(status)) {
-    return {
+    return buildSubscriptionAccess({
       allowed: true,
       plan,
       limit,
       status,
-      graceUntil: null,
-      currentPeriodEnd: addDays(subscription?.current_period_end, 0),
-    };
+      subscription,
+    });
   }
 
-  const graceUntil = addDays(subscription?.current_period_end, 7);
-  const inGrace = GRACE_STATUSES.has(status) && graceUntil && graceUntil > new Date();
+  const graceUntil = getPaymentGraceUntil(subscription);
+  const inGrace = PAYMENT_ACTION_STATUSES.has(status) && graceUntil && graceUntil > new Date();
 
   if (inGrace) {
-    return {
+    return buildSubscriptionAccess({
       allowed: true,
       plan,
       limit,
       status,
       graceUntil,
-      currentPeriodEnd: addDays(subscription?.current_period_end, 0),
       reason: "Payment grace period",
-    };
+      subscription,
+    });
   }
 
-  return {
+  return buildSubscriptionAccess({
     allowed: false,
     plan,
     limit,
     status,
     graceUntil,
-    currentPeriodEnd: addDays(subscription?.current_period_end, 0),
     reason:
       status === "missing"
         ? "Subscription payment is required."
         : "Subscription payment is overdue.",
-  };
+    subscription,
+  });
 };

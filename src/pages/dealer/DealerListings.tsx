@@ -4,6 +4,11 @@ import { Pencil, Trash2, Plus, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
+import {
+  isPaymentActionStatus,
+  openBillingPortal,
+  startSubscriptionCheckout,
+} from "@/utils/billing";
 import GlobalLoader from "@/components/GlobalLoader";
 
 const DealerListings = () => {
@@ -64,17 +69,24 @@ const DealerListings = () => {
 
     try {
       setCheckoutLoading(true);
-      const { data, error } = await supabase.functions.invoke("create-subscription-checkout", {
-        body: { plan: "dealer" },
-      });
-
-      if (error || data?.error) throw new Error(data?.error || error?.message || "Could not start checkout.");
-      if (!data?.url) throw new Error("Could not start checkout.");
-
-      window.location.href = data.url;
+      await startSubscriptionCheckout("dealer");
     } catch (err: any) {
       console.error("Dealer checkout error:", err);
       toast.error(err?.message || "Could not start checkout.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const openDealerBillingPortal = async () => {
+    if (checkoutLoading) return;
+
+    try {
+      setCheckoutLoading(true);
+      await openBillingPortal("/dealer-dashboard/listings");
+    } catch (err: any) {
+      console.error("Dealer billing portal error:", err);
+      toast.error(err?.message || "Could not open billing.");
     } finally {
       setCheckoutLoading(false);
     }
@@ -169,6 +181,14 @@ const DealerListings = () => {
     }).format(Number(value || 0));
   const planChecking = subscriptionAccess === null;
   const listingBlocked = subscriptionAccess?.allowed === false;
+  const needsRenewal = isPaymentActionStatus(subscriptionAccess?.status);
+  const bannerTone = subscriptionAccess?.noticeTone || (subscriptionAccess?.allowed ? "info" : "danger");
+  const bannerClass =
+    bannerTone === "danger"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : bannerTone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-blue-200 bg-blue-50 text-blue-800";
   const nextPaymentText = subscriptionAccess?.currentPeriodEnd
     ? subscriptionAccess.currentPeriodEnd.toLocaleDateString("en-CA", {
         year: "numeric",
@@ -219,7 +239,9 @@ const DealerListings = () => {
             : planChecking
               ? "Checking plan..."
               : listingBlocked
-                ? "Activate Plan"
+                ? needsRenewal
+                  ? "Renew Plan"
+                  : "Activate Plan"
                 : "Add Car"}
         </button>
 
@@ -228,16 +250,17 @@ const DealerListings = () => {
       {/* ================= LOADING ================= */}
       {!planChecking && (
       <div
-        className={`rounded-xl border p-4 text-sm ${
-          subscriptionAccess?.allowed
-            ? "border-blue-200 bg-blue-50 text-blue-800"
-            : "border-red-200 bg-red-50 text-red-700"
-        }`}
+        className={`rounded-xl border p-4 text-sm ${bannerClass}`}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold">
-              {subscriptionAccess?.allowed ? "Dealer plan active" : "Dealer subscription required"}
+              {subscriptionAccess?.noticeTitle ||
+                (subscriptionAccess?.allowed
+                  ? "Dealer plan active"
+                  : needsRenewal
+                    ? "Dealer plan renewal required"
+                    : "Dealer subscription required")}
             </p>
             <p className="mt-1">
               Plan: Dealer • Status: {subscriptionAccess?.status || "checking"}
@@ -248,11 +271,14 @@ const DealerListings = () => {
                 {subscriptionAccess.reason || "Please renew your dealer subscription to restore listings."}
               </p>
             )}
+            {subscriptionAccess?.allowed && subscriptionAccess?.noticeBody && (
+              <p className="mt-1">{subscriptionAccess.noticeBody}</p>
+            )}
           </div>
           <button
             onClick={() => {
               if (subscriptionAccess?.allowed) {
-                navigate("/pricing");
+                openDealerBillingPortal();
                 return;
               }
               startDealerCheckout();
@@ -265,8 +291,10 @@ const DealerListings = () => {
             {checkoutLoading
               ? "Opening checkout..."
               : subscriptionAccess?.allowed
-                ? "Manage Plan"
-                : "Activate Dealer Plan"}
+                ? subscriptionAccess?.noticeActionLabel || "Manage Plan"
+                : needsRenewal
+                  ? "Renew Dealer Plan"
+                  : "Activate Dealer Plan"}
           </button>
         </div>
       </div>
@@ -299,7 +327,9 @@ const DealerListings = () => {
               : planChecking
                 ? "Checking plan..."
                 : listingBlocked
-                  ? "Activate Dealer Plan"
+                  ? needsRenewal
+                    ? "Renew Dealer Plan"
+                    : "Activate Dealer Plan"
                   : "Add your first car"}
           </button>
         </div>

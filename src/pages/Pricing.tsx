@@ -7,6 +7,11 @@ import { ArrowRight, Building2, Car, CheckCircle, Sparkles, Star } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { chooseBestSubscription } from "@/utils/subscriptionAccess";
+import {
+  ACTIVE_BILLING_STATUSES,
+  isPaymentActionStatus,
+  startSubscriptionCheckout as startPlanCheckout,
+} from "@/utils/billing";
 import { startListingCreditCheckout } from "@/utils/listingAccess";
 import SEO from "@/components/SEO";
 import GlobalLoader from "@/components/GlobalLoader";
@@ -119,7 +124,8 @@ export default function Pricing() {
   const [currentStatus, setCurrentStatus] = useState("");
   const [profileRole, setProfileRole] = useState("");
   const [dealerStatus, setDealerStatus] = useState("");
-  const paidPlanActive = ["active", "trialing", "past_due"].includes(currentStatus);
+  const paidPlanActive = ACTIVE_BILLING_STATUSES.has(currentStatus);
+  const paymentActionRequired = isPaymentActionStatus(currentStatus);
   const isApprovedDealer = profileRole === "dealer" && dealerStatus === "approved";
   const visiblePlans = isApprovedDealer
     ? plans.filter((plan) => plan.checkoutPlan === "dealer")
@@ -205,26 +211,14 @@ export default function Pricing() {
       return;
     }
 
+    if (paymentActionRequired && currentPlan !== plan) {
+      toast.info("Please renew your current plan before switching plans.");
+      return;
+    }
+
     try {
       setCheckoutPlan(plan);
-      const { data, error } = await supabase.functions.invoke(
-        "create-subscription-checkout",
-        { body: { plan } }
-      );
-
-      if (error) {
-        let message = error.message || "Could not start checkout.";
-        try {
-          const context = (error as any).context;
-          const body = typeof context?.json === "function" ? await context.json() : null;
-          message = body?.error || message;
-        } catch {}
-        throw new Error(message);
-      }
-      if (data?.error) throw new Error(data.error);
-      if (!data?.url) throw new Error("Could not start checkout.");
-
-      window.location.href = data.url;
+      await startPlanCheckout(plan);
     } catch (err: any) {
       console.error("Subscription checkout error:", err);
       toast.error(err?.message || "Could not start checkout.");
@@ -300,20 +294,32 @@ export default function Pricing() {
                   !dealerCannotUseNonDealerPlan &&
                   currentPlan === planName &&
                   (plan.name === "Free" || paidPlanActive);
+                const isRenewalPlan =
+                  paymentActionRequired && checkoutPlanName && currentPlan === checkoutPlanName;
                 const activeDifferentPaidPlan =
                   paidPlanActive && checkoutPlanName && !isIndividualListing && currentPlan !== checkoutPlanName;
+                const paymentBlockedDifferentPlan =
+                  paymentActionRequired &&
+                  checkoutPlanName &&
+                  !isIndividualListing &&
+                  currentPlan !== checkoutPlanName;
                 const disabled = Boolean(
                   checkoutPlan === checkoutPlanName ||
                     isCurrentPlan ||
                     activeDifferentPaidPlan ||
+                    paymentBlockedDifferentPlan ||
                     dealerCannotUseNonDealerPlan
                 );
                 const buttonLabel = isCurrentPlan
                   ? "Current Plan"
+                  : isRenewalPlan
+                    ? `Renew ${plan.name}`
                     : dealerCannotUseNonDealerPlan || (isApprovedDealer && isFreePlan)
                     ? "Contact Support to Switch"
-                  : activeDifferentPaidPlan
-                    ? "Contact Support to Switch"
+                  : activeDifferentPaidPlan || paymentBlockedDifferentPlan
+                    ? paymentBlockedDifferentPlan
+                      ? "Renew Current Plan First"
+                      : "Contact Support to Switch"
                     : isDealerCheckout && !isApprovedDealer
                       ? "Dealer Sign Up"
                       : isIndividualListing
