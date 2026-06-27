@@ -230,6 +230,11 @@ const ChatPage = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
       .select()
       .single();
 
+    await supabase
+      .from("chat_conversations")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", id);
+
     setMessages((prev) =>
       prev.map((m) => (m.id === tempId ? data : m))
     );

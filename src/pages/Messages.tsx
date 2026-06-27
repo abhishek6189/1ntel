@@ -15,6 +15,54 @@ const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
   const navigate = useNavigate();
 
+  const getConversationVehicleId = (conversation: any) =>
+    conversation?.car_id || conversation?.listing_id || "no-vehicle";
+
+  const getConversationKey = (conversation: any) =>
+    [
+      conversation?.buyer_id || "no-buyer",
+      conversation?.seller_id || "no-seller",
+      getConversationVehicleId(conversation),
+    ].join(":");
+
+  const getMessageTime = (message: any) =>
+    new Date(message?.created_at || 0).getTime() || 0;
+
+  const dedupeConversations = (items: any[]) => {
+    const grouped = new Map<string, any>();
+
+    for (const item of items) {
+      const key = getConversationKey(item);
+      const existing = grouped.get(key);
+
+      if (!existing) {
+        grouped.set(key, item);
+        continue;
+      }
+
+      const itemTime = getMessageTime(item.lastMsg) || new Date(item.updated_at || 0).getTime() || 0;
+      const existingTime = getMessageTime(existing.lastMsg) || new Date(existing.updated_at || 0).getTime() || 0;
+
+      const newer = itemTime >= existingTime ? item : existing;
+      const older = itemTime >= existingTime ? existing : item;
+
+      grouped.set(key, {
+        ...newer,
+        unread: Number(existing.unread || 0) + Number(item.unread || 0),
+        duplicateConversationIds: [
+          ...(newer.duplicateConversationIds || [newer.id]),
+          ...(older.duplicateConversationIds || [older.id]),
+        ],
+      });
+    }
+
+    return [...grouped.values()].sort((a, b) => {
+      const aTime = getMessageTime(a.lastMsg) || new Date(a.updated_at || 0).getTime() || 0;
+      const bTime = getMessageTime(b.lastMsg) || new Date(b.updated_at || 0).getTime() || 0;
+      return bTime - aTime;
+    });
+  };
+
   const loadConversations = async (currentUser = user) => {
     if (!currentUser) {
       setLoading(false);
@@ -38,10 +86,11 @@ const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
 
     const enriched = await Promise.all(
       convos.map(async (c: any) => {
+        const vehicleId = getConversationVehicleId(c);
         const { data: car } = await supabase
           .from("cars")
           .select("title, image_url")
-          .eq("id", c.car_id)
+          .eq("id", vehicleId)
           .single();
 
         const { data: lastMsg } = await client
@@ -78,8 +127,10 @@ const Messages = ({ hideNavbar = false }: { hideNavbar?: boolean }) => {
       })
     );
 
-    setConversations(enriched);
-    setFiltered(enriched);
+    const deduped = dedupeConversations(enriched);
+
+    setConversations(deduped);
+    setFiltered(deduped);
     setLoading(false);
   };
 

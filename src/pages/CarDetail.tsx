@@ -193,13 +193,31 @@ const CarDetail = () => {
 
     setChatLoading(true);
 
-    const { data: existing } = await (supabase as any)
-      .from("chat_conversations")
-      .select("*")
-      .eq("buyer_id", user.id)
-      .eq("seller_id", car.seller_id)
-      .eq("car_id", car.id)
-      .maybeSingle();
+    const findExistingConversation = async () => {
+      const baseQuery = (supabase as any)
+        .from("chat_conversations")
+        .select("*")
+        .eq("buyer_id", user.id)
+        .eq("seller_id", car.seller_id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      const byCarId = await baseQuery.eq("car_id", car.id);
+      if (byCarId.data?.[0]) return byCarId.data[0];
+
+      const byListingId = await (supabase as any)
+        .from("chat_conversations")
+        .select("*")
+        .eq("buyer_id", user.id)
+        .eq("seller_id", car.seller_id)
+        .eq("listing_id", car.id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      return byListingId.data?.[0] || null;
+    };
+
+    const existing = await findExistingConversation();
 
     let convo = existing;
 
