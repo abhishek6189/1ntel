@@ -150,6 +150,92 @@ export default function AdminUsers({ users = [], onRefresh }) {
     },
   ];
 
+  const renderRoleControl = (user, fullWidth = false) => {
+    const role = getRole(user);
+    const busy = busyUserId === user.id;
+
+    return (
+      <div>
+        <Select
+          value={role}
+          onValueChange={(value) => handleRoleChange(user.id, value)}
+          disabled={busy}
+        >
+          <SelectTrigger className={`${fullWidth ? "w-full" : "w-32"} h-9 rounded-lg text-xs`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ROLE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Badge className={`mt-2 rounded-full px-2 py-1 text-xs ${roleColors[role] || roleColors.buyer}`}>
+          {role}
+        </Badge>
+      </div>
+    );
+  };
+
+  const renderPlanControl = (user, fullWidth = false) => {
+    const plan = getPlan(user);
+    const busy = busyUserId === user.id;
+
+    return (
+      <div>
+        <Select
+          value={plan}
+          onValueChange={(value) => handlePlanChange(user.id, value)}
+          disabled={busy}
+        >
+          <SelectTrigger className={`${fullWidth ? "w-full" : "w-32"} h-9 rounded-lg text-xs`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PLAN_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Badge className={`mt-2 rounded-full px-2 py-1 text-xs ${planColors[plan] || planColors.free}`}>
+          {plan}
+        </Badge>
+      </div>
+    );
+  };
+
+  const renderUserControls = (user) => {
+    const status = getStatus(user);
+
+    return (
+      <>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-slate-500">Role</p>
+            {renderRoleControl(user, true)}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-slate-500">Plan</p>
+            {renderPlanControl(user, true)}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Billing</p>
+          <Badge className={`rounded-full px-2 py-1 text-xs ${statusColors[status] || statusColors.missing}`}>
+            {status.replace("_", " ")}
+          </Badge>
+          <p className="mt-2 text-xs text-slate-500">
+            {user.current_period_end
+              ? `Renews ${moment(user.current_period_end).format("MMM D, YYYY")}`
+              : "No renewal date"}
+          </p>
+        </div>
+      </>
+    );
+  };
+
   const runAdminAction = async ({ action, userId, value, successMessage }) => {
     setBusyUserId(userId);
 
@@ -323,16 +409,96 @@ export default function AdminUsers({ users = [], onRefresh }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-        <table className="w-full min-w-[960px] text-sm">
-          <thead className="bg-slate-50">
+      <div className="space-y-3 md:hidden">
+        {filtered.length === 0 && (
+          <div className="rounded-xl border bg-white p-6 text-center text-sm text-muted-foreground shadow-sm">
+            No users found
+          </div>
+        )}
+
+        {filtered.map((user) => {
+          const busy = busyUserId === user.id;
+
+          return (
+            <div key={user.id} className="rounded-xl border bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="break-words font-semibold text-slate-950">
+                    {user.full_name || "No name"}
+                  </p>
+                  <p className="break-words text-xs text-slate-500">{user.email || "Email not added"}</p>
+                  <p className="break-words text-xs text-slate-500">{user.phone || "Phone not added"}</p>
+                </div>
+                <Badge
+                  className={`shrink-0 rounded-full px-2 py-1 text-xs ${
+                    user.is_banned ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {user.is_banned ? "Banned" : "Allowed"}
+                </Badge>
+              </div>
+
+              <div className="grid gap-4">
+                {renderUserControls(user)}
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="font-semibold uppercase text-slate-500">Joined</p>
+                    <p className="mt-1 text-slate-700">
+                      {user.created_at ? moment(user.created_at).format("MMM D, YYYY") : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold uppercase text-slate-500">Time</p>
+                    <p className="mt-1 text-slate-700">
+                      {user.created_at ? moment(user.created_at).format("h:mm A") : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    size="sm"
+                    variant={user.is_banned ? "secondary" : "outline"}
+                    className={`h-9 flex-1 text-xs ${
+                      user.is_banned
+                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                        : "border-red-200 text-red-600 hover:bg-red-50"
+                    }`}
+                    onClick={() => toggleBan(user)}
+                    disabled={busy}
+                  >
+                    {user.is_banned ? "Unban" : "Ban"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-9 flex-1 text-xs"
+                    onClick={() => setPendingDelete(user)}
+                    disabled={busy}
+                  >
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden rounded-xl border bg-white shadow-sm md:block">
+        <div className="max-h-[calc(100vh-300px)] min-h-[360px] overflow-auto overscroll-contain">
+          <table className="w-full min-w-[1080px] text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_hsl(var(--border))]">
             <tr>
-              <th className="p-4 text-left text-xs font-semibold text-slate-500">User</th>
-              <th className="p-4 text-left text-xs font-semibold text-slate-500">Role</th>
-              <th className="p-4 text-left text-xs font-semibold text-slate-500">Plan</th>
-              <th className="p-4 text-left text-xs font-semibold text-slate-500">Billing</th>
-              <th className="p-4 text-left text-xs font-semibold text-slate-500">Joined</th>
-              <th className="p-4 text-right text-xs font-semibold text-slate-500">Actions</th>
+              <th className="whitespace-nowrap p-4 text-left text-xs font-semibold text-slate-500">User</th>
+              <th className="whitespace-nowrap p-4 text-left text-xs font-semibold text-slate-500">Role</th>
+              <th className="whitespace-nowrap p-4 text-left text-xs font-semibold text-slate-500">Plan</th>
+              <th className="whitespace-nowrap p-4 text-left text-xs font-semibold text-slate-500">Billing</th>
+              <th className="whitespace-nowrap p-4 text-left text-xs font-semibold text-slate-500">Joined</th>
+              <th className="whitespace-nowrap p-4 text-right text-xs font-semibold text-slate-500">Actions</th>
             </tr>
           </thead>
 
@@ -346,14 +512,12 @@ export default function AdminUsers({ users = [], onRefresh }) {
             )}
 
             {filtered.map((user) => {
-              const role = getRole(user);
-              const plan = getPlan(user);
               const status = getStatus(user);
               const busy = busyUserId === user.id;
 
               return (
                 <tr key={user.id} className="border-t transition hover:bg-slate-50/80">
-                  <td className="max-w-[300px] p-4">
+                  <td className="w-[320px] max-w-[320px] p-4">
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-slate-950">
                         {user.full_name || "No name"}
@@ -364,43 +528,11 @@ export default function AdminUsers({ users = [], onRefresh }) {
                   </td>
 
                   <td className="p-4">
-                    <Select
-                      value={role}
-                      onValueChange={(value) => handleRoleChange(user.id, value)}
-                      disabled={busy}
-                    >
-                      <SelectTrigger className="h-9 w-32 rounded-lg text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROLE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Badge className={`mt-2 rounded-full px-2 py-1 text-xs ${roleColors[role] || roleColors.buyer}`}>
-                      {role}
-                    </Badge>
+                    {renderRoleControl(user)}
                   </td>
 
                   <td className="p-4">
-                    <Select
-                      value={plan}
-                      onValueChange={(value) => handlePlanChange(user.id, value)}
-                      disabled={busy}
-                    >
-                      <SelectTrigger className="h-9 w-32 rounded-lg text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PLAN_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Badge className={`mt-2 rounded-full px-2 py-1 text-xs ${planColors[plan] || planColors.free}`}>
-                      {plan}
-                    </Badge>
+                    {renderPlanControl(user)}
                   </td>
 
                   <td className="p-4">
@@ -460,7 +592,8 @@ export default function AdminUsers({ users = [], onRefresh }) {
               );
             })}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>

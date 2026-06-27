@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   Bell,
@@ -72,7 +72,18 @@ const isRenewalSoon = (user) => {
 export default function AdminOverview({ stats }) {
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [userSection, setUserSection] = useState(null);
+  const userSectionRef = useRef(null);
   const { cars = [], users = [], inspections = [], listingCreditPayments = [] } = stats;
+
+  useEffect(() => {
+    if (!userSection) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      userSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [userSection]);
 
   const metrics = useMemo(() => {
     const visibleUsers = users.filter((user) => !user.deleted_at);
@@ -235,6 +246,14 @@ export default function AdminOverview({ stats }) {
         />
       </div>
 
+      {userSection && (
+        <UserSectionPanel
+          ref={userSectionRef}
+          section={userSection}
+          onClose={() => setUserSection(null)}
+        />
+      )}
+
       <div>
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -327,11 +346,11 @@ export default function AdminOverview({ stats }) {
       </div>
 
       <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-        <DialogContent className="flex max-h-[88vh] max-w-[94vw] flex-col overflow-hidden sm:max-w-2xl">
+        <DialogContent className="flex max-h-[88vh] max-w-[94vw] flex-col overflow-hidden overscroll-contain sm:max-w-2xl">
           <DialogHeader className="shrink-0 pr-6">
             <DialogTitle>New joining activity</DialogTitle>
           </DialogHeader>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
             {metrics.recentJoiners.map((user) => (
               <div key={user.id} className="rounded-xl border bg-white p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -356,78 +375,6 @@ export default function AdminOverview({ stats }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!userSection} onOpenChange={(open) => !open && setUserSection(null)}>
-        <DialogContent className="flex h-[88vh] max-h-[88vh] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-4 sm:max-w-5xl sm:p-6">
-          <DialogHeader className="shrink-0 pr-6">
-            <DialogTitle>{userSection?.title || "Users"}</DialogTitle>
-          </DialogHeader>
-
-          <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-500">
-              {userSection?.users?.length || 0} user{userSection?.users?.length === 1 ? "" : "s"}
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => downloadUsersExcel(userSection?.title || "Users", userSection?.users || [])}
-              >
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Excel
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => downloadUsersPdf(userSection?.title || "Users", userSection?.users || [])}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                PDF
-              </Button>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-auto rounded-xl border">
-            <table className="w-full min-w-[860px] text-sm">
-              <thead className="sticky top-0 bg-slate-50">
-                <tr>
-                  <th className="p-3 text-left text-xs font-semibold text-slate-500">User</th>
-                  <th className="p-3 text-left text-xs font-semibold text-slate-500">Phone</th>
-                  <th className="p-3 text-left text-xs font-semibold text-slate-500">Role</th>
-                  <th className="p-3 text-left text-xs font-semibold text-slate-500">Plan</th>
-                  <th className="p-3 text-left text-xs font-semibold text-slate-500">Billing</th>
-                  <th className="p-3 text-left text-xs font-semibold text-slate-500">Joined</th>
-                  <th className="p-3 text-left text-xs font-semibold text-slate-500">Renewal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(userSection?.users || []).map((user) => (
-                  <tr key={user.id} className="border-t">
-                    <td className="max-w-[260px] p-3">
-                      <p className="truncate font-semibold text-slate-950">{user.full_name || "No name"}</p>
-                      <p className="truncate text-xs text-slate-500">{user.email || "No email"}</p>
-                    </td>
-                    <td className="p-3 text-slate-600">{user.phone || "-"}</td>
-                    <td className="p-3 text-slate-600">{getRole(user)}</td>
-                    <td className="p-3 text-slate-600">{getUserPlan(user)}</td>
-                    <td className="p-3 text-slate-600">{getSubscriptionStatus(user)}</td>
-                    <td className="p-3 text-slate-600">{formatDateTime(user.created_at)}</td>
-                    <td className="p-3 text-slate-600">
-                      {formatDateTime(user.current_period_end || user.subscription?.current_period_end)}
-                    </td>
-                  </tr>
-                ))}
-                {(!userSection?.users || userSection.users.length === 0) && (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-500">
-                      No users in this section.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -455,6 +402,102 @@ const StatusPanel = ({ title, icon: Icon, users, tone, onOpen }) => (
   </button>
 );
 
+const UserSectionPanel = forwardRef(({ section, onClose }, ref) => {
+  const sectionUsers = section?.users || [];
+  const title = section?.title || "Users";
+
+  return (
+    <section ref={ref} className="scroll-mt-4 rounded-xl border bg-white p-3 shadow-sm sm:p-4">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <h2 className="break-words text-base font-semibold text-slate-950 sm:text-lg">{title}</h2>
+          <p className="text-sm text-slate-500">
+            {sectionUsers.length} user{sectionUsers.length === 1 ? "" : "s"}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 sm:flex">
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-w-0"
+            onClick={() => downloadUsersExcel(title, sectionUsers)}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-w-0"
+            onClick={() => downloadUsersPdf(title, sectionUsers)}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+          <Button size="sm" variant="secondary" className="min-w-0" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+
+      <div className="max-h-[70vh] overflow-y-auto overscroll-contain rounded-xl border bg-slate-50 p-3 lg:hidden">
+        <div className="space-y-3">
+          {sectionUsers.map((user) => (
+            <UserSectionCard key={user.id} user={user} />
+          ))}
+          {sectionUsers.length === 0 && (
+            <p className="py-8 text-center text-sm text-slate-500">No users in this section.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="hidden max-h-[72vh] overflow-auto overscroll-contain rounded-xl border lg:block">
+        <table className="w-full min-w-[920px] text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_hsl(var(--border))]">
+            <tr>
+              <th className="whitespace-nowrap p-3 text-left text-xs font-semibold text-slate-500">User</th>
+              <th className="whitespace-nowrap p-3 text-left text-xs font-semibold text-slate-500">Phone</th>
+              <th className="whitespace-nowrap p-3 text-left text-xs font-semibold text-slate-500">Role</th>
+              <th className="whitespace-nowrap p-3 text-left text-xs font-semibold text-slate-500">Plan</th>
+              <th className="whitespace-nowrap p-3 text-left text-xs font-semibold text-slate-500">Billing</th>
+              <th className="whitespace-nowrap p-3 text-left text-xs font-semibold text-slate-500">Joined</th>
+              <th className="whitespace-nowrap p-3 text-left text-xs font-semibold text-slate-500">Renewal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sectionUsers.map((user) => (
+              <tr key={user.id} className="border-t bg-white">
+                <td className="w-[260px] max-w-[260px] p-3">
+                  <p className="truncate font-semibold text-slate-950">{user.full_name || "No name"}</p>
+                  <p className="truncate text-xs text-slate-500">{user.email || "No email"}</p>
+                </td>
+                <td className="p-3 text-slate-600">{user.phone || "-"}</td>
+                <td className="p-3 text-slate-600">{getRole(user)}</td>
+                <td className="p-3 text-slate-600">{getUserPlan(user)}</td>
+                <td className="p-3 text-slate-600">{getSubscriptionStatus(user)}</td>
+                <td className="p-3 text-slate-600">{formatDateTime(user.created_at)}</td>
+                <td className="p-3 text-slate-600">
+                  {formatDateTime(user.current_period_end || user.subscription?.current_period_end)}
+                </td>
+              </tr>
+            ))}
+            {sectionUsers.length === 0 && (
+              <tr>
+                <td colSpan={7} className="bg-white p-8 text-center text-slate-500">
+                  No users in this section.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+});
+
+UserSectionPanel.displayName = "UserSectionPanel";
+
 const MetricPill = ({ label, value, danger = false, warning = false }) => (
   <div
     className={`rounded-lg border px-3 py-2 ${
@@ -476,5 +519,36 @@ const UserLine = ({ user }) => (
     <p className="truncate text-slate-500">
       {getRole(user)} - {getUserPlan(user)} - {getSubscriptionStatus(user)}
     </p>
+  </div>
+);
+
+const UserSectionCard = ({ user }) => (
+  <div className="rounded-xl border bg-slate-50 p-3 text-sm">
+    <div className="min-w-0">
+      <p className="break-words font-semibold text-slate-950">{user.full_name || "No name"}</p>
+      <p className="break-words text-xs text-slate-500">{user.email || "No email"}</p>
+      <p className="break-words text-xs text-slate-500">{user.phone || "No phone"}</p>
+    </div>
+
+    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+      <InfoPill label="Role" value={getRole(user)} />
+      <InfoPill label="Plan" value={getUserPlan(user)} />
+      <InfoPill label="Billing" value={getSubscriptionStatus(user)} />
+      <InfoPill label="Joined" value={formatDateTime(user.created_at)} />
+    </div>
+
+    <div className="mt-2">
+      <InfoPill
+        label="Renewal"
+        value={formatDateTime(user.current_period_end || user.subscription?.current_period_end)}
+      />
+    </div>
+  </div>
+);
+
+const InfoPill = ({ label, value }) => (
+  <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2">
+    <p className="text-[11px] font-semibold uppercase leading-4 text-slate-500">{label}</p>
+    <p className="break-words text-xs text-slate-800">{value || "-"}</p>
   </div>
 );

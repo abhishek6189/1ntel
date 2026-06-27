@@ -220,14 +220,14 @@ export default function AdminDashboard() {
       </div>
 
       {/* 🔥 MAIN CONTENT */}
-      <div className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+      <div className="mx-auto min-w-0 max-w-7xl px-3 pb-10 sm:px-6 lg:px-8">
 
-        <div className="rounded-xl border bg-white p-3 shadow-sm sm:p-4">
+        <div className="min-w-0 rounded-xl border bg-white p-3 shadow-sm sm:p-4">
 
-          <Tabs defaultValue="overview">
+          <Tabs defaultValue="overview" className="min-w-0">
 
             {/* TABS */}
-            <TabsList className="flex h-auto w-full justify-start gap-2 overflow-x-auto rounded-xl bg-slate-100 p-2">
+            <TabsList className="flex h-auto w-full justify-start gap-2 overflow-x-auto overscroll-x-contain rounded-xl bg-slate-100 p-2">
 
               <TabsTrigger value="overview" className="shrink-0 gap-2 text-xs sm:text-sm">
                 <BarChart3 className="h-4 w-4" /> Overview
@@ -260,31 +260,31 @@ export default function AdminDashboard() {
             </TabsList>
 
             {/* CONTENT */}
-            <TabsContent value="overview" className="mt-6">
+            <TabsContent value="overview" className="mt-6 min-w-0">
               <AdminOverview stats={stats} />
             </TabsContent>
 
-            <TabsContent value="listings" className="mt-6">
+            <TabsContent value="listings" className="mt-6 min-w-0">
               <AdminListings cars={stats.cars} onRefresh={fetchAll} />
             </TabsContent>
 
-            <TabsContent value="users" className="mt-6">
+            <TabsContent value="users" className="mt-6 min-w-0">
               <AdminUsers users={stats.users} onRefresh={fetchAll} />
             </TabsContent>
 
-            <TabsContent value="featured" className="mt-6">
+            <TabsContent value="featured" className="mt-6 min-w-0">
               <AdminFeatured cars={stats.cars} onRefresh={fetchAll} />
             </TabsContent>
 
-            <TabsContent value="dealers" className="mt-6">
+            <TabsContent value="dealers" className="mt-6 min-w-0">
               <AdminDealers users={stats.users} onRefresh={fetchAll} />
             </TabsContent>
 
-            <TabsContent value="inspections" className="mt-6">
+            <TabsContent value="inspections" className="mt-6 min-w-0">
               <AdminInspections inspections={stats.inspections} onRefresh={fetchAll} />
             </TabsContent>
 
-            <TabsContent value="contact" className="mt-6">
+            <TabsContent value="contact" className="mt-6 min-w-0">
               <AdminContactMessages messages={stats.contactMessages} onRefresh={fetchAll} />
             </TabsContent>
 
