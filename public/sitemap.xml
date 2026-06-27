@@ -61,6 +61,16 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://www.1ntel.ca/blog/used-cars-in-toronto</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.1ntel.ca/blog/used-cars-in-scarborough</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.1ntel.ca/dealer-registration</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

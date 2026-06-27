@@ -26,7 +26,7 @@ const routes = [
     description:
       "Learn about 1ntel, the Canadian used car marketplace built for buyers, private sellers, garages, and approved dealers.",
     type: "article",
-    image: `${siteUrl}/car1.jpeg`,
+    image: `${siteUrl}/blog-what-is-1ntel.png`,
   },
   {
     path: "/blog/used-car-inspection-checklist-canada",
@@ -34,7 +34,7 @@ const routes = [
     description:
       "A practical used car inspection checklist for Canadian buyers reviewing vehicle history, mileage, photos, tires, body condition, and seller details.",
     type: "article",
-    image: `${siteUrl}/car2.jpeg`,
+    image: `${siteUrl}/blog-used-car-inspection-canada.png`,
   },
   {
     path: "/blog/how-to-sell-your-car-privately-in-ontario",
@@ -42,7 +42,7 @@ const routes = [
     description:
       "Steps for selling a used car privately in Ontario, including pricing, photos, listing details, buyer messages, safety, and paperwork preparation.",
     type: "article",
-    image: `${siteUrl}/carr2.jpg`,
+    image: `${siteUrl}/blog-sell-car-ontario.png`,
   },
   {
     path: "/blog/avoid-used-car-scams-canada",
@@ -50,7 +50,23 @@ const routes = [
     description:
       "Safety tips for avoiding used car scams in Canada, including fake listings, suspicious deposits, payment pressure, and unclear seller information.",
     type: "article",
-    image: `${siteUrl}/carr3%20(1).jpg`,
+    image: `${siteUrl}/blog-avoid-used-car-scams.png`,
+  },
+  {
+    path: "/blog/used-cars-in-toronto",
+    title: "Used Cars in Toronto | 1ntel Blog",
+    description:
+      "A practical guide to finding used cars in Toronto, comparing listings by neighbourhood, price, mileage, condition, seller type, and inspection details.",
+    type: "article",
+    image: `${siteUrl}/blog-used-cars-toronto.png`,
+  },
+  {
+    path: "/blog/used-cars-in-scarborough",
+    title: "Used Cars in Scarborough | 1ntel Blog",
+    description:
+      "A local guide for shopping used cars in Scarborough, including budget planning, mileage checks, seller questions, inspections, and comparing nearby listings.",
+    type: "article",
+    image: `${siteUrl}/blog-used-cars-scarborough.png`,
   },
   {
     path: "/browse",

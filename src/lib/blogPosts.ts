@@ -24,7 +24,7 @@ export const blogPosts: BlogPost[] = [
     dateModified: "2026-06-10",
     category: "1ntel",
     readTime: "3 min read",
-    hero: "/car1.jpeg",
+    hero: "/blog-what-is-1ntel.png",
     intro:
       "1ntel is a Canadian used car marketplace for people who want a clearer way to buy, sell, compare, and manage vehicle listings online.",
     sections: [
@@ -67,7 +67,7 @@ export const blogPosts: BlogPost[] = [
     dateModified: "2026-06-10",
     category: "Buying Guide",
     readTime: "5 min read",
-    hero: "/car2.jpeg",
+    hero: "/blog-used-car-inspection-canada.png",
     intro:
       "Before buying a used car in Canada, a careful inspection can help you avoid hidden costs and compare listings with more confidence.",
     sections: [
@@ -110,7 +110,7 @@ export const blogPosts: BlogPost[] = [
     dateModified: "2026-06-10",
     category: "Selling Guide",
     readTime: "5 min read",
-    hero: "/carr2.jpg",
+    hero: "/blog-sell-car-ontario.png",
     intro:
       "Selling your car privately in Ontario can help you reach serious buyers, but the listing needs clear details, strong photos, and a safe process.",
     sections: [
@@ -153,7 +153,7 @@ export const blogPosts: BlogPost[] = [
     dateModified: "2026-06-10",
     category: "Safety",
     readTime: "4 min read",
-    hero: "/carr3 (1).jpg",
+    hero: "/blog-avoid-used-car-scams.png",
     intro:
       "Used car scams can happen on any marketplace, but a careful process helps buyers and sellers spot red flags earlier.",
     sections: [
@@ -183,6 +183,92 @@ export const blogPosts: BlogPost[] = [
         body: [
           "1ntel gives buyers and sellers a focused place to compare listings and communicate around vehicle details.",
           "Trust your judgment and ask for more information when something feels incomplete.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "used-cars-in-toronto",
+    title: "Used Cars in Toronto",
+    description:
+      "A practical guide to finding used cars in Toronto, comparing listings by neighbourhood, price, mileage, condition, seller type, and inspection details.",
+    datePublished: "2026-06-28",
+    dateModified: "2026-06-28",
+    category: "Local Guide",
+    readTime: "5 min read",
+    hero: "/blog-used-cars-toronto.png",
+    intro:
+      "Toronto is one of Canada's busiest used car markets, so buyers need a clear way to compare listings, locations, prices, mileage, and seller details before booking a viewing.",
+    sections: [
+      {
+        heading: "Start with your Toronto driving needs",
+        body: [
+          "Before comparing used cars in Toronto, think about your daily route, parking space, winter driving, fuel cost, insurance, and whether you need a compact car, SUV, sedan, van, or truck.",
+          "A downtown buyer may care more about parking and fuel economy, while someone commuting across the GTA may prioritize comfort, highway mileage, and reliability.",
+        ],
+      },
+      {
+        heading: "Compare listings by location and total cost",
+        body: [
+          "Toronto listings can vary by neighbourhood, mileage, condition, trim, ownership history, and seller type. Look beyond the asking price and compare the total cost of taxes, registration, insurance, repairs, and inspection needs.",
+          "On 1ntel, buyers can browse used car listings and review important details before contacting the seller.",
+        ],
+      },
+      {
+        heading: "Check photos, mileage, and condition carefully",
+        body: [
+          "Strong Toronto used car listings should include clear exterior, interior, dashboard, odometer, tire, and damage-area photos.",
+          "Compare mileage against the vehicle age and ask about service records, accident history, rust, warning lights, recent repairs, and whether the vehicle is ready for a safety inspection.",
+        ],
+      },
+      {
+        heading: "Use a focused marketplace for Toronto used cars",
+        body: [
+          "A car-focused marketplace helps buyers compare vehicles without sorting through unrelated classified listings.",
+          "1ntel is built for Canadian used car buyers, private sellers, garages, and approved dealers who want clearer vehicle details and a focused buying process.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "used-cars-in-scarborough",
+    title: "Used Cars in Scarborough",
+    description:
+      "A local guide for shopping used cars in Scarborough, including budget planning, mileage checks, seller questions, inspections, and comparing nearby listings.",
+    datePublished: "2026-06-28",
+    dateModified: "2026-06-28",
+    category: "Local Guide",
+    readTime: "5 min read",
+    hero: "/blog-used-cars-scarborough.png",
+    intro:
+      "Scarborough has a wide range of used cars for commuters, families, students, and local drivers, so it helps to compare listings with a practical checklist.",
+    sections: [
+      {
+        heading: "Know what kind of car fits Scarborough driving",
+        body: [
+          "Scarborough drivers often balance city traffic, highway access, family needs, parking, fuel economy, and winter reliability.",
+          "Before contacting sellers, decide whether you need a small commuter car, family SUV, minivan, sedan, hybrid, or work vehicle.",
+        ],
+      },
+      {
+        heading: "Compare Scarborough listings with nearby areas",
+        body: [
+          "Used car prices can change based on mileage, trim, vehicle history, condition, seller type, and how quickly the seller wants to close.",
+          "Compare Scarborough listings with nearby Toronto and GTA options so you can understand whether the asking price is realistic.",
+        ],
+      },
+      {
+        heading: "Ask the right questions before viewing",
+        body: [
+          "Ask about ownership history, accident history, service records, current issues, tire condition, brake condition, rust, warning lights, and whether a safety certificate is available.",
+          "If the listing has limited photos or vague details, ask for more information before travelling to see the car.",
+        ],
+      },
+      {
+        heading: "Browse used cars on 1ntel",
+        body: [
+          "1ntel gives buyers a focused place to browse used cars, compare listing details, and contact sellers across Toronto, Scarborough, and Canada.",
+          "For sellers in Scarborough, a complete listing with clear photos, accurate mileage, and honest condition notes can help attract better buyer conversations.",
         ],
       },
     ],
