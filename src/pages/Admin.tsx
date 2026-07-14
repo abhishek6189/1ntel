@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Car, Users, Star, Shield, BarChart3, Building2, Mail } from 'lucide-react';
+import { Car, Users, Star, Shield, BarChart3, Building2, Mail, MessageSquareText } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
 import GlobalLoader from "@/components/GlobalLoader";
@@ -14,6 +14,7 @@ import AdminFeatured from "../components/admin/AdminFeatured";
 import AdminInspections from "../components/admin/AdminInspections";
 import AdminDealers from "../components/admin/AdminDealers";
 import AdminContactMessages from "../components/admin/AdminContactMessages";
+import AdminTestimonials from "../components/admin/AdminTestimonials";
 
 export default function AdminDashboard() {
 
@@ -257,6 +258,10 @@ export default function AdminDashboard() {
                 <Mail className="h-4 w-4" /> Contact
               </TabsTrigger>
 
+              <TabsTrigger value="testimonials" className="shrink-0 gap-2 text-xs sm:text-sm">
+                <MessageSquareText className="h-4 w-4" /> Reviews
+              </TabsTrigger>
+
             </TabsList>
 
             {/* CONTENT */}
@@ -286,6 +291,10 @@ export default function AdminDashboard() {
 
             <TabsContent value="contact" className="mt-6 min-w-0">
               <AdminContactMessages messages={stats.contactMessages} onRefresh={fetchAll} />
+            </TabsContent>
+
+            <TabsContent value="testimonials" className="mt-6 min-w-0">
+              <AdminTestimonials />
             </TabsContent>
 
           </Tabs>
