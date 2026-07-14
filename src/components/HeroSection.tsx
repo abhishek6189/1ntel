@@ -23,9 +23,9 @@ const HeroSection = () => {
   const [index, setIndex] = useState(0);
 
   const images = [
-    "car1.jpeg",
-    "carr2.jpg",
-    "carr3 (1).jpg",
+    "hero-marketplace-1.png",
+    "hero-marketplace-2.png",
+    "hero-marketplace-3.png",
   ];
 
   /* AUTO SLIDE */
