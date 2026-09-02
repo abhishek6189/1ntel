@@ -9,7 +9,7 @@ const PLAN_LIMITS: Record<string, number> = {
 
 const PAID_PLANS = new Set(["garage", "dealer"]);
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
-const PAYMENT_ACTION_STATUSES = new Set(["past_due", "unpaid", "incomplete"]);
+const PAYMENT_ACTION_STATUSES = new Set(["past_due", "unpaid", "incomplete", "trial_expired"]);
 const RENEWAL_NOTICE_DAYS = 7;
 const PAYMENT_GRACE_DAYS = 7;
 
@@ -178,6 +178,9 @@ export const hasPaidListingAccess = (subscription: any, fallbackPlan = "free") =
   const status = String(subscription?.status || (PAID_PLANS.has(plan) ? "missing" : "active")).toLowerCase();
 
   if (!PAID_PLANS.has(plan)) return true;
+  const isCardlessTrial = status === "trialing" && !subscription?.stripe_subscription_id;
+  const trialEnd = addDays(subscription?.current_period_end, 0);
+  if (isCardlessTrial) return Boolean(trialEnd && trialEnd > new Date());
   if (ACTIVE_STATUSES.has(status)) return true;
 
   const graceUntil = getPaymentGraceUntil(subscription);
@@ -263,6 +266,11 @@ export const getSubscriptionAccess = async (
   const plan = String(subscription?.plan || fallbackPlan || "free").toLowerCase();
   const limit = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
   const status = String(subscription?.status || (PAID_PLANS.has(plan) ? "missing" : "active")).toLowerCase();
+  const isCardlessTrial = status === "trialing" && !subscription?.stripe_subscription_id;
+  const cardlessTrialEnd = addDays(subscription?.current_period_end, 0);
+  const cardlessTrialExpired = Boolean(
+    isCardlessTrial && (!cardlessTrialEnd || cardlessTrialEnd <= new Date())
+  );
 
   if (!PAID_PLANS.has(plan)) {
     return buildSubscriptionAccess({
@@ -271,6 +279,17 @@ export const getSubscriptionAccess = async (
       limit,
       status,
       subscription,
+    });
+  }
+
+  if (cardlessTrialExpired) {
+    return buildSubscriptionAccess({
+      allowed: false,
+      plan,
+      limit,
+      status: "trial_expired",
+      subscription,
+      reason: "Your 30-day free trial has ended. Payment is required to continue listing vehicles.",
     });
   }
 

@@ -17,15 +17,24 @@ const DashboardRedirect = () => {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
+      const getProfile = async (column: "id" | "user_id") => {
+        const { data: profile } = await (supabase as any)
+          .from("profiles")
+          .select("role")
+          .eq(column, data.user.id)
+          .maybeSingle();
+        return profile;
+      };
+
+      const profile =
+        (await getProfile("id")) ||
+        (await getProfile("user_id"));
 
       const role = profile?.role;
 
-      if (role === "dealer") {
+      if (role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (role === "dealer") {
         navigate("/dealer-dashboard");
       } else {
         navigate("/dashboard");

@@ -83,10 +83,8 @@ export default function DealerAuth() {
     setLoading(true);
 
     try {
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("dealer_license_number", license.trim())
+      const { data: profile, error: profileError } = await (supabase as any)
+        .rpc("get_dealer_login_identity", { p_license: license.trim() })
         .maybeSingle();
 
       if (profileError || !profile) {

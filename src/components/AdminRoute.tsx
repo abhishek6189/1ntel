@@ -26,6 +26,16 @@ const getProfileByColumn = async (column: string, value?: string | null) => {
 };
 
 const checkAdminAccess = async (user: any) => {
+  // app_metadata can only be assigned by the server and is safe for access
+  // checks. Do not trust user_metadata here because users can edit it.
+  const appMetadataRoles = [
+    user?.app_metadata?.role,
+    user?.app_metadata?.user_role,
+    ...(Array.isArray(user?.app_metadata?.roles) ? user.app_metadata.roles : []),
+  ];
+
+  if (appMetadataRoles.some(isAdminRole)) return true;
+
   const profile =
     (await getProfileByColumn("id", user.id)) ||
     (await getProfileByColumn("user_id", user.id)) ||

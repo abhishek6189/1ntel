@@ -167,6 +167,34 @@ const maxListingsForPlan = (plan: string) => {
   return 2;
 };
 
+const startCardlessDealerTrial = async (adminClient: any, userId: string) => {
+  const { data: existing, error: findError } = await adminClient
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("plan", "dealer")
+    .limit(1)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (existing?.id) return;
+
+  const now = new Date();
+  const trialEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const { error } = await adminClient.from("subscriptions").insert({
+    user_id: userId,
+    plan: "dealer",
+    status: "trialing",
+    max_listings: 35,
+    current_period_start: now.toISOString(),
+    current_period_end: trialEnd.toISOString(),
+    stripe_customer_id: null,
+    stripe_subscription_id: null,
+  });
+
+  if (error) throw error;
+};
+
 const syncPlanAccess = async (
   adminClient: any,
   profileId: string,
@@ -283,6 +311,7 @@ serve(async (req: Request) => {
         dealer_status: "approved",
       });
       await syncUserRole(adminClient, targetUser.authId, "dealer");
+      await startCardlessDealerTrial(adminClient, targetUser.authId);
 
       if (requestId && !String(requestId).startsWith("profile-")) {
         await updateByIdWithFallback(adminClient, "dealer_requests", String(requestId), {

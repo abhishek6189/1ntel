@@ -217,7 +217,7 @@ serve(async (req: Request) => {
 
     const { data: existingSubscription } = await adminSupabase
       .from("subscriptions")
-      .select("plan, status, stripe_customer_id, stripe_subscription_id")
+      .select("plan, status, stripe_customer_id, stripe_subscription_id, current_period_end")
       .eq("user_id", userData.user.id)
       .in("status", [...Array.from(dbActiveStatuses), ...Array.from(dbRecoverableStatuses)])
       .order("current_period_end", { ascending: false })
@@ -225,7 +225,14 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     const existingStatus = String(existingSubscription?.status || "").toLowerCase();
-    if (existingSubscription && (dbActiveStatuses.has(existingStatus) || dbRecoverableStatuses.has(existingStatus))) {
+    const cardlessTrialExpired = Boolean(
+      existingSubscription &&
+      existingStatus === "trialing" &&
+      !existingSubscription.stripe_subscription_id &&
+      (!existingSubscription.current_period_end ||
+        new Date(existingSubscription.current_period_end).getTime() <= Date.now())
+    );
+    if (existingSubscription && !cardlessTrialExpired && (dbActiveStatuses.has(existingStatus) || dbRecoverableStatuses.has(existingStatus))) {
       const existingPlan = String(existingSubscription.plan || "").toLowerCase();
       if (existingPlan === normalizedPlan && dbRecoverableStatuses.has(existingStatus)) {
         const stripeSubscriptionId = String(existingSubscription.stripe_subscription_id || "");
@@ -300,7 +307,6 @@ serve(async (req: Request) => {
         },
       ],
       subscription_data: {
-        trial_period_days: normalizedPlan === "dealer" ? 30 : undefined,
         metadata: {
           user_id: userData.user.id,
           plan: normalizedPlan,

@@ -3,7 +3,7 @@ import { getFunctionErrorMessage } from "@/utils/functionErrors";
 
 export const SUBSCRIPTION_PLANS = new Set(["garage", "dealer"]);
 export const ACTIVE_BILLING_STATUSES = new Set(["active", "trialing"]);
-export const PAYMENT_ACTION_STATUSES = new Set(["past_due", "unpaid", "incomplete"]);
+export const PAYMENT_ACTION_STATUSES = new Set(["past_due", "unpaid", "incomplete", "trial_expired"]);
 
 export const isSubscriptionPlan = (plan?: string | null) =>
   SUBSCRIPTION_PLANS.has(String(plan || "").toLowerCase());

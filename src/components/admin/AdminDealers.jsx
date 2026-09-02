@@ -23,6 +23,7 @@ export default function AdminDealers({ users = [], onRefresh }) {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showReject, setShowReject] = useState(null);
   const [busyId, setBusyId] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     fetchRequests();
@@ -30,6 +31,7 @@ export default function AdminDealers({ users = [], onRefresh }) {
 
   const fetchRequests = async () => {
     setLoading(true);
+    setLoadError("");
 
     const { data, error } = await supabase
       .from("dealer_requests")
@@ -39,7 +41,9 @@ export default function AdminDealers({ users = [], onRefresh }) {
     const requests = error ? [] : data || [];
 
     if (error) {
-      toast.error("Could not load dealer request rows. Showing dealer profiles instead.");
+      console.error("Could not load dealer requests:", error);
+      setLoadError(error.message || "Could not load dealer requests.");
+      toast.error("Could not load dealer requests. Check the database migration/RLS policies.");
     }
 
     const requestKeys = new Set(
@@ -140,6 +144,12 @@ export default function AdminDealers({ users = [], onRefresh }) {
           <p className="text-sm text-slate-500">{applications.length} applications found</p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Dealer requests could not be read from Supabase: {loadError}
+        </div>
+      )}
 
       {applications.length === 0 ? (
         <div className="rounded-xl border bg-white py-10 text-center text-sm text-slate-500">
