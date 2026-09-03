@@ -9,11 +9,9 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  FileText,
   Mail,
   Phone,
   ShieldCheck,
-  Upload,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,16 +34,15 @@ export default function DealerSetup() {
     confirmPassword: "",
     full_name: "",
     business_name: "",
-    dealer_license_number: "",
+    omvic_registration_number: "",
     phone: "",
     email: "",
+    dealership_address: "",
     city: "",
     province: "",
+    website: "",
+    authorization_confirmed: false,
   });
-
-  const [docFile, setDocFile] = useState<any>(null);
-  const [docName, setDocName] = useState("");
-  const [docPreview, setDocPreview] = useState("");
   const [step, setStep] = useState(0);
 
   const [phoneOtp, setPhoneOtp] = useState("");
@@ -66,23 +63,24 @@ export default function DealerSetup() {
     form.password === form.confirmPassword;
 
   const detailsComplete = Boolean(
-    form.full_name.trim() &&
+      form.full_name.trim() &&
       form.business_name.trim() &&
-      form.dealer_license_number.trim() &&
+      form.omvic_registration_number.trim() &&
+      form.dealership_address.trim() &&
       form.city.trim() &&
-      form.province
+      form.province &&
+      form.authorization_confirmed
   );
-  const canSubmit = phoneVerified && emailVerified && passwordsMatch && detailsComplete && docFile && !loading;
+  const canSubmit = phoneVerified && emailVerified && passwordsMatch && detailsComplete && !loading;
 
   const steps = [
     { label: "Phone", icon: Phone, complete: phoneVerified },
     { label: "Email", icon: Mail, complete: emailVerified },
     { label: "Password", icon: ShieldCheck, complete: passwordsMatch },
     { label: "Business", icon: Building2, complete: detailsComplete },
-    { label: "Document", icon: FileText, complete: Boolean(docFile) },
   ];
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | boolean) => {
     setForm((previous) => ({ ...previous, [field]: value }));
 
     if (field === "phone") {
@@ -125,20 +123,6 @@ export default function DealerSetup() {
 
     return () => window.clearTimeout(timer);
   }, [emailOtpCooldown]);
-
-  const handleFile = (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setDocFile(file);
-    setDocName(file.name);
-
-    if (file.type.startsWith("image/")) {
-      setDocPreview(URL.createObjectURL(file));
-    } else {
-      setDocPreview("pdf");
-    }
-  };
 
   const getFirebasePhone = (value: string) => {
     const digits = value.replace(/\D/g, "");
@@ -387,7 +371,6 @@ export default function DealerSetup() {
     if (!isValidEmail(form.email)) return toast.error("Enter a valid email");
     if (!passwordsMatch) return toast.error("Passwords must match and be at least 6 characters");
     if (!detailsComplete) return toast.error("Complete all business details");
-    if (!docFile) return toast.error("Upload license document");
 
     setLoading(true);
 
@@ -395,13 +378,6 @@ export default function DealerSetup() {
       const authEmail = phoneToInternalEmail(form.phone);
       const contactEmail = form.email.trim().toLowerCase();
       const finalPhone = getFirebasePhone(form.phone);
-      const normalizedLicense = form.dealer_license_number.replace(/\D/g, "");
-      const normalizedPhone = finalPhone.replace(/\D/g, "");
-
-      if (normalizedLicense && normalizedLicense === normalizedPhone) {
-        throw new Error("Dealer license number and phone number cannot be the same.");
-      }
-
       const existingProfile = await checkPhoneExists(finalPhone, contactEmail);
       let activeUserId = "";
 
@@ -453,29 +429,21 @@ export default function DealerSetup() {
         activeUserId = user.id;
       }
 
-      const path = `${activeUserId}/${Date.now()}-${docFile.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(path, docFile);
-
-      if (uploadError) throw uploadError;
-
-      const { data: url } = supabase.storage.from("documents").getPublicUrl(path);
-
       await insertWithSchemaFallback("dealer_requests", {
         user_id: activeUserId,
         email: contactEmail,
         auth_email: authEmail,
         full_name: form.full_name,
         business_name: form.business_name,
-        dealer_license_number: form.dealer_license_number,
-        license_number: form.dealer_license_number,
+        omvic_registration_number: form.omvic_registration_number,
         phone: finalPhone,
+        business_phone: finalPhone,
+        business_email: contactEmail,
+        dealership_address: form.dealership_address,
         city: form.city,
         province: form.province,
-        license_document_url: url.publicUrl,
-        documents: url.publicUrl,
+        website: form.website.trim() || null,
+        authorization_confirmed: form.authorization_confirmed,
         status: "pending",
       });
 
@@ -488,8 +456,11 @@ export default function DealerSetup() {
         phone: finalPhone,
         role: "dealer",
         dealer_status: "pending",
-        dealer_license_number: form.dealer_license_number,
+        omvic_registration_number: form.omvic_registration_number,
         business_name: form.business_name,
+        dealership_address: form.dealership_address,
+        website: form.website.trim() || null,
+        authorization_confirmed: form.authorization_confirmed,
         city: form.city,
         province: form.province,
         profile_completed: true,
@@ -533,7 +504,7 @@ export default function DealerSetup() {
           </Button>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-2 gap-2 rounded-xl border bg-gray-50 p-1 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 rounded-xl border bg-gray-50 p-1 sm:grid-cols-4">
               {steps.map((item, index) => {
                 const StepIcon = item.icon;
                 const active = step === index;
@@ -561,14 +532,14 @@ export default function DealerSetup() {
                 <div>
                   <p className="font-semibold text-gray-900">Verify your phone</p>
                   <p className="mt-1 text-sm text-gray-500">
-                    Enter your dealership contact number and confirm the OTP.
+                    Enter the business mobile number you will use to log in and confirm the OTP.
                   </p>
                 </div>
 
                 <Input
                   value={form.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
-                  placeholder="Phone number"
+                  placeholder="Business mobile number"
                   inputMode="tel"
                 />
 
@@ -618,7 +589,7 @@ export default function DealerSetup() {
                 <div>
                   <p className="font-semibold text-gray-900">Verify your email</p>
                   <p className="mt-1 text-sm text-gray-500">
-                    Add an email for approvals, billing, and dealer updates.
+                    Add your business email for approvals, billing, and dealer updates.
                   </p>
                 </div>
 
@@ -626,7 +597,7 @@ export default function DealerSetup() {
                   type="email"
                   value={form.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  placeholder="Email address"
+                  placeholder="Business email address"
                   required
                 />
 
@@ -742,16 +713,22 @@ export default function DealerSetup() {
                     onChange={(e) => handleChange("full_name", e.target.value)}
                   />
                   <Input
-                    placeholder="Business Name"
+                    placeholder="Dealership Name"
                     value={form.business_name}
                     onChange={(e) => handleChange("business_name", e.target.value)}
                   />
                 </div>
 
                 <Input
-                  placeholder="License Number"
-                  value={form.dealer_license_number}
-                  onChange={(e) => handleChange("dealer_license_number", e.target.value)}
+                  placeholder="OMVIC Registration Number"
+                  value={form.omvic_registration_number}
+                  onChange={(e) => handleChange("omvic_registration_number", e.target.value)}
+                />
+
+                <Input
+                  placeholder="Dealership Address"
+                  value={form.dealership_address}
+                  onChange={(e) => handleChange("dealership_address", e.target.value)}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -775,47 +752,26 @@ export default function DealerSetup() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" onClick={() => setStep(2)}>
-                    Back
-                  </Button>
-                  <Button type="button" disabled={!detailsComplete} onClick={() => setStep(4)}>
-                    Continue
-                  </Button>
-                </div>
-              </div>
-            )}
+                <Input
+                  type="url"
+                  placeholder="Website (optional)"
+                  value={form.website}
+                  onChange={(e) => handleChange("website", e.target.value)}
+                />
 
-            {step === 4 && (
-              <div className="space-y-4 rounded-xl border bg-white/80 p-4">
-                <div>
-                  <p className="font-semibold text-gray-900">Upload license document</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Add your dealer license document for admin review.
-                  </p>
-                </div>
-
-                <label className="block cursor-pointer">
-                  <div className="border-2 border-dashed rounded-xl p-5 text-center hover:border-blue-500">
-                    {docPreview === "pdf" ? (
-                      <FileText className="mx-auto h-10 w-10 text-blue-500" />
-                    ) : docPreview ? (
-                      <img src={docPreview} className="max-h-28 mx-auto" />
-                    ) : (
-                      <>
-                        <Upload className="mx-auto h-6 w-6" />
-                        <p className="text-sm mt-2">Click to upload</p>
-                      </>
-                    )}
-
-                    {docName && <p className="text-xs mt-2 text-gray-600">{docName}</p>}
-                  </div>
-
-                  <input type="file" className="hidden" onChange={handleFile} />
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-gray-50 p-3 text-sm leading-5 text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+                    checked={form.authorization_confirmed}
+                    onChange={(e) => handleChange("authorization_confirmed", e.target.checked)}
+                    required
+                  />
+                  <span>I confirm that I am authorized by this dealership to create and manage its 1ntel account and publish its inventory.</span>
                 </label>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" onClick={() => setStep(3)}>
+                  <Button type="button" variant="outline" onClick={() => setStep(2)}>
                     Back
                   </Button>
                   <Button

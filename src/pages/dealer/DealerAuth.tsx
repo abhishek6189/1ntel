@@ -48,7 +48,7 @@ export default function DealerAuth() {
   const recaptchaRef = useRef<any>(null);
   const confirmationResultRef = useRef<any>(null);
 
-  const [license, setLicense] = useState("");
+  const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,8 +75,8 @@ export default function DealerAuth() {
     e.preventDefault();
     if (loading) return;
 
-    if (!license.trim() || !password.trim()) {
-      toast.error("Dealer license number and password are required.");
+    if (!mobile.trim() || !password.trim()) {
+      toast.error("Mobile number and password are required.");
       return;
     }
 
@@ -84,11 +84,11 @@ export default function DealerAuth() {
 
     try {
       const { data: profile, error: profileError } = await (supabase as any)
-        .rpc("get_dealer_login_identity", { p_license: license.trim() })
+        .rpc("get_dealer_login_identity", { p_phone: formatPhoneForFirebase(mobile) })
         .maybeSingle();
 
       if (profileError || !profile) {
-        toast.error("Invalid dealer license number.");
+        toast.error("Invalid mobile number.");
         return;
       }
 
@@ -319,7 +319,7 @@ export default function DealerAuth() {
             <p className="mt-2 text-sm text-muted-foreground">
               {forgotMode
                 ? "Verify your phone or email, then set a new password."
-                : "Use your dealer license number and password to continue."}
+                : "Use your registered mobile number and password to continue."}
             </p>
           </div>
 
@@ -398,11 +398,12 @@ export default function DealerAuth() {
         ) : (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <Label>Dealer License Number</Label>
+              <Label>Mobile Number</Label>
               <Input
-                placeholder="Enter license number"
-                value={license}
-                onChange={(e) => setLicense(e.target.value)}
+                placeholder="Enter mobile number"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
+                inputMode="tel"
                 required
               />
             </div>

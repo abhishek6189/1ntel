@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Check, Eye, FileText, Store, X } from "lucide-react";
+import { Check, Eye, Store, X } from "lucide-react";
 import { toast } from "sonner";
 import moment from "moment";
 import GlobalLoader from "@/components/GlobalLoader";
@@ -70,11 +70,12 @@ export default function AdminDealers({ users = [], onRefresh }) {
         full_name: user.full_name || user.business_name || "Dealer applicant",
         business_name: user.business_name,
         phone: user.phone,
-        license_number: user.license_number || user.dealer_license_number || "Not submitted",
-        dealer_license_number: user.dealer_license_number || user.license_number,
+        omvic_registration_number: user.omvic_registration_number,
         city: user.city,
         province: user.province,
-        documents: user.documents || user.license_document_url,
+        dealership_address: user.dealership_address,
+        website: user.website,
+        authorization_confirmed: user.authorization_confirmed,
         status: user.dealer_status || "pending",
         created_at: user.created_at,
         _source: "profile",
@@ -172,7 +173,7 @@ export default function AdminDealers({ users = [], onRefresh }) {
                       </h4>
                       <p className="truncate text-xs text-slate-500">{app.email || app.phone || "No contact"}</p>
                       <p className="mt-1 truncate text-xs text-slate-500">
-                        License: {app.license_number || app.dealer_license_number || "Not submitted"}
+                        OMVIC: {app.omvic_registration_number || "Not submitted"}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
                         {app.created_at ? moment(app.created_at).format("MMM D, YYYY h:mm A") : "-"}
@@ -229,32 +230,13 @@ export default function AdminDealers({ users = [], onRefresh }) {
 
           {selected && (
             <div className="space-y-3 text-sm">
-              <p><b>Phone:</b> {selected.phone || "Not added"}</p>
-              <p><b>Email:</b> {selected.email || "Not added"}</p>
-              <p><b>Business:</b> {selected.business_name || "Not added"}</p>
-              <p><b>License:</b> {selected.license_number || selected.dealer_license_number || "Not submitted"}</p>
-              <p><b>Location:</b> {[selected.city, selected.province].filter(Boolean).join(", ") || "Not added"}</p>
-
-              {selected.documents && (
-                <div>
-                  <p className="mb-2 font-medium">Document:</p>
-                  {String(selected.documents).match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                    <img
-                      src={selected.documents}
-                      className="max-h-60 w-full rounded-lg border object-contain"
-                    />
-                  ) : (
-                    <a
-                      href={selected.documents}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 text-blue-600"
-                    >
-                      <FileText size={16} /> View Document
-                    </a>
-                  )}
-                </div>
-              )}
+              <p><b>Business phone:</b> {selected.business_phone || selected.phone || "Not added"}</p>
+              <p><b>Business email:</b> {selected.business_email || selected.email || "Not added"}</p>
+              <p><b>Dealership:</b> {selected.business_name || "Not added"}</p>
+              <p><b>OMVIC registration:</b> {selected.omvic_registration_number || "Not submitted"}</p>
+              <p><b>Address:</b> {[selected.dealership_address, selected.city, selected.province].filter(Boolean).join(", ") || "Not added"}</p>
+              <p><b>Website:</b> {selected.website || "Not added"}</p>
+              <p><b>Authorization confirmed:</b> {selected.authorization_confirmed ? "Yes" : "No"}</p>
             </div>
           )}
         </DialogContent>
