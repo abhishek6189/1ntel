@@ -38,6 +38,7 @@ import InspectorDashboard from "./pages/dashboard/InspectorDashboard";
 /* 🔥 NEW DEALER SYSTEM */
 import DealerLayout from "@/layouts/DealerLayout";
 import DealerListings from "@/pages/dealer/DealerListings";
+import DealerInventorySync from "@/pages/dealer/DealerInventorySync";
 
 /* ✅ ADD THESE (IMPORTANT FIX) */
 import DealerMessages from "@/pages/dealer/DealerMessages";
@@ -158,6 +159,7 @@ const App = () => (
             >
               <Route index element={<DealerDashboard />} />
               <Route path="listings" element={<DealerListings />} />
+              <Route path="inventory-sync" element={<DealerInventorySync />} />
               <Route path="messages" element={<DealerMessages />} />
               <Route path="analytics" element={<DealerAnalytics />} />
             </Route>

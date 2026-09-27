@@ -102,6 +102,12 @@ export default function CreateListing() {
         return;
       }
 
+      if (car.is_source_managed) {
+        toast.info("This listing is managed by Inventory Sync. Update it at the source or disconnect sync first.");
+        navigate("/dealer-dashboard/inventory-sync", { replace: true });
+        return;
+      }
+
       setForm({
         title: car.title || "",
         make: car.make || "",

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Pencil, Trash2, Plus, Star } from "lucide-react";
+import { LockKeyhole, Pencil, Trash2, Plus, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getSubscriptionAccess, type SubscriptionAccess } from "@/utils/subscriptionAccess";
@@ -94,6 +94,11 @@ const DealerListings = () => {
 
   /* ================= DELETE ================= */
   const deleteCar = async (id: string) => {
+    const selectedCar = cars.find((car) => car.id === id);
+    if (selectedCar?.is_source_managed) {
+      toast.error("This listing is managed by Inventory Sync. Remove it at the source or disconnect sync first.");
+      return;
+    }
     const confirmDelete = confirm("Delete this car?");
     if (!confirmDelete) return;
 
@@ -356,6 +361,11 @@ const DealerListings = () => {
                     <Star size={12} /> Featured
                   </span>
                 )}
+                {car.is_source_managed && (
+                  <span className="absolute right-2 top-2 flex items-center gap-1 rounded bg-slate-950/85 px-2 py-1 text-xs font-medium text-white">
+                    <LockKeyhole size={12} /> Synced
+                  </span>
+                )}
               </div>
 
               {/* CONTENT */}
@@ -386,12 +396,14 @@ const DealerListings = () => {
 
                   <div className="flex flex-wrap gap-3 items-center">
 
-                    <button
-                      onClick={() => setShowSoldPopup(car)}
-                      className="text-green-600 text-xs font-semibold"
-                    >
-                      Sold
-                    </button>
+                    {!car.is_source_managed && (
+                      <button
+                        onClick={() => setShowSoldPopup(car)}
+                        className="text-green-600 text-xs font-semibold"
+                      >
+                        Sold
+                      </button>
+                    )}
 
                     <button
                       onClick={() => makeFeatured(car.id)}
@@ -400,19 +412,30 @@ const DealerListings = () => {
                       <Star size={16} />
                     </button>
 
-                    <button
-                      className="text-blue-600 hover:scale-110"
-                      onClick={() => navigate(`/dashboard/create-listing?edit=${car.id}`)}
-                    >
-                      <Pencil size={16} />
-                    </button>
+                    {car.is_source_managed ? (
+                      <button
+                        className="text-xs font-semibold text-slate-500"
+                        onClick={() => navigate("/dealer-dashboard/inventory-sync")}
+                      >
+                        Manage source
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="text-blue-600 hover:scale-110"
+                          onClick={() => navigate(`/dashboard/create-listing?edit=${car.id}`)}
+                        >
+                          <Pencil size={16} />
+                        </button>
 
-                    <button
-                      className="text-red-500 hover:scale-110"
-                      onClick={() => deleteCar(car.id)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                        <button
+                          className="text-red-500 hover:scale-110"
+                          onClick={() => deleteCar(car.id)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
 
                   </div>
 

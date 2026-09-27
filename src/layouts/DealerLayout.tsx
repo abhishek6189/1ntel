@@ -6,6 +6,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
@@ -21,6 +22,7 @@ import {
 const navItems = [
   { to: "/dealer-dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/dealer-dashboard/listings", label: "Listings", icon: Car },
+  { to: "/dealer-dashboard/inventory-sync", label: "Inventory Sync", icon: RefreshCw },
   { to: "/dealer-dashboard/messages", label: "Messages", icon: MessageCircle },
   { to: "/dealer-dashboard/analytics", label: "Analytics", icon: BarChart3 },
 ];
