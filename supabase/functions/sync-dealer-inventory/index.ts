@@ -382,7 +382,7 @@ const syncIntegration = async (admin: any, integration: any, triggerType: string
   try {
     const { data: profile } = await admin.from("profiles")
       .select("city, province, location, phone")
-      .or(`id.eq.${integration.dealer_id},user_id.eq.${integration.dealer_id}`)
+      .eq("id", integration.dealer_id)
       .limit(1)
       .maybeSingle();
     const defaults = {
@@ -580,7 +580,7 @@ serve(async (req: Request) => {
     if (userError || !userData.user) return json({ error: "Dealer login required." }, 401);
     const dealerId = userData.user.id;
     const { data: profile } = await admin.from("profiles").select("role, dealer_status")
-      .or(`id.eq.${dealerId},user_id.eq.${dealerId}`).limit(1).maybeSingle();
+      .eq("id", dealerId).limit(1).maybeSingle();
     if (String(profile?.role || "").toLowerCase() !== "dealer" || String(profile?.dealer_status || "").toLowerCase() !== "approved") {
       return json({ error: "Approved dealer access required." }, 403);
     }
