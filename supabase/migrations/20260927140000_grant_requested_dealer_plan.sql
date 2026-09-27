@@ -1,0 +1,2 @@
+-- One-time 30-day complimentary Dealer plan was granted at the account owner's request.
+-- Personal account identifiers are intentionally not stored in source control.
