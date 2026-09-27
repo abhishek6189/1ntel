@@ -559,7 +559,7 @@ serve(async (req: Request) => {
       if (!tokenRow?.value || body.scheduler_token !== tokenRow.value) return json({ error: "Invalid scheduler token." }, 401);
       const { data: due, error } = await admin.from("inventory_integrations")
         .select("*")
-        .eq("status", "active")
+        .in("status", ["active", "error"])
         .lte("next_sync_at", new Date().toISOString())
         .order("next_sync_at", { ascending: true })
         .limit(5);
