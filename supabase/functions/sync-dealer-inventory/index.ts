@@ -91,6 +91,27 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(number) ? number : 0;
 };
 
+const htmlToPlainText = (value: string) => {
+  if (!value) return "";
+  const $ = cheerio.load(`<body>${value}</body>`);
+  $("script, style, noscript").remove();
+  $("br").replaceWith("\n");
+  $("li").each((_: number, element: any) => {
+    $(element).prepend("• ").append("\n");
+  });
+  $("p, h1, h2, h3, h4, h5, h6, div").each((_: number, element: any) => {
+    $(element).append("\n");
+  });
+  return $("body")
+    .text()
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+};
+
 const absoluteUrl = (value: string, baseUrl: string) => {
   try {
     const url = new URL(value, baseUrl);
@@ -190,7 +211,7 @@ const normalizeVehicle = async (
     interiorColor: pick(fields, ["interiorColor"]) || "",
     vin: vin || null,
     condition: pick(fields, ["condition", "itemCondition"]) || "Used",
-    description: pick(fields, ["description", "comment", "comments", "vehicleDescription"]),
+    description: htmlToPlainText(pick(fields, ["description", "comment", "comments", "vehicleDescription"])),
     sellerPhone: pick(fields, ["sellerPhone", "dealerPhone", "telephone", "phone"]) || defaults.phone,
     status,
     images: collectImages(raw, baseUrl),
