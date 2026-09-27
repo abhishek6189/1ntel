@@ -24,7 +24,7 @@ type Integration = {
   id: string;
   source_url: string;
   source_type: string;
-  status: "active" | "paused" | "disconnected" | "error";
+  status: "active" | "paused" | "disconnected" | "error" | "pending_verification" | "rejected";
   sync_interval_minutes: number;
   last_sync_completed_at: string | null;
   next_sync_at: string | null;
@@ -116,8 +116,12 @@ export default function DealerInventorySync() {
       if (data?.error) throw new Error(data.error);
 
       if (action === "connect") {
-        const result = data?.result || {};
-        toast.success(`Inventory connected. ${result.found || 0} vehicles found.`);
+        if (data?.pending_verification) {
+          toast.info(data?.message || "Inventory source submitted for admin verification.");
+        } else {
+          const result = data?.result || {};
+          toast.success(`Inventory connected. ${result.found || 0} vehicles found.`);
+        }
       } else if (action === "sync") {
         const result = data?.result || {};
         toast.success(`Sync complete: ${result.created || 0} added, ${result.updated || 0} updated, ${result.removed || 0} removed.`);
@@ -156,9 +160,10 @@ export default function DealerInventorySync() {
   const connected = integration && integration.status !== "disconnected";
   const statusTone = integration?.status === "active"
     ? "border-green-200 bg-green-50 text-green-800"
-    : integration?.status === "error"
+    : integration?.status === "error" || integration?.status === "rejected"
       ? "border-red-200 bg-red-50 text-red-800"
       : "border-amber-200 bg-amber-50 text-amber-800";
+  const syncControlsAvailable = Boolean(integration && ["active", "paused", "error"].includes(integration.status));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -196,7 +201,7 @@ export default function DealerInventorySync() {
                 />
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                1ntel automatically detects supported website data, JSON/XML feeds and CSV feeds. An inventory-specific page works best.
+                For your protection, the URL must match the website approved with your dealer application. External provider feeds require 1ntel admin verification.
               </p>
             </div>
 
@@ -247,7 +252,7 @@ export default function DealerInventorySync() {
                   <Pause className="mt-0.5 h-5 w-5 shrink-0" />
                 )}
                 <div>
-                  <p className="font-semibold capitalize">Inventory sync {integration.status}</p>
+                  <p className="font-semibold capitalize">Inventory sync {integration.status.replace(/_/g, " ")}</p>
                   <a
                     href={integration.source_url}
                     target="_blank"
@@ -261,18 +266,22 @@ export default function DealerInventorySync() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => invoke("sync")} disabled={Boolean(busyAction)}>
-                  <RefreshCw className={`h-4 w-4 ${busyAction === "sync" ? "animate-spin" : ""}`} />
-                  Sync now
-                </Button>
-                {integration.status === "paused" ? (
-                  <Button variant="outline" onClick={() => invoke("resume")} disabled={Boolean(busyAction)}>
-                    <Play className="h-4 w-4" /> Resume
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={() => invoke("pause")} disabled={Boolean(busyAction)}>
-                    <Pause className="h-4 w-4" /> Pause
-                  </Button>
+                {syncControlsAvailable && (
+                  <>
+                    <Button variant="outline" onClick={() => invoke("sync")} disabled={Boolean(busyAction) || integration.status === "paused"}>
+                      <RefreshCw className={`h-4 w-4 ${busyAction === "sync" ? "animate-spin" : ""}`} />
+                      Sync now
+                    </Button>
+                    {integration.status === "paused" ? (
+                      <Button variant="outline" onClick={() => invoke("resume")} disabled={Boolean(busyAction)}>
+                        <Play className="h-4 w-4" /> Resume
+                      </Button>
+                    ) : (
+                      <Button variant="outline" onClick={() => invoke("pause")} disabled={Boolean(busyAction)}>
+                        <Pause className="h-4 w-4" /> Pause
+                      </Button>
+                    )}
+                  </>
                 )}
                 <Button variant="outline" className="text-red-600" onClick={disconnect} disabled={Boolean(busyAction)}>
                   <Unplug className="h-4 w-4" /> Disconnect
@@ -305,6 +314,10 @@ export default function DealerInventorySync() {
               <p className="mt-2 text-sm text-slate-600">
                 {integration.status === "paused"
                   ? "Automatic sync is paused"
+                  : integration.status === "pending_verification"
+                    ? "Starts after 1ntel verifies this source"
+                    : integration.status === "rejected"
+                      ? "Source verification was rejected"
                   : integration.status === "error"
                     ? `Automatic retry: ${formatDate(integration.next_sync_at)}`
                     : formatDate(integration.next_sync_at)}

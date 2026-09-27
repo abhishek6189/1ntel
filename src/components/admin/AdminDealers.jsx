@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Check, Eye, Store, X } from "lucide-react";
+import { Check, ExternalLink, Eye, ShieldCheck, Store, X } from "lucide-react";
 import { toast } from "sonner";
 import moment from "moment";
 import GlobalLoader from "@/components/GlobalLoader";
@@ -24,6 +24,7 @@ export default function AdminDealers({ users = [], onRefresh }) {
   const [showReject, setShowReject] = useState(null);
   const [busyId, setBusyId] = useState("");
   const [loadError, setLoadError] = useState("");
+  const [inventorySources, setInventorySources] = useState([]);
 
   useEffect(() => {
     fetchRequests();
@@ -39,6 +40,14 @@ export default function AdminDealers({ users = [], onRefresh }) {
       .order("created_at", { ascending: false });
 
     const requests = error ? [] : data || [];
+
+    const { data: sourceData, error: sourceError } = await supabase
+      .from("inventory_integrations")
+      .select("*")
+      .in("status", ["pending_verification", "rejected"])
+      .order("updated_at", { ascending: false });
+
+    setInventorySources(sourceError ? [] : sourceData || []);
 
     if (error) {
       console.error("Could not load dealer requests:", error);
@@ -133,12 +142,76 @@ export default function AdminDealers({ users = [], onRefresh }) {
     }
   };
 
+  const reviewInventorySource = async (source, approved) => {
+    if (!approved && !window.confirm("Reject this inventory source? It will not be allowed to sync.")) return;
+    setBusyId(source.id);
+    const { data, error } = await supabase.functions.invoke("admin-user-actions", {
+      body: {
+        action: approved ? "approve_inventory_source" : "reject_inventory_source",
+        integrationId: source.id,
+        rejectionReason: approved ? undefined : "Inventory source ownership was rejected by 1ntel admin.",
+      },
+    });
+    setBusyId("");
+
+    if (error) {
+      toast.error(await getFunctionErrorMessage(error, "Inventory source review failed"));
+      return;
+    }
+    if (data?.error) {
+      toast.error(data.error);
+      return;
+    }
+
+    toast.success(approved ? "Inventory source approved" : "Inventory source rejected");
+    fetchRequests();
+  };
+
   if (loading) {
     return <GlobalLoader className="py-10" sizeClassName="h-24 w-24" />;
   }
 
   return (
     <div className="space-y-5">
+      {inventorySources.length > 0 && (
+        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-amber-700" />
+            <div>
+              <h3 className="text-sm font-semibold text-slate-950">Inventory source approvals</h3>
+              <p className="text-xs text-slate-600">External provider domains cannot sync until you verify dealership ownership.</p>
+            </div>
+          </div>
+
+          {inventorySources.map((source) => {
+            const owner = users.find((user) => user.id === source.dealer_id || user.user_id === source.dealer_id);
+            return (
+              <div key={source.id} className="flex flex-col gap-3 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 text-sm">
+                  <p className="font-medium text-slate-950">{owner?.business_name || owner?.full_name || "Dealer"}</p>
+                  <a href={source.source_url} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 break-all text-xs text-blue-700 underline">
+                    {source.source_url} <ExternalLink className="h-3 w-3 shrink-0" />
+                  </a>
+                  <p className={`mt-1 text-xs ${source.status === "rejected" ? "text-red-700" : "text-amber-700"}`}>
+                    {source.status === "rejected" ? "Rejected" : "Pending verification"}
+                  </p>
+                </div>
+                {source.status === "pending_verification" && (
+                  <div className="flex shrink-0 gap-2">
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => reviewInventorySource(source, true)} disabled={busyId === source.id}>
+                      <Check className="h-4 w-4" /> Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-red-600" onClick={() => reviewInventorySource(source, false)} disabled={busyId === source.id}>
+                      <X className="h-4 w-4" /> Reject
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-950">Dealer requests</h3>

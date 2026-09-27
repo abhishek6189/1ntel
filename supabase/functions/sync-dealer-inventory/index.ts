@@ -320,6 +320,25 @@ const validateSourceUrl = (value: string) => {
   return url.toString();
 };
 
+const normalizedHostname = (value: string) => {
+  if (!value.trim()) return "";
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    return url.hostname.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+  } catch {
+    return "";
+  }
+};
+
+const belongsToRegisteredWebsite = (sourceUrl: string, registeredWebsite: string) => {
+  const sourceHost = normalizedHostname(sourceUrl);
+  const registeredHost = normalizedHostname(registeredWebsite);
+  if (!sourceHost || !registeredHost) return false;
+  return sourceHost === registeredHost
+    || sourceHost.endsWith(`.${registeredHost}`)
+    || registeredHost.endsWith(`.${sourceHost}`);
+};
+
 const fetchDocument = async (url: string) => {
   validateSourceUrl(url);
   const controller = new AbortController();
@@ -449,6 +468,9 @@ const parseInventorySource = async (
 };
 
 const syncIntegration = async (admin: any, integration: any, triggerType: string) => {
+  if (!integration.source_verified_at) {
+    throw new Error("Inventory source ownership must be verified before syncing.");
+  }
   const now = new Date();
   const { data: run, error: runError } = await admin.from("inventory_sync_runs").insert({
     integration_id: integration.id,
@@ -653,18 +675,52 @@ serve(async (req: Request) => {
       if (body.authorization_confirmed !== true) return json({ error: "Inventory publishing authorization is required." }, 400);
       const sourceUrl = validateSourceUrl(String(body.source_url || "").trim());
       const interval = Math.min(1440, Math.max(30, Number(body.sync_interval_minutes || 60)));
+      const { data: approvedRequest } = await admin.from("dealer_requests")
+        .select("website")
+        .eq("user_id", dealerId)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const registeredWebsite = String(approvedRequest?.website || "").trim();
+      const samePreviouslyApprovedSource = Boolean(
+        integration?.source_verified_at
+        && integration?.source_url === sourceUrl
+        && ["admin_review", "existing_admin_review"].includes(String(integration?.source_verification_method || "")),
+      );
+      const matchesRegisteredWebsite = belongsToRegisteredWebsite(sourceUrl, registeredWebsite);
+      const sourceVerified = matchesRegisteredWebsite || samePreviouslyApprovedSource;
+      const pendingMessage = registeredWebsite
+        ? "This feed uses a different domain than your approved dealership website. 1ntel admin verification is required before syncing."
+        : "No dealership website was verified with your application. 1ntel admin verification is required before syncing.";
       const { data, error } = await admin.from("inventory_integrations").upsert({
         dealer_id: dealerId,
         source_type: ["auto", "website", "json", "xml", "csv"].includes(body.source_type) ? body.source_type : "auto",
         source_url: sourceUrl,
-        status: "active",
+        status: sourceVerified ? "active" : "pending_verification",
         authorization_confirmed: true,
+        source_verified_at: sourceVerified ? (integration?.source_verified_at || new Date().toISOString()) : null,
+        source_verification_method: matchesRegisteredWebsite
+          ? "registered_website"
+          : samePreviouslyApprovedSource
+            ? integration.source_verification_method
+            : null,
+        verified_by: sourceVerified ? (integration?.verified_by || null) : null,
         sync_interval_minutes: interval,
-        next_sync_at: new Date().toISOString(),
+        next_sync_at: sourceVerified ? new Date().toISOString() : null,
+        last_error: sourceVerified ? null : pendingMessage,
         updated_at: new Date().toISOString(),
       }, { onConflict: "dealer_id" }).select("*").single();
       if (error) throw error;
       integration = data;
+      if (!sourceVerified) {
+        return json({
+          ok: true,
+          pending_verification: true,
+          integration_id: integration.id,
+          message: pendingMessage,
+        });
+      }
       const result = await syncIntegration(admin, integration, "connection");
       return json({ ok: true, integration_id: integration.id, result });
     }
@@ -675,6 +731,7 @@ serve(async (req: Request) => {
       return json({ ok: true });
     }
     if (action === "resume") {
+      if (!integration.source_verified_at) return json({ error: "Inventory source ownership must be verified before syncing." }, 403);
       await admin.from("inventory_integrations").update({ status: "active", next_sync_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", integration.id);
       return json({ ok: true });
     }
@@ -684,6 +741,7 @@ serve(async (req: Request) => {
       return json({ ok: true });
     }
     if (action !== "sync") return json({ error: "Invalid action." }, 400);
+    if (!integration.source_verified_at) return json({ error: "Inventory source ownership must be verified before syncing." }, 403);
     if (!["active", "error"].includes(integration.status)) return json({ error: "Resume the inventory connection before syncing." }, 400);
     return json({ ok: true, result: await syncIntegration(admin, integration, "manual") });
   } catch (error: any) {

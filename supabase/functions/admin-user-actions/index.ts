@@ -272,7 +272,46 @@ serve(async (req: Request) => {
       return json({ error: "Admin access required." }, 403);
     }
 
-    const { action, userId, value, requestId, rejectionReason } = await req.json();
+    const { action, userId, value, requestId, rejectionReason, integrationId } = await req.json();
+
+    if (action === "approve_inventory_source" || action === "reject_inventory_source") {
+      if (!integrationId || typeof integrationId !== "string") {
+        return json({ error: "Inventory integration id is required." }, 400);
+      }
+
+      const approved = action === "approve_inventory_source";
+      const payload = approved
+        ? {
+            status: "active",
+            source_verified_at: new Date().toISOString(),
+            source_verification_method: "admin_review",
+            verified_by: userData.user.id,
+            next_sync_at: new Date().toISOString(),
+            last_error: null,
+            updated_at: new Date().toISOString(),
+          }
+        : {
+            status: "rejected",
+            source_verified_at: null,
+            source_verification_method: null,
+            verified_by: userData.user.id,
+            next_sync_at: null,
+            last_error: String(rejectionReason || "Inventory source ownership could not be verified."),
+            updated_at: new Date().toISOString(),
+          };
+
+      const { data: integration, error: integrationError } = await adminClient
+        .from("inventory_integrations")
+        .update(payload)
+        .eq("id", integrationId)
+        .select("id")
+        .maybeSingle();
+
+      if (integrationError) throw integrationError;
+      if (!integration) return json({ error: "Inventory integration was not found." }, 404);
+      return json({ ok: true });
+    }
+
     if (!userId || typeof userId !== "string") {
       return json({ error: "User id is required." }, 400);
     }
