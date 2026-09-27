@@ -150,7 +150,11 @@ const collectImages = (input: unknown, baseUrl: string) => {
     }
   };
   visit(input);
-  return [...new Set(found)].slice(0, 30);
+  const uniqueUrls = [...new Set(found)];
+  const fullResolution = uniqueUrls.filter((url) => !/\/(thumb|thumbnail)[-_]/i.test(new URL(url).pathname));
+  // Providers commonly include the same photo twice as media_src + thumbnail_src.
+  // Prefer the full-resolution set and use thumbnails only when no originals exist.
+  return (fullResolution.length ? fullResolution : uniqueUrls).slice(0, 30);
 };
 
 const sha256 = async (value: string) => {
@@ -343,17 +347,41 @@ const fetchDocument = async (url: string) => {
 const parseHtml = (html: string, pageUrl: string) => {
   const $ = cheerio.load(html);
   const objects: Record<string, unknown>[] = [];
+  const addStructuredPayload = (parsed: unknown) => {
+    const namedInventory = ["vehiclesData", "inventory", "vehicles", "listings", "cars"]
+      .flatMap((key) => findArraysByKey(parsed, key));
+    objects.push(...(namedInventory.length ? namedInventory : findVehicleObjects(parsed)));
+  };
   $("script#__NEXT_DATA__").each((_: number, element: any) => {
     try {
-      const parsed = JSON.parse($(element).text());
-      const activeInventory = findArraysByKey(parsed, "vehiclesData");
-      objects.push(...(activeInventory.length ? activeInventory : findVehicleObjects(parsed)));
+      addStructuredPayload(JSON.parse($(element).text()));
     } catch { /* Ignore invalid framework data. */ }
+  });
+  $('script[type="application/json"]').not("#__NEXT_DATA__").each((_: number, element: any) => {
+    try {
+      addStructuredPayload(JSON.parse($(element).text()));
+    } catch { /* Ignore unrelated or invalid embedded JSON. */ }
   });
   $('script[type="application/ld+json"]').each((_: number, element: any) => {
     try {
       objects.push(...findVehicleObjects(JSON.parse($(element).text())));
     } catch { /* Ignore invalid third-party JSON-LD. */ }
+  });
+  $('[itemtype*="Vehicle"], [itemtype*="Product"]').each((_: number, element: any) => {
+    const item: Record<string, unknown> = {};
+    $(element).find("[itemprop]").each((__: number, property: any) => {
+      const key = String($(property).attr("itemprop") || "").trim();
+      if (!key) return;
+      const value = $(property).attr("content") || $(property).attr("href") || $(property).attr("src") || $(property).text().trim();
+      if (!value) return;
+      if (key === "image") {
+        const previousImages = Array.isArray(item[key]) ? item[key] as unknown[] : [];
+        item[key] = [...previousImages, value];
+      } else {
+        item[key] = value;
+      }
+    });
+    if (Object.keys(item).length) objects.push(item);
   });
   const links: string[] = [];
   $("a[href]").each((_: number, element: any) => {
