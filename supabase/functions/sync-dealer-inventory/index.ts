@@ -104,14 +104,16 @@ const collectImages = (input: unknown, baseUrl: string) => {
   const found: string[] = [];
   const imageKeys = new Set([
     "image", "images", "imageurl", "imageurls", "photo", "photos", "photourl",
-    "picture", "pictures", "media", "mainimage", "primaryimage",
+    "picture", "pictures", "media", "mainimage", "primaryimage", "coverimage", "midvdsmedia",
   ]);
   const visit = (value: unknown, key = "", depth = 0) => {
     if (depth > 8 || value == null) return;
     if (typeof value === "string") {
       if (!imageKeys.has(normalizeKey(key))) return;
       value.split(/[|,\n]/).forEach((part) => {
-        const url = absoluteUrl(part.trim(), baseUrl);
+        const rawUrl = part.trim();
+        const hillzMedia = rawUrl.startsWith("/") && ["coverimage", "midvdsmedia"].includes(normalizeKey(key));
+        const url = absoluteUrl(rawUrl, hillzMedia ? "https://hillzcdn.ca" : baseUrl);
         if (url && /\.(jpe?g|png|webp|avif)(\?|$)/i.test(url)) found.push(url);
       });
       return;
@@ -141,7 +143,7 @@ const normalizeVehicle = async (
   defaults: { location: string; phone: string },
 ): Promise<Vehicle | null> => {
   const fields = valuesByKey(raw);
-  const vin = pick(fields, ["vin", "vehicleIdentificationNumber"]).replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const vin = pick(fields, ["vin", "vinNumber", "vehicleIdentificationNumber"]).replace(/[^A-Z0-9]/gi, "").toUpperCase();
   const stockNumber = pick(fields, ["stockNumber", "stock", "stockNo", "stockId"]);
   const make = pick(fields, ["make", "vehicleMake", "brand", "manufacturer"]);
   const model = pick(fields, ["model", "vehicleModel", "modelName"]);
@@ -150,7 +152,7 @@ const normalizeVehicle = async (
     || titleFromSource.match(/\b(19|20)\d{2}\b/)?.[0]
     || "";
   const year = Math.trunc(toNumber(yearCandidate));
-  const price = toNumber(pick(fields, ["price", "salePrice", "internetPrice", "askingPrice", "retailPrice"]));
+  const price = toNumber(pick(fields, ["price", "sellPrice", "salePrice", "internetPrice", "askingPrice", "retailPrice"]));
   const mileage = Math.max(0, Math.trunc(toNumber(pick(fields, ["mileage", "odometer", "kilometers", "kilometres", "mileageFromOdometer"]))));
   const listingUrlRaw = pick(fields, ["url", "listingUrl", "vehicleUrl", "vdpUrl", "link"]);
   const listingUrl = listingUrlRaw ? absoluteUrl(listingUrlRaw, baseUrl) : baseUrl;
@@ -164,7 +166,10 @@ const normalizeVehicle = async (
   const status = /sold|unavailable|removed|deleted/.test(rawStatus)
     ? "sold"
     : "active";
-  const title = titleFromSource || `${year} ${make} ${model}`;
+  const descriptiveTitle = titleFromSource.toLowerCase().includes(make.toLowerCase())
+    || titleFromSource.toLowerCase().includes(model.toLowerCase())
+    || titleFromSource.includes(String(year));
+  const title = descriptiveTitle ? titleFromSource : `${year} ${make} ${model}`;
   const sourceUpdatedAt = pick(fields, ["updatedAt", "lastModified", "modifiedAt", "dateModified"]);
 
   return {
@@ -185,7 +190,7 @@ const normalizeVehicle = async (
     interiorColor: pick(fields, ["interiorColor"]) || "",
     vin: vin || null,
     condition: pick(fields, ["condition", "itemCondition"]) || "Used",
-    description: pick(fields, ["description", "comments", "vehicleDescription"]),
+    description: pick(fields, ["description", "comment", "comments", "vehicleDescription"]),
     sellerPhone: pick(fields, ["sellerPhone", "dealerPhone", "telephone", "phone"]) || defaults.phone,
     status,
     images: collectImages(raw, baseUrl),
@@ -216,6 +221,30 @@ const findVehicleObjects = (input: unknown) => {
         && Boolean(pick(fields, ["model", "vehicleModel"])));
     if (vehicleLike) found.push(object);
     Object.values(object).forEach((child) => visit(child, depth + 1));
+  };
+  visit(input);
+  return found;
+};
+
+const findArraysByKey = (input: unknown, targetKey: string) => {
+  const found: Record<string, unknown>[] = [];
+  const seen = new Set<object>();
+  const visit = (value: unknown, depth = 0) => {
+    if (depth > 12 || value == null || typeof value !== "object" || seen.has(value as object)) return;
+    seen.add(value as object);
+    if (Array.isArray(value)) {
+      value.forEach((item) => visit(item, depth + 1));
+      return;
+    }
+    Object.entries(value as Record<string, unknown>).forEach(([key, child]) => {
+      if (normalizeKey(key) === normalizeKey(targetKey) && Array.isArray(child)) {
+        child.forEach((item) => {
+          if (item && typeof item === "object" && !Array.isArray(item)) found.push(item as Record<string, unknown>);
+        });
+      } else {
+        visit(child, depth + 1);
+      }
+    });
   };
   visit(input);
   return found;
@@ -293,6 +322,13 @@ const fetchDocument = async (url: string) => {
 const parseHtml = (html: string, pageUrl: string) => {
   const $ = cheerio.load(html);
   const objects: Record<string, unknown>[] = [];
+  $("script#__NEXT_DATA__").each((_: number, element: any) => {
+    try {
+      const parsed = JSON.parse($(element).text());
+      const activeInventory = findArraysByKey(parsed, "vehiclesData");
+      objects.push(...(activeInventory.length ? activeInventory : findVehicleObjects(parsed)));
+    } catch { /* Ignore invalid framework data. */ }
+  });
   $('script[type="application/ld+json"]').each((_: number, element: any) => {
     try {
       objects.push(...findVehicleObjects(JSON.parse($(element).text())));

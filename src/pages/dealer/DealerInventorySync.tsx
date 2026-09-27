@@ -309,7 +309,11 @@ export default function DealerInventorySync() {
             <div className="rounded-xl border bg-white p-4">
               <p className="flex items-center gap-2 text-sm font-semibold text-slate-900"><RefreshCw className="h-4 w-4" /> Next automatic sync</p>
               <p className="mt-2 text-sm text-slate-600">
-                {integration.status === "active" ? formatDate(integration.next_sync_at) : "Automatic sync is paused"}
+                {integration.status === "paused"
+                  ? "Automatic sync is paused"
+                  : integration.status === "error"
+                    ? `Automatic retry: ${formatDate(integration.next_sync_at)}`
+                    : formatDate(integration.next_sync_at)}
               </p>
             </div>
           </div>
