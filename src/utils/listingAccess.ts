@@ -42,6 +42,7 @@ export const getListingAllowance = async (userId: string): Promise<ListingAllowa
     .from("cars")
     .select("*", { count: "exact", head: true })
     .eq("seller_id", userId)
+    .eq("is_source_managed", false)
     .neq("status", "sold");
 
   const activeListings = count || 0;

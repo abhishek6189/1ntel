@@ -430,24 +430,10 @@ const syncIntegration = async (admin: any, integration: any, triggerType: string
       throw new Error("No valid vehicles were detected. Use a dealership inventory page or a JSON, XML, or CSV feed URL.");
     }
 
-    const { data: subscription } = await admin.from("subscriptions")
-      .select("max_listings, status")
-      .eq("user_id", integration.dealer_id)
-      .in("status", ["active", "trialing"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const maxListings = Math.max(0, Number(subscription?.max_listings || 35));
-    const { count: manualListingCount } = await admin.from("cars")
-      .select("id", { count: "exact", head: true })
-      .eq("seller_id", integration.dealer_id)
-      .is("inventory_integration_id", null)
-      .not("status", "in", "(sold,removed)");
-    const availableSyncedSlots = Math.max(0, maxListings - Number(manualListingCount || 0));
+    // Syndicated inventory is separate from the dealer's manual listing quota.
+    // Import every valid active vehicle supplied by the connected source.
     const vehicles = [...detectedVehicles]
-      .sort((left, right) => left.externalId.localeCompare(right.externalId))
-      .slice(0, availableSyncedSlots);
-    const planLimited = detectedVehicles.length - vehicles.length;
+      .sort((left, right) => left.externalId.localeCompare(right.externalId));
 
     const { data: existingRows, error: existingError } = await admin.from("cars")
       .select("id, external_vehicle_id, sync_hash, status")
@@ -539,7 +525,7 @@ const syncIntegration = async (admin: any, integration: any, triggerType: string
     await admin.from("inventory_sync_runs").update({
       status: "completed",
       ...summary,
-      items_skipped: skipped + planLimited,
+      items_skipped: skipped,
       completed_at: completedAt.toISOString(),
     }).eq("id", run.id);
     await admin.from("inventory_integrations").update({
@@ -554,15 +540,7 @@ const syncIntegration = async (admin: any, integration: any, triggerType: string
       last_items_removed: missingIds.length,
       updated_at: completedAt.toISOString(),
     }).eq("id", integration.id);
-    return {
-      found: detectedVehicles.length,
-      created,
-      updated,
-      removed: missingIds.length,
-      skipped,
-      plan_limited: planLimited,
-      listing_limit: maxListings,
-    };
+    return { found: detectedVehicles.length, created, updated, removed: missingIds.length, skipped };
   } catch (error: any) {
     const message = error?.message || "Inventory sync failed.";
     const failedAt = new Date().toISOString();

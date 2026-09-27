@@ -117,16 +117,10 @@ export default function DealerInventorySync() {
 
       if (action === "connect") {
         const result = data?.result || {};
-        const limitMessage = result.plan_limited
-          ? ` ${result.plan_limited} exceed the current ${result.listing_limit}-listing account limit.`
-          : "";
-        toast.success(`Inventory connected. ${result.found || 0} vehicles found.${limitMessage}`);
+        toast.success(`Inventory connected. ${result.found || 0} vehicles found.`);
       } else if (action === "sync") {
         const result = data?.result || {};
-        const limitMessage = result.plan_limited
-          ? ` ${result.plan_limited} vehicles were skipped because this account's limit is ${result.listing_limit}.`
-          : "";
-        toast.success(`Sync complete: ${result.created || 0} added, ${result.updated || 0} updated, ${result.removed || 0} removed.${limitMessage}`);
+        toast.success(`Sync complete: ${result.created || 0} added, ${result.updated || 0} updated, ${result.removed || 0} removed.`);
       } else if (action === "disconnect") {
         toast.success("Inventory disconnected. Existing listings are now manually editable.");
       } else {
